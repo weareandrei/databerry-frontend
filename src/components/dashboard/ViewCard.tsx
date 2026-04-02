@@ -43,7 +43,7 @@ export function ViewCard({ view }: ViewCardProps) {
         {isDisconnected ? (
           <TooltipProvider>
             <Tooltip>
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <Warning size={16} weight="thin" className="text-amber-500 cursor-default" />
               </TooltipTrigger>
               <TooltipContent side="left">

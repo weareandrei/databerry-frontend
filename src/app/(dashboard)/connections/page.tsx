@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { PlugsConnected, Trash } from '@phosphor-icons/react'
@@ -18,7 +18,7 @@ const TYPE_LABELS: Record<string, string> = {
   custom: 'Custom',
 }
 
-export default function ConnectionsPage() {
+function StripeCallback() {
   const { connections } = useDashboard()
   const searchParams = useSearchParams()
 
@@ -27,7 +27,6 @@ export default function ConnectionsPage() {
     if (stripe === 'connected') {
       toast.success('Stripe connected successfully!')
       connections.loadConnections()
-      // Clean up URL
       window.history.replaceState({}, '', '/connections')
     } else if (stripe === 'error') {
       toast.error('Failed to connect Stripe. Please try again.')
@@ -35,8 +34,17 @@ export default function ConnectionsPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  return null
+}
+
+export default function ConnectionsPage() {
+  const { connections } = useDashboard()
+
   return (
     <div className="p-8 max-w-6xl mx-auto">
+      <Suspense>
+        <StripeCallback />
+      </Suspense>
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Connections</h1>

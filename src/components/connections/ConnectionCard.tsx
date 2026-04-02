@@ -9,11 +9,9 @@ import {
   RedditLogo,
   EnvelopeSimple,
   PlugsConnected,
-  PushPin,
   Trash,
 } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { cn } from '@/lib/utils'
 import type { Connection } from '@/types/connection'
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
@@ -43,16 +41,6 @@ export function ConnectionCard({ connection }: ConnectionCardProps) {
       </div>
 
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
-        <button
-          onClick={() => connectionsCtx.togglePin(connection.id)}
-          className={cn(
-            'flex items-center justify-center w-6 h-6 rounded text-muted-foreground hover:text-foreground transition-colors',
-            connection.isPinned && 'opacity-100 text-foreground'
-          )}
-          title={connection.isPinned ? 'Unpin' : 'Pin'}
-        >
-          <PushPin size={14} weight={connection.isPinned ? 'fill' : 'thin'} />
-        </button>
         <button
           onClick={() => connectionsCtx.deleteConnection(connection.id)}
           className="flex items-center justify-center w-6 h-6 rounded text-muted-foreground hover:text-destructive transition-colors"

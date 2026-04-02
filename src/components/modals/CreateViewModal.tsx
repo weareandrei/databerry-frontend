@@ -114,8 +114,10 @@ export function CreateViewModal() {
           folderId: views.createViewFolderId!,
           connectionId: eventsStep.connectionId,
           connectionType: 'posthog',
+          type: 'daily_counter',
           name: eventName,
           config: { eventName },
+          value: null,
         }))
       )
       views.closeModal()
