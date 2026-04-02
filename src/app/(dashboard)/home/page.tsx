@@ -33,7 +33,7 @@ export default function HomePage() {
           </div>
           <div className="space-y-2">
             {pins.pinned.map((connection) => (
-              <ConnectionCard key={connection.id} connection={connection} showFolder />
+              <ConnectionCard key={connection.id} connection={connection} />
             ))}
           </div>
         </section>
