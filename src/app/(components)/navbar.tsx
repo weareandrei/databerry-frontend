@@ -4,16 +4,11 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { List, X } from '@phosphor-icons/react'
-import { useAuth } from '@/contexts/AuthContext'
 
 const CORNER_PATH = 'M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z'
 
 const Navbar = () => {
-  const { user, loading } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
-
-  const ctaHref = user ? '/hub/home' : '/login'
-  const ctaLabel = user ? 'Dashboard' : 'Login'
 
   return (
     <>
@@ -56,7 +51,7 @@ const Navbar = () => {
 
         <div className="flex flex-row items-center justify-between h-[70px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[42px] px-6 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
           {/* Logo */}
-          <div className="flex items-center gap-3 md:gap-3 mx-auto md:mx-0">
+          <Link href="/" className="flex items-center gap-3 mx-auto md:mx-0">
             <Image src="/Databerry_icon.svg" alt="DataBerry" width={30} height={30} />
             <span
               className="text-2xl font-bold text-[#E96021]"
@@ -64,17 +59,15 @@ const Navbar = () => {
             >
               DataBerry
             </span>
-          </div>
+          </Link>
 
-          {/* Desktop CTA */}
-          {!loading && (
-            <Link
-              href={ctaHref}
-              className="hidden md:block rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
-            >
-              {ctaLabel}
-            </Link>
-          )}
+          <Link
+            href="/signup"
+            className="hidden md:block rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
+          >
+            Join wishlist
+          </Link>
+
         </div>
 
         <svg className="-scale-y-100" width="36" height="36" viewBox="0 0 50 50" fill="none" aria-hidden="true">

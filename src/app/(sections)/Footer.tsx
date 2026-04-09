@@ -31,21 +31,13 @@ export function Footer() {
           </a>
         </div>
 
-        {/* Right: auth buttons */}
-        <div className="flex items-center gap-3">
-          <Link
-            href="/login"
-            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-lg hover:bg-black/5"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/signup"
-            className="text-sm font-medium bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-black transition-colors"
-          >
-            Sign up
-          </Link>
-        </div>
+        {/* Right: wishlist CTA */}
+        <Link
+          href="/signup"
+          className="text-sm font-medium bg-gray-900 text-white px-5 py-2.5 rounded-lg hover:bg-black transition-colors"
+        >
+          Join wishlist
+        </Link>
       </div>
 
       {/* Bottom: copyright */}
