@@ -20,9 +20,9 @@ export function Sidebar() {
 
       {/* Top nav */}
       <nav className="px-2 space-y-0.5">
-        <SidebarNavItem href="/home" label="Home" icon={House} />
-        <SidebarNavItem href="/all-folders" label="All folders" icon={Folders} />
-        <SidebarNavItem href="/connections" label="Connections" icon={PlugsConnected} />
+        <SidebarNavItem href="/hub/home" label="Home" icon={House} />
+        <SidebarNavItem href="/hub/all-folders" label="All folders" icon={Folders} />
+        <SidebarNavItem href="/hub/connections" label="Connections" icon={PlugsConnected} />
       </nav>
 
       <Separator className="my-3" />
@@ -32,12 +32,9 @@ export function Sidebar() {
         {rootFolders.length === 0 ? (
           <p className="px-3 py-2 text-xs text-muted-foreground">No folders yet</p>
         ) : (
-          rootFolders.map((folder) => (
-            <SidebarFolderItem key={folder.id} folder={folder} />
-          ))
+          rootFolders.map(folder => <SidebarFolderItem key={folder.id} folder={folder} />)
         )}
       </div>
-
     </aside>
   )
 }

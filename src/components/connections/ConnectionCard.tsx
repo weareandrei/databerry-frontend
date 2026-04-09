@@ -1,48 +1,24 @@
 'use client'
 
-import {
-  ChartLine,
-  CreditCard,
-  Bug,
-  GitBranch,
-  XLogo,
-  RedditLogo,
-  EnvelopeSimple,
-  PlugsConnected,
-  Trash,
-} from '@phosphor-icons/react'
-import { useDashboard } from '@/contexts/DashboardContext'
+import { Trash } from '@phosphor-icons/react'
+import { ConnectionIcon } from './ConnectionIcon'
 import type { Connection } from '@/types/connection'
-
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  posthog: ChartLine,
-  stripe: CreditCard,
-  sentry: Bug,
-  github: GitBranch,
-  x: XLogo,
-  reddit: RedditLogo,
-  gmail: EnvelopeSimple,
-  custom: PlugsConnected,
-}
 
 interface ConnectionCardProps {
   connection: Connection
+  onDelete: (id: string) => void
 }
 
-export function ConnectionCard({ connection }: ConnectionCardProps) {
-  const { connections: connectionsCtx } = useDashboard()
-  const Icon = TYPE_ICONS[connection.type] ?? PlugsConnected
-
+export function ConnectionCard({ connection, onDelete }: ConnectionCardProps) {
   return (
     <div className="group flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors">
       <div className="flex items-center gap-2.5 flex-1 min-w-0">
-        <Icon size={16} weight="thin" className="text-muted-foreground shrink-0" />
+        <ConnectionIcon type={connection.type} size={16} className="text-muted-foreground" />
         <span className="text-sm font-medium truncate">{connection.name}</span>
       </div>
-
       <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 shrink-0">
         <button
-          onClick={() => connectionsCtx.deleteConnection(connection.id)}
+          onClick={() => onDelete(connection.id)}
           className="flex items-center justify-center w-6 h-6 rounded text-muted-foreground hover:text-destructive transition-colors"
           title="Delete"
         >

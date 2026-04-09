@@ -3,25 +3,24 @@
 import Link from 'next/link'
 import { FolderPlus, Plus, Folder, ArrowLeft } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
-import { useDashboard } from '@/contexts/DashboardContext'
 
 interface PageHeaderProps {
   title: string
   subtitle?: string
-  parentId?: string | null
   backHref?: string
   showActions?: boolean
+  onCreateFolder?: () => void
+  onCreateView?: () => void
 }
 
 export function PageHeader({
   title,
   subtitle,
-  parentId = null,
   backHref,
   showActions = true,
+  onCreateFolder,
+  onCreateView,
 }: PageHeaderProps) {
-  const { folders, views } = useDashboard()
-
   return (
     <div className="flex items-start justify-between mb-6">
       <div className="flex items-start gap-3">
@@ -46,20 +45,11 @@ export function PageHeader({
 
       {showActions && (
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => folders.openModal(parentId)}
-          >
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={onCreateFolder}>
             <FolderPlus size={15} weight="thin" />
             Create folder
           </Button>
-          <Button
-            size="sm"
-            className="gap-1.5"
-            onClick={() => views.openModal(parentId ?? null)}
-          >
+          <Button size="sm" className="gap-1.5" onClick={onCreateView}>
             <Plus size={15} weight="thin" />
             Create view
           </Button>

@@ -24,7 +24,7 @@ const viewsSlice = createSlice({
       state.items.push(...action.payload)
     },
     removeView(state, action: PayloadAction<string>) {
-      state.items = state.items.filter((v) => v.id !== action.payload)
+      state.items = state.items.filter(v => v.id !== action.payload)
     },
     setLoading(state, action: PayloadAction<boolean>) {
       state.loading = action.payload

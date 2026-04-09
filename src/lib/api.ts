@@ -3,6 +3,23 @@ import type { Folder } from '@/types/folder'
 import type { Connection } from '@/types/connection'
 import type { View } from '@/types/view'
 
+export interface WebhookKey {
+  id: string
+  name: string
+  keyPrefix: string
+  revokedAt: string | null
+  createdAt: string
+}
+
+export interface CalendlyMeeting {
+  startTime: string
+  endTime: string
+  name: string
+  bookingUri: string
+  invitees: { name: string; email: string }[]
+  description: string | null
+}
+
 export interface PosthogEventDefinition {
   id: string
   name: string
@@ -54,8 +71,7 @@ export const ALGORITHM = {
       body: JSON.stringify(body),
     }),
 
-  deleteFolder: (folderId: string) =>
-    apiFetch<void>(`/folders/${folderId}`, { method: 'DELETE' }),
+  deleteFolder: (folderId: string) => apiFetch<void>(`/folders/${folderId}`, { method: 'DELETE' }),
 
   // ── Connections ───────────────────────────────────────────────────────────
 
@@ -76,19 +92,55 @@ export const ALGORITHM = {
   getPosthogEventDefinitions: (connectionId: string) =>
     apiFetch<PosthogEventDefinition[]>(`/connections/${connectionId}/posthog/event-definitions`),
 
+  // ── Calendly ──────────────────────────────────────────────────────────────
+
+  getCalendlyOAuthUrl: () => apiFetch<{ url: string }>('/calendly/oauth/start'),
+
+  getCalendlyLiveValue: (connectionId: string, viewType: string) =>
+    apiFetch<{ value: string }>(
+      `/calendly/live-value?connectionId=${connectionId}&viewType=${viewType}`,
+    ),
+
+  getCalendlyMeetingsList: (connectionId: string) =>
+    apiFetch<{ meetings: CalendlyMeeting[] }>(
+      `/calendly/meetings-list?connectionId=${connectionId}`,
+    ),
+
   // ── Stripe ────────────────────────────────────────────────────────────────
 
-  getStripeOAuthUrl: () =>
-    apiFetch<{ url: string }>('/stripe/oauth/start'),
+  getStripeOAuthUrl: () => apiFetch<{ url: string }>('/stripe/oauth/start'),
+
+  getStripeManualLiveValue: (connectionId: string, viewType: string) =>
+    apiFetch<{ value: string }>(
+      `/stripe-manual/live-value?connectionId=${connectionId}&viewType=${viewType}`,
+    ),
+
+  getStripeManualChartData: (connectionId: string, viewType: string) =>
+    apiFetch<{ points: { label: string; value: number }[] }>(
+      `/stripe-manual/chart-data?connectionId=${connectionId}&viewType=${viewType}`,
+    ),
+
+  // ── Webhook Keys ──────────────────────────────────────────────────────────
+
+  getWebhookKeys: (connectionId: string) =>
+    apiFetch<WebhookKey[]>(`/connections/${connectionId}/webhook-keys`),
+
+  createWebhookKey: (connectionId: string, name: string) =>
+    apiFetch<WebhookKey & { key: string }>(`/connections/${connectionId}/webhook-keys`, {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  revokeWebhookKey: (connectionId: string, keyId: string) =>
+    apiFetch<void>(`/connections/${connectionId}/webhook-keys/${keyId}`, { method: 'DELETE' }),
 
   // ── Views ─────────────────────────────────────────────────────────────────
 
-  getViewsByFolder: (folderId: string) =>
-    apiFetch<View[]>(`/views?folderId=${folderId}`),
+  getViewsByFolder: (folderId: string, date?: string) =>
+    apiFetch<View[]>(`/views?folderId=${folderId}${date ? `&date=${date}` : ''}`),
 
   createView: (body: Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>) =>
     apiFetch<View>('/views', { method: 'POST', body: JSON.stringify(body) }),
 
-  deleteView: (viewId: string) =>
-    apiFetch<void>(`/views/${viewId}`, { method: 'DELETE' }),
+  deleteView: (viewId: string) => apiFetch<void>(`/views/${viewId}`, { method: 'DELETE' }),
 }

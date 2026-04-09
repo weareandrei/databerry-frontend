@@ -1,8 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-const PUBLIC_PATHS = ['/login', '/signup', '/auth/callback']
-const DEFAULT_AUTHENTICATED = '/home'
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/auth/callback']
+const DEFAULT_AUTHENTICATED = '/hub/home'
 const DEFAULT_UNAUTHENTICATED = '/login'
 
 export async function middleware(request: NextRequest) {
@@ -26,7 +26,7 @@ export async function middleware(request: NextRequest) {
           })
         },
       },
-    }
+    },
   )
 
   let user = null
@@ -37,15 +37,15 @@ export async function middleware(request: NextRequest) {
     // Edge runtime error — fail open so the page can handle it
   }
 
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
+  const isPublic = PUBLIC_PATHS.some(p => (p === '/' ? pathname === '/' : pathname.startsWith(p)))
 
   // Unauthenticated → redirect to login
   if (!user && !isPublic) {
     return NextResponse.redirect(new URL(DEFAULT_UNAUTHENTICATED, request.url))
   }
 
-  // Authenticated → redirect away from auth pages
-  if (user && isPublic) {
+  // Authenticated → redirect away from auth pages (but not the landing page)
+  if (user && isPublic && pathname !== '/') {
     return NextResponse.redirect(new URL(DEFAULT_AUTHENTICATED, request.url))
   }
 

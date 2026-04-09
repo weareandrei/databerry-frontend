@@ -9,7 +9,7 @@ import { PushPin } from '@phosphor-icons/react'
 
 export default function HomePage() {
   const { user } = useAuth()
-  const { folders: foldersCtx, pins } = useDashboard()
+  const { folders: foldersCtx, views: viewsCtx, connections: connectionsCtx, pins } = useDashboard()
 
   const rootFolders = foldersCtx.getRootFolders()
   const displayName = user?.email?.split('@')[0] ?? 'there'
@@ -22,7 +22,6 @@ export default function HomePage() {
         showActions={false}
       />
 
-      {/* Pins */}
       {pins.pinned.length > 0 && (
         <section>
           <div className="flex items-center gap-1.5 mb-4">
@@ -32,20 +31,27 @@ export default function HomePage() {
             </h2>
           </div>
           <div className="space-y-2">
-            {pins.pinned.map((connection) => (
-              <ConnectionCard key={connection.id} connection={connection} />
+            {pins.pinned.map(connection => (
+              <ConnectionCard
+                key={connection.id}
+                connection={connection}
+                onDelete={connectionsCtx.deleteConnection}
+              />
             ))}
           </div>
         </section>
       )}
 
-      {/* Folders */}
       <section>
         <h2 className="text-xs font-medium uppercase tracking-widest text-muted-foreground mb-4">
           Folders
         </h2>
         {rootFolders.length > 0 ? (
-          <FolderGrid folders={rootFolders} />
+          <FolderGrid
+            folders={rootFolders}
+            onDeleteFolder={foldersCtx.deleteFolder}
+            onCreateSubfolder={foldersCtx.openModal}
+          />
         ) : (
           <p className="text-muted-foreground text-sm">
             No folders yet. Create one to start organizing your projects.

@@ -29,7 +29,7 @@ export default function SignupPage() {
     }
 
     toast.success('Account created! Check your email to confirm.')
-    router.push('/home')
+    router.push('/hub/home')
   }
 
   return (
@@ -53,7 +53,7 @@ export default function SignupPage() {
             type="email"
             placeholder="Email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={e => setEmail(e.target.value)}
             required
             autoComplete="email"
           />
@@ -61,7 +61,7 @@ export default function SignupPage() {
             type="password"
             placeholder="Password (min 8 characters)"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={e => setPassword(e.target.value)}
             required
             minLength={8}
             autoComplete="new-password"

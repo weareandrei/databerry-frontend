@@ -24,10 +24,10 @@ const foldersSlice = createSlice({
       state.items.push(action.payload)
     },
     removeFolder(state, action: PayloadAction<string>) {
-      state.items = state.items.filter((f) => f.id !== action.payload)
+      state.items = state.items.filter(f => f.id !== action.payload)
     },
     updateFolder(state, action: PayloadAction<Folder>) {
-      const idx = state.items.findIndex((f) => f.id === action.payload.id)
+      const idx = state.items.findIndex(f => f.id === action.payload.id)
       if (idx !== -1) state.items[idx] = action.payload
     },
     setFoldersLoading(state, action: PayloadAction<boolean>) {

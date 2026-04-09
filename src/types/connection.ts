@@ -1,11 +1,14 @@
 export type ConnectionType =
   | 'posthog'
   | 'stripe'
+  | 'stripe_manual'
+  | 'calendly'
   | 'x'
   | 'reddit'
   | 'gmail'
   | 'sentry'
   | 'github'
+  | 'webhook'
   | 'custom'
 
 export interface Connection {
@@ -14,4 +17,5 @@ export interface Connection {
   type: ConnectionType
   userId: string
   createdAt: string
+  webhookId?: string | null
 }

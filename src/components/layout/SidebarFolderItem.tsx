@@ -34,13 +34,13 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
       <div
         className={cn(
           'group flex items-center gap-1 rounded-md pr-1 transition-colors',
-          isActive ? 'bg-accent' : 'hover:bg-accent'
+          isActive ? 'bg-accent' : 'hover:bg-accent',
         )}
         style={{ paddingLeft: `${12 + depth * 16}px` }}
       >
         {/* Expand arrow */}
         <button
-          onClick={() => setIsOpen((v) => !v)}
+          onClick={() => setIsOpen(v => !v)}
           className="flex items-center justify-center w-4 h-4 shrink-0 text-muted-foreground"
         >
           {hasChildren ? (
@@ -56,7 +56,7 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
 
         {/* Folder link */}
         <Link
-          href={`/folder/${folder.id}`}
+          href={`/hub/folder/${folder.id}`}
           className="flex items-center gap-2 flex-1 py-1.5 text-sm text-muted-foreground min-w-0"
         >
           {isOpen ? (
@@ -73,10 +73,7 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
             <DotsThree size={14} weight="thin" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-40">
-            <DropdownMenuItem
-              onClick={() => foldersCtx.openModal(folder.id)}
-              className="text-sm"
-            >
+            <DropdownMenuItem onClick={() => foldersCtx.openModal(folder.id)} className="text-sm">
               New subfolder
             </DropdownMenuItem>
             <DropdownMenuItem
@@ -104,7 +101,7 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
               className="absolute top-0 bottom-0 w-px bg-border"
               style={{ left: `${20 + depth * 16}px` }}
             />
-            {children.map((child) => (
+            {children.map(child => (
               <SidebarFolderItem key={child.id} folder={child} depth={depth + 1} />
             ))}
           </motion.div>

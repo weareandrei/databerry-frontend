@@ -2,12 +2,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import type { RootState, AppDispatch } from '@/store'
-import {
-  addFolder,
-  removeFolder,
-  setFolders,
-  updateFolder,
-} from '@/store/slices/foldersSlice'
+import { addFolder, removeFolder, setFolders, updateFolder } from '@/store/slices/foldersSlice'
 import { openCreateFolderModal, closeCreateFolderModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
 import type { Folder } from '@/types/folder'
@@ -17,9 +12,7 @@ export function useFolders() {
   const folders = useSelector((state: RootState) => state.folders.items)
   const loading = useSelector((state: RootState) => state.folders.loading)
   const isModalOpen = useSelector((state: RootState) => state.ui.createFolderModalOpen)
-  const createFolderParentId = useSelector(
-    (state: RootState) => state.ui.createFolderParentId
-  )
+  const createFolderParentId = useSelector((state: RootState) => state.ui.createFolderParentId)
 
   const loadFolders = async () => {
     try {
@@ -56,7 +49,7 @@ export function useFolders() {
   }
 
   const renameFolder = async (folderId: string, name: string) => {
-    const existing = folders.find((f) => f.id === folderId)
+    const existing = folders.find(f => f.id === folderId)
     if (!existing) return
 
     dispatch(updateFolder({ ...existing, name }))
@@ -74,20 +67,19 @@ export function useFolders() {
     const snapshot = [...folders]
     dispatch(removeFolder(folderId))
     // Also remove all descendant folders from Redux
-    const descendants = folders.filter((f) => isDescendant(f, folderId, folders))
-    descendants.forEach((f) => dispatch(removeFolder(f.id)))
+    const descendants = folders.filter(f => isDescendant(f, folderId, folders))
+    descendants.forEach(f => dispatch(removeFolder(f.id)))
 
     try {
       await ALGORITHM.deleteFolder(folderId)
     } catch {
-      snapshot.forEach((f) => dispatch(addFolder(f)))
+      snapshot.forEach(f => dispatch(addFolder(f)))
       toast.error('Failed to delete folder')
     }
   }
 
-  const getRootFolders = () => folders.filter((f) => f.parentId === null)
-  const getChildFolders = (parentId: string) =>
-    folders.filter((f) => f.parentId === parentId)
+  const getRootFolders = () => folders.filter(f => f.parentId === null)
+  const getChildFolders = (parentId: string) => folders.filter(f => f.parentId === parentId)
 
   return {
     folders,
@@ -100,8 +92,7 @@ export function useFolders() {
     deleteFolder,
     getRootFolders,
     getChildFolders,
-    openModal: (parentId: string | null = null) =>
-      dispatch(openCreateFolderModal(parentId)),
+    openModal: (parentId: string | null = null) => dispatch(openCreateFolderModal(parentId)),
     closeModal: () => dispatch(closeCreateFolderModal()),
   }
 }
@@ -109,6 +100,6 @@ export function useFolders() {
 function isDescendant(folder: Folder, ancestorId: string, all: Folder[]): boolean {
   if (!folder.parentId) return false
   if (folder.parentId === ancestorId) return true
-  const parent = all.find((f) => f.id === folder.parentId)
+  const parent = all.find(f => f.id === folder.parentId)
   return parent ? isDescendant(parent, ancestorId, all) : false
 }

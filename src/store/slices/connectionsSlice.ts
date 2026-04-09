@@ -24,20 +24,16 @@ const connectionsSlice = createSlice({
       state.items.push(action.payload)
     },
     removeConnection(state, action: PayloadAction<string>) {
-      state.items = state.items.filter((c) => c.id !== action.payload)
+      state.items = state.items.filter(c => c.id !== action.payload)
     },
     updateConnection(state, action: PayloadAction<Connection>) {
-      const idx = state.items.findIndex((c) => c.id === action.payload.id)
+      const idx = state.items.findIndex(c => c.id === action.payload.id)
       if (idx !== -1) state.items[idx] = action.payload
     },
   },
 })
 
-export const {
-  setConnections,
-  addConnection,
-  removeConnection,
-  updateConnection,
-} = connectionsSlice.actions
+export const { setConnections, addConnection, removeConnection, updateConnection } =
+  connectionsSlice.actions
 
 export default connectionsSlice.reducer

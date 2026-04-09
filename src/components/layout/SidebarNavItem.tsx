@@ -22,7 +22,7 @@ export function SidebarNavItem({ href, label, icon: IconComponent }: SidebarNavI
         'flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors',
         isActive
           ? 'bg-accent text-accent-foreground font-medium'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
       )}
     >
       <IconComponent size={16} weight="thin" />

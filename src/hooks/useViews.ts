@@ -17,25 +17,19 @@ export function useViews() {
     try {
       const data = await ALGORITHM.getViewsByFolder(folderId)
       // Merge: replace existing views for this folder, keep others
-      dispatch(
-        setViews([
-          ...views.filter((v) => v.folderId !== folderId),
-          ...data,
-        ])
-      )
+      dispatch(setViews([...views.filter(v => v.folderId !== folderId), ...data]))
     } catch {
       toast.error('Failed to load views')
     }
   }
 
-  const getViewsByFolder = (folderId: string) =>
-    views.filter((v) => v.folderId === folderId)
+  const getViewsByFolder = (folderId: string) => views.filter(v => v.folderId === folderId)
 
   const createViews = async (
-    items: Array<Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>>
+    items: Array<Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>>,
   ) => {
     try {
-      const created = await Promise.all(items.map((v) => ALGORITHM.createView(v)))
+      const created = await Promise.all(items.map(v => ALGORITHM.createView(v)))
       dispatch(addViews(created))
       return created
     } catch {
@@ -44,7 +38,7 @@ export function useViews() {
   }
 
   const untrackView = async (viewId: string) => {
-    const existing = views.find((v) => v.id === viewId)
+    const existing = views.find(v => v.id === viewId)
     dispatch(removeView(viewId))
     try {
       await ALGORITHM.deleteView(viewId)

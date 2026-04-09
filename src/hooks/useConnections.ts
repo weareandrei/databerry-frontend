@@ -1,15 +1,8 @@
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import type { RootState, AppDispatch } from '@/store'
-import {
-  setConnections,
-  addConnection,
-  removeConnection,
-} from '@/store/slices/connectionsSlice'
-import {
-  openCreateConnectionModal,
-  closeCreateConnectionModal,
-} from '@/store/slices/uiSlice'
+import { setConnections, addConnection, removeConnection } from '@/store/slices/connectionsSlice'
+import { openCreateConnectionModal, closeCreateConnectionModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
 import type { Connection } from '@/types/connection'
 
@@ -19,7 +12,7 @@ export function useConnections() {
   const loading = useSelector((state: RootState) => state.connections.loading)
   const isModalOpen = useSelector((state: RootState) => state.ui.createConnectionModalOpen)
   const createConnectionFolderId = useSelector(
-    (state: RootState) => state.ui.createConnectionFolderId
+    (state: RootState) => state.ui.createConnectionFolderId,
   )
 
   const loadConnections = async () => {
@@ -31,11 +24,10 @@ export function useConnections() {
     }
   }
 
-  const getConnectionsByType = (type: string) =>
-    connections.filter((c) => c.type === type)
+  const getConnectionsByType = (type: string) => connections.filter(c => c.type === type)
 
   const createConnection = async (
-    body: Omit<Connection, 'id' | 'createdAt' | 'userId'> & { config?: Record<string, unknown> }
+    body: Omit<Connection, 'id' | 'createdAt' | 'userId'> & { config?: Record<string, unknown> },
   ) => {
     try {
       const created = await ALGORITHM.createConnection(body)
@@ -47,7 +39,7 @@ export function useConnections() {
   }
 
   const deleteConnection = async (connectionId: string) => {
-    const existing = connections.find((c) => c.id === connectionId)
+    const existing = connections.find(c => c.id === connectionId)
     dispatch(removeConnection(connectionId))
     try {
       await ALGORITHM.deleteConnection(connectionId)
@@ -66,8 +58,7 @@ export function useConnections() {
     getConnectionsByType,
     createConnection,
     deleteConnection,
-    openModal: (folderId: string | null = null) =>
-      dispatch(openCreateConnectionModal(folderId)),
+    openModal: (folderId: string | null = null) => dispatch(openCreateConnectionModal(folderId)),
     closeModal: () => dispatch(closeCreateConnectionModal()),
   }
 }
