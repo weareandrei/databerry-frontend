@@ -249,6 +249,7 @@ interface FeatureItemProps {
   innerRef: (el: HTMLDivElement | null) => void
   divider: boolean
   onScrollTo: () => void
+  Preview: React.FC
 }
 
 function FeatureItem({
@@ -261,13 +262,11 @@ function FeatureItem({
   innerRef,
   divider,
   onScrollTo,
+  Preview,
 }: FeatureItemProps) {
   return (
     <div>
-      <button
-        onClick={onScrollTo}
-        className="w-full text-left group"
-      >
+      <button onClick={onScrollTo} className="w-full text-left group">
         <div ref={innerRef} className="py-10">
           <span
             className={`inline-block text-xs font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full transition-colors duration-300 ${
@@ -306,6 +305,12 @@ function FeatureItem({
           </ul>
         </div>
       </button>
+
+      {/* Mobile inline preview */}
+      <div className="md:hidden rounded-2xl border bg-card p-4 mb-6">
+        <Preview />
+      </div>
+
       <Link
         href="/signup"
         className="inline-flex items-center gap-1.5 mt-1 mb-8 text-sm font-medium text-orange-500 hover:text-orange-600 transition-colors group/cta"
@@ -318,7 +323,7 @@ function FeatureItem({
           className="transition-transform duration-200 group-hover/cta:translate-x-0.5"
         />
       </Link>
-      {divider && <div className="h-px bg-gray-100" />}
+      {divider && <div className="h-px bg-gray-200" />}
     </div>
   )
 }
@@ -354,7 +359,7 @@ const FeaturesSection = () => {
   return (
     <section id="features-section" className="relative px-[10vw] flex flex-col bg-white">
       {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-white pt-20 pb-8 overflow-visible">
+      <div className="sticky top-0 z-30 bg-white pt-24 md:pt-20 pb-8 overflow-visible">
         <p className="text-xs font-medium text-orange-500 uppercase tracking-widest">Features</p>
         <h2
           className="mt-2 text-4xl font-semibold tracking-tight text-gray-900"
@@ -380,7 +385,7 @@ const FeaturesSection = () => {
       {/* Feature list + sticky preview */}
       <div className="flex flex-row pb-32 pt-6 gap-16 items-start">
         {/* Left: feature text */}
-        <div className="flex flex-col w-[45%]">
+        <div className="flex flex-col w-full md:w-[45%]">
           {FEATURES.map((feature, i) => (
             <FeatureItem
               key={i}
@@ -396,12 +401,13 @@ const FeaturesSection = () => {
                 featureRefs.current[i] = el
               }}
               onScrollTo={() => scrollToFeature(i)}
+              Preview={feature.Preview}
             />
           ))}
         </div>
 
-        {/* Right: sticky preview panel */}
-        <div className="flex-1 sticky top-[30vh]">
+        {/* Right: sticky preview panel — desktop only */}
+        <div className="hidden md:block flex-1 sticky top-[30vh]">
           <div className="rounded-2xl border bg-card p-5 shadow-sm flex items-center justify-center h-[40vh]">
             <AnimatePresence mode="wait">
               <motion.div

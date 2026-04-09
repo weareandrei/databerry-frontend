@@ -29,7 +29,7 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
       }}
     >
       {/* pb-16 = 4rem — card unsticks 4rem before container bottom */}
-      <div className="sticky z-[20] mx-auto w-[55vw] pb-24" style={{ top: stickyTop }}>
+      <div className="sticky z-[20] mx-auto w-[76vw] md:w-[55vw] pb-24" style={{ top: stickyTop }}>
         <motion.div
           ref={cardRef}
           style={{ scale }}
@@ -85,7 +85,7 @@ const DemoSection = () => {
   return (
     <section
       id="second-section"
-      className="relative px-12 flex flex-col items-center text-center bg-white py-24"
+      className="relative px-12 flex flex-col items-center text-center bg-white py-24 overflow-x-clip"
     >
       <h1
         className="max-w-4xl text-6xl font-semibold leading-[1.05] tracking-[-0.06em] text-gray-900"

@@ -1,8 +1,6 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import Xarrow from 'react-xarrows'
-// import { ArcherContainer, ArcherElement } from 'react-archer'
 import { ShaderGradientCanvas, ShaderGradient } from '@shadergradient/react'
 
 const LOGOS = [
@@ -18,7 +16,7 @@ const LOGOS = [
 export function Hero() {
   return (
     <section className="relative w-full h-screen">
-      {/* Gradient background — overflow-hidden kept here so it clips properly */}
+      {/* Gradient background */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <ShaderGradientCanvas style={{ width: '100%', height: '100%' }} pixelDensity={1.5} fov={45}>
           <ShaderGradient
@@ -76,29 +74,29 @@ export function Hero() {
           Business Intelligence for founders
         </div>
 
-        {/* H1 */}
+        {/* H1 — no forced line break on mobile */}
         <h1
-          className="max-w-4xl text-6xl font-semibold leading-[1] tracking-[-0.06em] text-white"
+          className="max-w-4xl text-4xl md:text-6xl font-semibold leading-[1.1] md:leading-[1] tracking-[-0.06em] text-white"
           style={{ fontFamily: 'var(--font-bricolage)' }}
         >
           <span className="text-black">Track </span>
-          all <span className="text-black">your business data in a</span>
-          <br />
-          single dashboard
+          all{' '}
+          <span className="text-black">your business data in a</span>
+          <span className="hidden md:inline"><br /></span>
+          {' '}single dashboard
         </h1>
 
-        {/* H4 subheader */}
+        {/* Subheader */}
         <h4
-          className="mt-5 max-w-xl text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
+          className="mt-5 max-w-xl text-base md:text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
           style={{ fontFamily: 'var(--font-inter)' }}
         >
           Integrate business data from any platform you work with into a single page. See only data
           that matters.
         </h4>
 
-        {/* Integrations diagram — hidden below md */}
+        {/* Desktop: diagram with Xarrows */}
         <div className="hidden md:block mt-12 w-full max-w-3xl">
-          {/* Logo row */}
           <div className="flex items-center justify-center gap-12">
             {LOGOS.map((logo, i) => (
               <div
@@ -106,18 +104,11 @@ export function Hero() {
                 id={`logo-${i}`}
                 className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
               >
-                <Image
-                  src={logo.src}
-                  alt={logo.alt}
-                  width={60}
-                  height={60}
-                  className="rounded-[10px]"
-                />
+                <Image src={logo.src} alt={logo.alt} width={60} height={60} className="rounded-[10px]" />
               </div>
             ))}
           </div>
 
-          {/* Centre hub dot */}
           <div className="flex justify-center mt-10">
             <div
               id="hub-dot"
@@ -125,7 +116,6 @@ export function Hero() {
             />
           </div>
 
-          {/* Xarrows */}
           {LOGOS.map((logo, i) => (
             <Xarrow
               key={logo.alt}
@@ -141,16 +131,37 @@ export function Hero() {
             />
           ))}
 
-          {/* Line going down from hub dot to demo card */}
           <div className="flex justify-center">
             <div className="h-8 w-0.5 bg-white/70" />
           </div>
 
-          {/* Anchor — marks the exact bottom of the connector line */}
           <div id="demo-anchor" />
+          <div className="h-[150px]" />
+        </div>
 
-          {/* Space reserved for the demo */}
-          <div className="h-[150px]"></div>
+        {/* Mobile: wrapped logo grid */}
+        <div className="md:hidden mt-10 w-full max-w-sm">
+          <div className="flex flex-wrap justify-center gap-4">
+            {LOGOS.map(logo => (
+              <div
+                key={logo.alt}
+                className="rounded-[16px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+              >
+                <Image src={logo.src} alt={logo.alt} width={52} height={52} className="rounded-[10px]" />
+              </div>
+            ))}
+          </div>
+
+          {/* Simple connector line down */}
+          <div className="flex justify-center mt-6">
+            <div className="h-6 w-0.5 bg-white/70" />
+          </div>
+          <div className="flex justify-center">
+            <div className="h-3 w-3 rounded-full bg-[#e85c20] border-2 border-white shadow-[0_0_0_3px_rgba(255,255,255,0.25)]" />
+          </div>
+          <div className="flex justify-center">
+            <div className="h-6 w-0.5 bg-white/70" />
+          </div>
         </div>
       </div>
     </section>
