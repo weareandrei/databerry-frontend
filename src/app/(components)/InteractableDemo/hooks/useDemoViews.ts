@@ -76,6 +76,7 @@ const INITIAL_VIEWS: DemoView[] = [
         endTime: `${TODAY}T09:30:00Z`,
         name: 'Onboarding Call',
         bookingUri: '#',
+        description: null,
         invitees: [{ name: 'Alice Johnson', email: 'alice@example.com' }],
       },
       {
@@ -83,6 +84,7 @@ const INITIAL_VIEWS: DemoView[] = [
         endTime: `${TODAY}T11:45:00Z`,
         name: 'Product Demo',
         bookingUri: '#',
+        description: null,
         invitees: [{ name: 'Bob Smith', email: 'bob@example.com' }],
       },
       {
@@ -90,6 +92,7 @@ const INITIAL_VIEWS: DemoView[] = [
         endTime: `${TODAY}T15:00:00Z`,
         name: 'Strategy Review',
         bookingUri: '#',
+        description: null,
         invitees: [{ name: 'Carol White', email: 'carol@example.com' }],
       },
     ],

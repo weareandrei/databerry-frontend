@@ -104,6 +104,7 @@ const MOCK_CALENDLY_MEETINGS: CalendlyMeeting[] = [
     endTime: `${TODAY}T10:30:00Z`,
     name: 'Discovery Call',
     bookingUri: '#',
+    description: null,
     invitees: [{ name: 'Demo User', email: 'demo@example.com' }],
   },
   {
@@ -111,6 +112,7 @@ const MOCK_CALENDLY_MEETINGS: CalendlyMeeting[] = [
     endTime: `${TODAY}T15:45:00Z`,
     name: 'Follow-up',
     bookingUri: '#',
+    description: null,
     invitees: [{ name: 'Jane Doe', email: 'jane@example.com' }],
   },
 ]
@@ -173,33 +175,39 @@ export function DemoCreateViewModal({ open, onOpenChange, folderId }: Props) {
 
   function handleCreateStripe(conn: DemoConnection, viewType: string) {
     const opt = STRIPE_OPTIONS.find(o => o.type === viewType)!
+    const extras = getMockExtras('stripe_manual', viewType)
     createView({
       name: opt.name,
       folderId,
       connectionId: conn.id,
-      ...getMockExtras('stripe_manual', viewType),
+      mockValue: extras.mockValue ?? '0',
+      ...extras,
     })
     handleClose(false)
   }
 
   function handleCreateCalendly(conn: DemoConnection, viewType: string) {
     const opt = CALENDLY_OPTIONS.find(o => o.type === viewType)!
+    const extras = getMockExtras('calendly', viewType)
     createView({
       name: opt.name,
       folderId,
       connectionId: conn.id,
-      ...getMockExtras('calendly', viewType),
+      mockValue: extras.mockValue ?? '0',
+      ...extras,
     })
     handleClose(false)
   }
 
   function handleCreateDirect(conn: DemoConnection, connectionType: string) {
     const nameMap: Record<string, string> = { github: 'Stars', sentry: 'Open Issues' }
+    const extras = getMockExtras(connectionType, '')
     createView({
       name: nameMap[connectionType] ?? conn.name,
       folderId,
       connectionId: conn.id,
-      ...getMockExtras(connectionType, ''),
+      mockValue: extras.mockValue ?? '0',
+      ...extras,
     })
     handleClose(false)
   }

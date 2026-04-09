@@ -4,8 +4,8 @@ import { motion, useScroll, useTransform } from 'framer-motion'
 import InteractableDemo from '@/app/(components)/InteractableDemo/InteractableDemo'
 
 interface DemoCardProps {
-  cardRef: React.RefObject<HTMLDivElement>
-  containerRef: React.RefObject<HTMLDivElement>
+  cardRef: React.RefObject<HTMLDivElement | null>
+  containerRef: React.RefObject<HTMLDivElement | null>
   topOffset: number
   stickyTop: number
 }
@@ -54,7 +54,7 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
   )
 }
 
-function useDemoLayout(cardRef: React.RefObject<HTMLDivElement>) {
+function useDemoLayout(cardRef: React.RefObject<HTMLDivElement | null>) {
   const [topOffset, setTopOffset] = useState(250)
   const [stickyTop, setStickyTop] = useState(200)
 
