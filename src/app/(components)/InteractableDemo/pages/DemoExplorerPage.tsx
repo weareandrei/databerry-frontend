@@ -83,8 +83,8 @@ export function DemoExplorerPage() {
   const visibleViews = openFolderId ? views.filter(v => v.folderId === openFolderId) : []
 
   return (
-    <div className="flex-1 overflow-y-scroll bg-white p-6">
-      <div className="flex items-start justify-between mb-6">
+    <div className="flex-1 overflow-y-scroll bg-white p-6 pt-12 md:pt-6">
+      <div className="flex flex-col gap-2 mb-6">
         <div className="flex items-center gap-2.5">
           {openFolderId && (
             <button
@@ -101,18 +101,18 @@ export function DemoExplorerPage() {
             {currentFolder ? currentFolder.name : 'All folders'}
           </h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className="flex-1 gap-1.5"
             onClick={() => setCreateFolderOpen(true)}
           >
             <FolderPlus size={15} weight="thin" />
             Create folder
           </Button>
           {openFolderId && (
-            <Button size="sm" className="gap-1.5" onClick={() => setCreateViewOpen(true)}>
+            <Button size="sm" className="flex-1 gap-1.5" onClick={() => setCreateViewOpen(true)}>
               <Plus size={15} weight="thin" />
               Create view
             </Button>
@@ -135,7 +135,7 @@ export function DemoExplorerPage() {
         {visibleViews.length > 0 && (
           <div>
             <h2 className="text-sm font-medium text-muted-foreground mb-3">Views</h2>
-            <div className="grid grid-cols-3 gap-3" style={{ gridAutoRows: '110px' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3" style={{ gridAutoRows: '110px' }}>
               {visibleViews.map(view => (
                 <DemoViewCard
                   key={view.id}

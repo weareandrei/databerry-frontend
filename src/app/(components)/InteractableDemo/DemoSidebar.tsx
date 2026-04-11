@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   House,
   Folders,
@@ -9,6 +9,8 @@ import {
   Folder,
   FolderOpen,
   DotsThree,
+  List,
+  X,
 } from '@phosphor-icons/react'
 import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -137,12 +139,21 @@ function DemoSidebarFolderItem({ folder, depth = 0 }: DemoSidebarFolderItemProps
   )
 }
 
-export function DemoSidebar() {
+function DemoSidebarContents({
+  onNavigate,
+}: {
+  onNavigate?: () => void
+}) {
   const { pageOpen, setPageOpen, folders } = useDemoContext()
   const rootFolders = folders.filter(f => f.parentId === null)
 
+  const handleNav = (page: DemoPage) => {
+    setPageOpen(page)
+    onNavigate?.()
+  }
+
   return (
-    <aside className="flex flex-col w-48 border-r shrink-0">
+    <div className="flex flex-col flex-1 overflow-hidden" onClick={onNavigate}>
       <div className="px-3 pt-3 pb-2">
         <div className="flex items-center gap-2 px-2 py-1.5 rounded-md">
           <div className="w-6 h-6 rounded-full bg-muted" />
@@ -152,28 +163,10 @@ export function DemoSidebar() {
         </div>
       </div>
 
-      <nav className="px-2 space-y-0.5">
-        <DemoNavItem
-          page="home"
-          label="Home"
-          icon={House}
-          current={pageOpen}
-          onClick={setPageOpen}
-        />
-        <DemoNavItem
-          page="explorer"
-          label="All folders"
-          icon={Folders}
-          current={pageOpen}
-          onClick={setPageOpen}
-        />
-        <DemoNavItem
-          page="connections"
-          label="Connections"
-          icon={PlugsConnected}
-          current={pageOpen}
-          onClick={setPageOpen}
-        />
+      <nav className="px-2 space-y-0.5" onClick={e => e.stopPropagation()}>
+        <DemoNavItem page="home" label="Home" icon={House} current={pageOpen} onClick={handleNav} />
+        <DemoNavItem page="explorer" label="All folders" icon={Folders} current={pageOpen} onClick={handleNav} />
+        <DemoNavItem page="connections" label="Connections" icon={PlugsConnected} current={pageOpen} onClick={handleNav} />
       </nav>
 
       <Separator className="my-3" />
@@ -185,6 +178,77 @@ export function DemoSidebar() {
           rootFolders.map(folder => <DemoSidebarFolderItem key={folder.id} folder={folder} />)
         )}
       </div>
-    </aside>
+    </div>
+  )
+}
+
+export function DemoSidebar() {
+  const [isMobile, setIsMobile] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  if (!isMobile) {
+    return (
+      <aside className="flex flex-col w-48 border-r shrink-0">
+        <DemoSidebarContents />
+      </aside>
+    )
+  }
+
+  return (
+    <>
+      {/* Mobile burger */}
+      <button
+        className="absolute top-2 left-2 z-50 p-1.5 rounded-md hover:bg-accent"
+        onClick={() => setIsOpen(v => !v)}
+      >
+        <AnimatePresence mode="wait" initial={false}>
+          {isOpen ? (
+            <motion.div
+              key="close"
+              initial={{ rotate: -90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: 90, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <X size={18} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="open"
+              initial={{ rotate: 90, opacity: 0 }}
+              animate={{ rotate: 0, opacity: 1 }}
+              exit={{ rotate: -90, opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <List size={18} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </button>
+
+      {/* Mobile curtain — absolute within the demo card's relative container */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ y: '-100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '-100%' }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="absolute inset-0 z-40 bg-background rounded-lg flex flex-col overflow-hidden"
+          >
+            <div className="pt-10 flex flex-col flex-1 overflow-hidden">
+              <DemoSidebarContents onNavigate={() => setIsOpen(false)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   )
 }

@@ -17,7 +17,7 @@ export function DemoHomePage() {
   const rootFolders = folders.filter(f => f.parentId === null)
 
   return (
-    <div className="flex-1 overflow-y-scroll bg-white p-6 space-y-6">
+    <div className="flex-1 overflow-y-scroll bg-white p-6 pt-12 md:pt-6 space-y-6">
       <div>
         <h1 className="text-xl text-left font-semibold tracking-tight">Welcome to Databerry!</h1>
         <p className="text-[12px] text-left text-muted-foreground mt-1">
@@ -33,7 +33,7 @@ export function DemoHomePage() {
               Pinned views
             </h2>
           </div>
-          <div className="grid grid-cols-3 gap-3" style={{ gridAutoRows: '110px' }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3" style={{ gridAutoRows: '110px' }}>
             {pinnedViews.map(view => (
               <DemoViewCard
                 key={view.id}

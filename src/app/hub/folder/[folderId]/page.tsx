@@ -242,7 +242,7 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
             </div>
           ) : folderViews.length > 0 ? (
             <div
-              className="grid grid-cols-4 gap-3 grid-flow-dense"
+              className="grid grid-cols-1 md:grid-cols-4 gap-3 grid-flow-dense"
               style={{ gridAutoRows: '140px' }}
             >
               {folderViews.map(view => (

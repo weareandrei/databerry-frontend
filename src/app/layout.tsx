@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { PhoneBezel } from '@/components/PhoneBezel'
 import './globals.css'
+import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${bricolage.variable} h-full antialiased`}>
       <body className="min-h-full bg-background text-foreground">
         <AuthProvider>
+          <Analytics />
           {children}
           <Toaster position="bottom-right" richColors />
         </AuthProvider>

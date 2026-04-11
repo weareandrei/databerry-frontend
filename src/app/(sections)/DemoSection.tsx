@@ -59,19 +59,21 @@ function useDemoLayout(cardRef: React.RefObject<HTMLDivElement | null>) {
   const [stickyTop, setStickyTop] = useState(200)
 
   useLayoutEffect(() => {
-    const anchor = document.getElementById('demo-anchor')
+    const vh = window.innerHeight
+    const cardHeight = cardRef.current?.getBoundingClientRect().height ?? 500
+    const isMobile = window.innerWidth < 768
+
+    const anchorId = isMobile ? 'm-demo-anchor' : 'demo-anchor'
+    const anchor = document.getElementById(anchorId)
     const section = document.getElementById('second-section')
     if (!anchor || !section) return
 
     const scrollY = window.scrollY
-    const vh = window.innerHeight
     const anchorBottom = anchor.getBoundingClientRect().bottom + scrollY
     const sectionTop = section.getBoundingClientRect().top + scrollY
 
     setTopOffset(sectionTop - anchorBottom)
-
-    const cardHeight = cardRef.current?.getBoundingClientRect().height ?? 500
-    setStickyTop((vh - cardHeight) / 1.1)
+    setStickyTop((vh - cardHeight) / (isMobile ? 2 : 1.1))
   }, [cardRef])
 
   return { topOffset, stickyTop }

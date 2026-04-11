@@ -12,7 +12,7 @@ const Navbar = () => {
 
   return (
     <>
-      {/* Mobile burger/close — fixed top-right, outside the notch */}
+      {/* Mobile burger/close — commented out for now
       <button
         className="md:hidden fixed top-3 z-[101] flex items-center justify-center w-15 h-15 rounded-full hover:bg-white/10 transition-colors"
         style={{ right: 'calc(11.25vw - 30px)' }}
@@ -43,6 +43,7 @@ const Navbar = () => {
           )}
         </AnimatePresence>
       </button>
+      */}
 
       <div className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center">
         <svg className="-scale-x-100 -scale-y-100" width="36" height="36" viewBox="0 0 50 50" fill="none" aria-hidden="true">
@@ -75,7 +76,7 @@ const Navbar = () => {
         </svg>
       </div>
 
-      {/* Mobile full-screen menu */}
+      {/* Mobile full-screen menu — commented out for now
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -88,20 +89,12 @@ const Navbar = () => {
           >
             <div className="flex flex-col flex-1 px-8 pt-24 gap-6">
               <Link
-                href="/login"
-                onClick={() => setMenuOpen(false)}
-                className="text-3xl font-semibold text-gray-900 hover:text-orange-500 transition-colors"
-                style={{ fontFamily: 'var(--font-bricolage)' }}
-              >
-                Sign in
-              </Link>
-              <Link
                 href="/signup"
                 onClick={() => setMenuOpen(false)}
                 className="text-3xl font-semibold text-gray-900 hover:text-orange-500 transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
-                Sign up
+                Join wishlist
               </Link>
             </div>
 
@@ -111,6 +104,7 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      */}
     </>
   )
 }

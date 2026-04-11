@@ -31,6 +31,18 @@ export function Footer() {
           </a>
         </div>
 
+        {/* Right-center: other projects */}
+        <div className="flex flex-col gap-2">
+          <span className="text-xs text-white/40 uppercase tracking-wider">By the maker of Databerry</span>
+          <div className="flex flex-col gap-1 text-sm text-white/70">
+            <a href="https://taplaunch.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Taplaunch</a>
+            <a href="https://ideasparks.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">ideasparX</a>
+            <a href="https://datajam.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Datajam</a>
+            <a href="https://webcheckin.cc" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Website Roaster</a>
+            <a href="https://hackerpage.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Hackerpage</a>
+          </div>
+        </div>
+
         {/* Right: wishlist CTA */}
         <Link
           href="/signup"

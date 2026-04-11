@@ -36,7 +36,7 @@ export function DemoConnectionsPage() {
   const { connections, createConnection, deleteConnection } = useDemoContext()
 
   return (
-    <div className="flex-1 overflow-y-scroll bg-white p-6">
+    <div className="flex-1 overflow-y-scroll bg-white p-6 pt-12 md:pt-6">
       <div className="flex items-start justify-between mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">Connections</h1>
         <Button size="sm" className="gap-1.5" onClick={createConnection}>

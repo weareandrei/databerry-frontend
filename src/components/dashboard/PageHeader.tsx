@@ -22,7 +22,7 @@ export function PageHeader({
   onCreateView,
 }: PageHeaderProps) {
   return (
-    <div className="flex items-start justify-between mb-6">
+    <div className="flex flex-col gap-2 mb-6">
       <div className="flex items-start gap-3">
         {backHref && (
           <Link
@@ -44,12 +44,12 @@ export function PageHeader({
       </div>
 
       {showActions && (
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={onCreateFolder}>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="flex-1 gap-1.5" onClick={onCreateFolder}>
             <FolderPlus size={15} weight="thin" />
             Create folder
           </Button>
-          <Button size="sm" className="gap-1.5" onClick={onCreateView}>
+          <Button size="sm" className="flex-1 gap-1.5" onClick={onCreateView}>
             <Plus size={15} weight="thin" />
             Create view
           </Button>
