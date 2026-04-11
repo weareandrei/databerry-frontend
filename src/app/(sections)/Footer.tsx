@@ -4,20 +4,24 @@ import { XLogo } from '@phosphor-icons/react/dist/ssr'
 export function Footer() {
   return (
     <footer className="relative px-[10vw] pt-20 pb-0 overflow-hidden">
-      {/* Top row */}
-      <div className="flex items-start justify-between gap-8 pb-12 border-t border-white/20 pt-10">
-        {/* Left: brand + tagline */}
-        <div className="flex flex-col gap-1">
+      {/* Main grid */}
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10 pb-12 border-t border-white/20 pt-10">
+
+        {/* Brand + tagline + CTA */}
+        <div className="flex flex-col gap-3">
           <span className="text-xl font-bold tracking-tight text-white">Databerry</span>
           <span className="text-sm text-white/70">All your business data in one place.</span>
+          <Link
+            href="/signup"
+            className="mt-1 self-start text-sm font-medium bg-white text-black px-5 py-2.5 rounded-lg hover:bg-white/90 transition-colors"
+          >
+            Join wishlist
+          </Link>
         </div>
 
-        {/* Center: links */}
-        <div className="flex items-center gap-8 text-sm text-white/70">
-          <a
-            href="mailto:team@heavenmade.org"
-            className="hover:text-white transition-colors"
-          >
+        {/* Contact links */}
+        <div className="flex flex-col gap-2 text-sm text-white/70">
+          <a href="mailto:team@heavenmade.org" className="hover:text-white transition-colors">
             team@heavenmade.org
           </a>
           <a
@@ -31,7 +35,7 @@ export function Footer() {
           </a>
         </div>
 
-        {/* Right-center: other projects */}
+        {/* Other projects */}
         <div className="flex flex-col gap-2">
           <span className="text-xs text-white/40 uppercase tracking-wider">By the maker of Databerry</span>
           <div className="flex flex-col gap-1 text-sm text-white/70">
@@ -42,17 +46,9 @@ export function Footer() {
             <a href="https://hackerpage.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Hackerpage</a>
           </div>
         </div>
-
-        {/* Right: wishlist CTA */}
-        <Link
-          href="/signup"
-          className="text-sm font-medium bg-white text-black px-5 py-2.5 rounded-lg hover:bg-white/90 transition-colors"
-        >
-          Join wishlist
-        </Link>
       </div>
 
-      {/* Bottom: copyright */}
+      {/* Copyright */}
       <div className="pb-4 text-xs text-white/40">
         © {new Date().getFullYear()} Databerry. All rights reserved.
       </div>
