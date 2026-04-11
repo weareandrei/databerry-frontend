@@ -161,14 +161,14 @@ function MobileLogos() {
 
 export function Hero() {
   return (
-    <section className="relative w-full h-screen">
+    <section className="relative w-full md:h-screen">
       <CanvasBackground />
 
       {/* Bottom fade to white */}
       <div className="pointer-events-none fixed bottom-0 left-0 right-0 h-[15vh] z-20 bg-gradient-to-t from-white to-transparent" />
 
       {/* Content */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-center items-center text-center px-6 overflow-y-auto">
+      <div className="relative md:absolute md:inset-0 z-10 flex flex-col justify-center items-center text-center px-6 pt-28 pb-12 md:pt-0 md:pb-0">
         {/* Badge */}
         <div className="mb-6 rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-sm">
           Business Intelligence for founders

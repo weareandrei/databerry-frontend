@@ -73,7 +73,7 @@ function useDemoLayout(cardRef: React.RefObject<HTMLDivElement | null>) {
     const sectionTop = section.getBoundingClientRect().top + scrollY
 
     setTopOffset(sectionTop - anchorBottom)
-    setStickyTop((vh - cardHeight) / (isMobile ? 2 : 1.1))
+    setStickyTop(isMobile ? 140 : (vh - cardHeight) / 1.1)
   }, [cardRef])
 
   return { topOffset, stickyTop }
