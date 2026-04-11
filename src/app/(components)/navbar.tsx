@@ -46,16 +46,16 @@ const Navbar = () => {
       */}
 
       <div className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center">
-        <svg className="-scale-x-100 -scale-y-100" width="36" height="36" viewBox="0 0 50 50" fill="none" aria-hidden="true">
+        <svg className="-scale-x-100 -scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]" viewBox="0 0 50 50" fill="none" aria-hidden="true">
           <path d={CORNER_PATH} fill="white" />
         </svg>
 
-        <div className="flex flex-row items-center justify-between h-[70px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[42px] px-6 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+        <div className="flex flex-row items-center justify-between h-[54px] md:h-[70px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[34px] md:rounded-b-[42px] px-5 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-3 mx-auto md:mx-0">
-            <Image src="/Databerry_icon.svg" alt="DataBerry" width={30} height={30} />
+          <Link href="/" className="flex items-center gap-2 md:gap-3 mx-auto md:mx-0">
+            <Image src="/Databerry_icon.svg" alt="DataBerry" width={24} height={24} className="md:w-[30px] md:h-[30px]" />
             <span
-              className="text-2xl font-bold text-[#E96021]"
+              className="text-lg md:text-2xl font-bold text-[#E96021]"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '0.05em' }}
             >
               DataBerry
@@ -68,10 +68,9 @@ const Navbar = () => {
           >
             Join wishlist
           </Link>
-
         </div>
 
-        <svg className="-scale-y-100" width="36" height="36" viewBox="0 0 50 50" fill="none" aria-hidden="true">
+        <svg className="-scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]" viewBox="0 0 50 50" fill="none" aria-hidden="true">
           <path d={CORNER_PATH} fill="white" />
         </svg>
       </div>

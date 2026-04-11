@@ -1,5 +1,5 @@
 'use client'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState, useEffect } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import InteractableDemo from '@/app/(components)/InteractableDemo/InteractableDemo'
 
@@ -11,13 +11,24 @@ interface DemoCardProps {
 }
 
 function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps) {
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
   })
-  // Exponential: slow start, accelerates toward end
-  // Doesn't work by the way
+
   const scale = useTransform(scrollYProgress, [0, 0.4, 0.7, 1], [1, 1.1, 1.2, 1.25])
+  const badgeOpacity = useTransform(scrollYProgress, [0.5, 0.9], [1, 0])
+  const badgeY = useTransform(scrollYProgress, [0.5, 0.9], [0, -16])
+  const spacerHeight = useTransform(scrollYProgress, [0.5, 0.9], [48, 0])
 
   return (
     <div
@@ -28,7 +39,6 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
         ['--demo-offset' as string]: `${topOffset}px`,
       }}
     >
-      {/* pb-16 = 4rem — card unsticks 4rem before container bottom */}
       <div className="sticky z-[20] mx-auto w-[76vw] md:w-[55vw] pb-24" style={{ top: stickyTop }}>
         <motion.div
           ref={cardRef}
@@ -36,13 +46,31 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
           className="rounded-2xl border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] origin-center"
         >
           <div className="rounded-2xl bg-white/35 overflow-hidden">
-            <div className="flex justify-center py-3">
-              <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
-                <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black">
-                  Interractable demo
+            {isMobile ? (
+              <div className="relative">
+                {/* Shrinking spacer */}
+                <motion.div style={{ height: spacerHeight }} />
+                {/* Badge floats absolutely, moves up and fades out */}
+                <motion.div
+                  className="absolute inset-x-0 top-0 flex justify-center py-3 pointer-events-none"
+                  style={{ opacity: badgeOpacity, y: badgeY }}
+                >
+                  <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
+                    <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
+                      Interractable demo
+                    </span>
+                  </span>
+                </motion.div>
+              </div>
+            ) : (
+              <div className="flex justify-center py-3">
+                <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
+                  <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
+                    Interractable demo
+                  </span>
                 </span>
-              </span>
-            </div>
+              </div>
+            )}
 
             <div className="h-[440px] p-4 pt-0">
               <InteractableDemo />
@@ -73,7 +101,7 @@ function useDemoLayout(cardRef: React.RefObject<HTMLDivElement | null>) {
     const sectionTop = section.getBoundingClientRect().top + scrollY
 
     setTopOffset(sectionTop - anchorBottom)
-    setStickyTop(isMobile ? 140 : (vh - cardHeight) / 1.1)
+    setStickyTop(isMobile ? vh * 0.35 : (vh - cardHeight) / 1.1)
   }, [cardRef])
 
   return { topOffset, stickyTop }
@@ -103,7 +131,7 @@ const DemoSection = () => {
         It's unbelievably easy to set up.
       </h4>
 
-      <div className="h-[600px] py-24" />
+      <div className="h-[550px] md:h-[600px] py-24" />
 
       <DemoCard
         cardRef={cardRef}
