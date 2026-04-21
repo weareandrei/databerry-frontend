@@ -68,7 +68,7 @@ async function executeTool(
     if (!conn) return { error: 'No Stripe connection found' }
     const viewType = input.period === 'week' ? 'stripe_gross_week' : 'stripe_gross_today'
     const data = await backendFetch<{ value: string }>(
-      `/stripe-manual/live-value?connectionId=${conn.id}&viewType=${viewType}`,
+      `/stripe/views/live-value?connectionId=${conn.id}&viewType=${viewType}`,
       authToken,
     )
     const cents = parseInt(data.value, 10)

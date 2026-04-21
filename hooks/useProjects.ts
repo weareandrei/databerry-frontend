@@ -2,7 +2,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import { v4 as uuidv4 } from 'uuid'
 import type { RootState, AppDispatch } from '@/store'
-import { addProject, removeProject, setProjects, updateProject } from '@/store/slices/projectsSlice'
+import { addProject, removeProject, setProjects, updateProject, setProjectsLoading } from '@/store/slices/projectsSlice'
 import { openCreateProjectModal, closeCreateProjectModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
 import type { Project } from '@/types/project'
@@ -14,11 +14,14 @@ export function useProjects() {
   const isModalOpen = useSelector((state: RootState) => state.ui.createProjectModalOpen)
 
   const loadProjects = async () => {
+    dispatch(setProjectsLoading(true))
     try {
       const data = await ALGORITHM.getProjects()
       dispatch(setProjects(data))
     } catch {
       toast.error('Failed to load projects')
+    } finally {
+      dispatch(setProjectsLoading(false))
     }
   }
 

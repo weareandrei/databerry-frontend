@@ -30,10 +30,13 @@ const connectionsSlice = createSlice({
       const idx = state.items.findIndex(c => c.id === action.payload.id)
       if (idx !== -1) state.items[idx] = action.payload
     },
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload
+    },
   },
 })
 
-export const { setConnections, addConnection, removeConnection, updateConnection } =
+export const { setConnections, addConnection, removeConnection, updateConnection, setLoading } =
   connectionsSlice.actions
 
 export default connectionsSlice.reducer

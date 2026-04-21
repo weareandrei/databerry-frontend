@@ -1,7 +1,7 @@
 'use client'
 
 import { useDashboard } from '@/contexts/DashboardContext'
-import { FolderGrid } from '@/components/dashboard/folder/FolderGrid'
+import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 
 export default function AllFoldersPage() {
   const { folders: foldersCtx } = useDashboard()

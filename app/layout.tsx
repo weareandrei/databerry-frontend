@@ -3,6 +3,7 @@ import { Inter, Bricolage_Grotesque } from 'next/font/google'
 import Script from 'next/script'
 import { Toaster } from 'sonner'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { PostHogProvider } from '@/app/(components)/PostHogProvider'
 import './globals.css'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -66,11 +67,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
 
       <body className="min-h-full bg-background text-foreground">
-        <AuthProvider>
-          <Analytics />
-          {children}
-          <Toaster position="bottom-right" richColors />
-        </AuthProvider>
+        <PostHogProvider>
+          <AuthProvider>
+            <Analytics />
+            {children}
+            <Toaster position="bottom-right" richColors />
+          </AuthProvider>
+        </PostHogProvider>
       </body>
     </html>
   )

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ArrowLeft, CaretRight } from '@phosphor-icons/react'
-import { ConnectionIcon } from '@/components/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import {

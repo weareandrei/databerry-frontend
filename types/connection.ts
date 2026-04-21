@@ -3,6 +3,8 @@ export type ConnectionType =
   | 'stripe'
   | 'stripe_manual'
   | 'calendly'
+  | 'google_analytics'
+  | 'vercel'
   | 'x'
   | 'reddit'
   | 'gmail'
@@ -19,4 +21,7 @@ export interface Connection {
   projectId?: string | null
   createdAt: string
   webhookId?: string | null
+  gaPropertyId?: string | null
+  gaPropertyName?: string | null
+  vercelProjectName?: string | null
 }

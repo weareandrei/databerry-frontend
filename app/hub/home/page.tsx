@@ -1,21 +1,19 @@
 'use client'
 
 import { useState } from 'react'
-import { PushPin, MagnifyingGlass } from '@phosphor-icons/react'
+import { MagnifyingGlass } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { DashboardSectionWrapper } from '@/components/dashboard/shared/DashboardSectionWrapper'
-import { GlobalDateChange } from '@/components/dashboard/shared/GlobalDateChange'
-import { ProjectsGrid } from '@/components/dashboard/project/ProjectsGrid'
-import { ViewCard } from '@/components/dashboard/view/ViewCard'
+import { GlobalDateChange } from '@/app/hub/home/(components)/GlobalDateChanger/GlobalDateChange'
+import { ProjectsGrid } from '@/app/hub/home/(components)/ProjectsGrid/ProjectsGrid'
+import PinnedViews from "@/app/hub/home/(components)/PinnedViews";
 
 export default function HomePage() {
-  const { projects: projectsCtx, pins } = useDashboard()
+  const { projects: projectsCtx, pins: pinsCtx } = useDashboard()
   const [query, setQuery] = useState('')
 
   return (
-    <div className="flex flex-col h-screen p-6 gap-5">
-      {/* Row 1: Search + Global date — always visible, static */}
-      <div className="shrink-0 flex items-center gap-4 pt-2">
+    <div className="flex flex-col h-screen pt-6 pr-6 gap-5 relative">
+      <div className="sticky shrink-0 flex items-center gap-4 z-50">
         <div className="flex-1 flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 shadow-sm">
           <MagnifyingGlass size={15} weight="bold" className="text-muted-foreground shrink-0" />
           <input
@@ -29,36 +27,10 @@ export default function HomePage() {
         <GlobalDateChange />
       </div>
 
-      {/* Row 2: Pinned views — always visible, static */}
-      {pins.pinnedViews.length > 0 && (
-        <div className="shrink-0">
-          <DashboardSectionWrapper
-            icon={<PushPin size={13} weight="bold" />}
-            title="Pinned"
-          >
-            <div
-              className="p-3 grid grid-cols-2 gap-3 grid-flow-dense"
-              style={{ gridAutoRows: '140px' }}
-            >
-              {pins.pinnedViews.map(view => {
-                const project = projectsCtx.projects.find(p => p.id === view.projectId)
-                return (
-                  <ViewCard
-                    key={view.id}
-                    view={view}
-                    onUntrack={id => pins.unpinView(id)}
-                    projectName={project?.name}
-                  />
-                )
-              })}
-            </div>
-          </DashboardSectionWrapper>
-        </div>
-      )}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-5 pb-6">
+        <PinnedViews pins={pinsCtx.pinnedViews} unpinView={pinsCtx.unpinView} loading={pinsCtx.loading} projects={projectsCtx.projects} />
 
-      {/* Row 3: Projects grid — takes remaining space, scrollable */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
-        <ProjectsGrid projects={projectsCtx.projects} />
+        <ProjectsGrid projects={projectsCtx.projects} loading={projectsCtx.loading} />
       </div>
     </div>
   )

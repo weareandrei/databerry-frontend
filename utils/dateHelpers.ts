@@ -1,5 +1,11 @@
+export function today(): Date {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+}
+
 export function toDateStr(d: Date): string {
-  return d.toISOString().split('T')[0]
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 export function isSameDay(a: Date, b: Date): boolean {

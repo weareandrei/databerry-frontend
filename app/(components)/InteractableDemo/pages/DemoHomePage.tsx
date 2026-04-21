@@ -1,7 +1,7 @@
 'use client'
 
 import { PushPin } from '@phosphor-icons/react'
-import { FolderGrid } from '@/components/dashboard/folder/FolderGrid'
+import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { useDemoContext } from '../context/DemoContext'
 import { DemoViewCard } from '../DemoViewCard'
 import type { DemoFolder } from '../context/DemoContext'

@@ -1,11 +1,11 @@
 import { Plus_Jakarta_Sans } from 'next/font/google'
 import { StoreProvider } from '@/store/StoreProvider'
 import { DashboardProvider } from '@/contexts/DashboardContext'
-import { Sidebar } from '@/components/layout/Sidebar'
-import { CreateProjectModal } from '@/components/modals/CreateProjectModal'
-import { CreateFolderModal } from '@/components/modals/CreateFolderModal'
-import { CreateConnectionModal } from '@/components/modals/CreateConnectionModal'
-import { CreateViewModal } from '@/components/modals/CreateViewModal'
+import { Sidebar } from '@/app/hub/(components)/Sidebar/Sidebar'
+import { CreateProjectModal } from '@/app/hub/(components)/modals/CreateProjectModal'
+import { CreateFolderModal } from '@/app/hub/(components)/modals/CreateFolderModal'
+import { CreateConnectionModal } from '@/app/hub/(components)/modals/CreateConnectionModal'
+import { CreateViewModal } from '@/app/hub/(components)/modals/CreateViewModal'
 
 const jakarta = Plus_Jakarta_Sans({
   variable: '--font-jakarta',

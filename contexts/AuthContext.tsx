@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { identifyUser, resetUser } from '@/lib/posthog'
 import type { User } from '@supabase/supabase-js'
 
 interface AuthContextValue {
@@ -26,7 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      const u = session?.user ?? null
+      setUser(u)
+      if (u) {
+        identifyUser(u.id, { email: u.email })
+      } else {
+        resetUser()
+      }
     })
 
     return () => subscription.unsubscribe()

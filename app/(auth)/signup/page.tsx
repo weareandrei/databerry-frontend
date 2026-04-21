@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { identifyUser, trackEvent } from '@/lib/posthog'
 import Navbar from '@/app/(components)/navbar'
-import { CanvasBackground } from '@/components/CanvasBackground'
-import {PhoneBezel} from "@/components/PhoneBezel";
+import { CanvasBackground } from '@/app/(components)/CanvasBackground'
+import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 
 export default function WishlistPage() {
   const [email, setEmail] = useState('')
@@ -28,6 +29,9 @@ export default function WishlistPage() {
       setLoading(false)
       return
     }
+
+    identifyUser(email, { email })
+    trackEvent('wishlist_signup', { email })
 
     setDone(true)
     setLoading(false)

@@ -5,12 +5,14 @@ interface ViewsState {
   items: View[]
   loading: boolean
   error: string | null
+  refreshKey: number
 }
 
 const initialState: ViewsState = {
   items: [],
   loading: false,
   error: null,
+  refreshKey: 0,
 }
 
 const viewsSlice = createSlice({
@@ -22,6 +24,7 @@ const viewsSlice = createSlice({
     },
     addViews(state, action: PayloadAction<View[]>) {
       state.items.push(...action.payload)
+      state.refreshKey += 1
     },
     removeView(state, action: PayloadAction<string>) {
       state.items = state.items.filter(v => v.id !== action.payload)

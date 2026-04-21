@@ -3,7 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Xarrow from 'react-xarrows'
 import { motion } from 'framer-motion'
-import { CanvasBackground } from '@/components/CanvasBackground'
+import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 
 // Shared variant factory — hero elements animate in on mount, staggered
 const heroFade = (delay: number) => ({

@@ -2,7 +2,7 @@
 
 import { Plus, Trash } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
-import { ConnectionIcon } from '@/components/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { useDemoContext } from '../context/DemoContext'
 import type { DemoConnection } from '../context/DemoContext'
 

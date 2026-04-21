@@ -10,9 +10,28 @@ export function useViews() {
   const dispatch = useDispatch<AppDispatch>()
   const views = useSelector((state: RootState) => state.views.items)
   const loading = useSelector((state: RootState) => state.views.loading)
+  const refreshKey = useSelector((state: RootState) => state.views.refreshKey)
   const isModalOpen = useSelector((state: RootState) => state.ui.createViewModalOpen)
   const createViewFolderId = useSelector((state: RootState) => state.ui.createViewFolderId)
   const createViewProjectId = useSelector((state: RootState) => state.ui.createViewProjectId)
+
+  const fetchViewsByProject = async (projectId: string, from: string, to: string): Promise<View[]> => {
+    try {
+      return await ALGORITHM.getViewsByProject(projectId, from, to)
+    } catch {
+      toast.error('Failed to load views')
+      return []
+    }
+  }
+
+  const fetchViewsByFolder = async (folderId: string, from: string, to: string): Promise<View[]> => {
+    try {
+      return await ALGORITHM.getViewsByFolder(folderId, from, to)
+    } catch {
+      toast.error('Failed to load views')
+      return []
+    }
+  }
 
   const loadViewsForFolder = async (folderId: string) => {
     try {
@@ -53,7 +72,10 @@ export function useViews() {
   return {
     views,
     loading,
+    refreshKey,
     isModalOpen,
+    fetchViewsByProject,
+    fetchViewsByFolder,
     createViewFolderId,
     createViewProjectId,
     loadViewsForFolder,

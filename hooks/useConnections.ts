@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import type { RootState, AppDispatch } from '@/store'
-import { setConnections, addConnection, removeConnection } from '@/store/slices/connectionsSlice'
+import { setConnections, addConnection, removeConnection, setLoading } from '@/store/slices/connectionsSlice'
 import { openCreateConnectionModal, closeCreateConnectionModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
 import type { Connection } from '@/types/connection'
@@ -16,11 +16,14 @@ export function useConnections() {
   )
 
   const loadConnections = async () => {
+    dispatch(setLoading(true))
     try {
       const data = await ALGORITHM.getConnections()
       dispatch(setConnections(data))
     } catch {
       toast.error('Failed to load connections')
+    } finally {
+      dispatch(setLoading(false))
     }
   }
 

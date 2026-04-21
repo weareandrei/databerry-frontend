@@ -5,13 +5,17 @@ import type { View } from '@/types/view'
 
 export function usePins() {
   const [pinnedViews, setPinnedViews] = useState<View[]>([])
+  const [loading, setLoading] = useState(false)
 
   const loadPinnedViews = useCallback(async () => {
+    setLoading(true)
     try {
       const data = await ALGORITHM.getPinnedViews()
       setPinnedViews(data)
     } catch {
       // Silently ignore — pinned section just stays empty
+    } finally {
+      setLoading(false)
     }
   }, [])
 
@@ -34,5 +38,5 @@ export function usePins() {
     }
   }
 
-  return { pinnedViews, loadPinnedViews, pinView, unpinView }
+  return { pinnedViews, loading, loadPinnedViews, pinView, unpinView }
 }

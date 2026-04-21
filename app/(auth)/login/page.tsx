@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { GoogleButton } from '@/components/auth/GoogleButton'
+import { GoogleButton } from '@/app/(auth)/(components)/GoogleButton'
 import { toast } from 'sonner'
 
 export default function LoginPage() {

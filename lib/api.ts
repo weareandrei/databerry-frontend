@@ -21,6 +21,12 @@ export interface CalendlyMeeting {
   description: string | null
 }
 
+export interface GAProperty {
+  id: string
+  name: string
+  displayName: string
+}
+
 export interface PosthogEventDefinition {
   id: string
   name: string
@@ -55,7 +61,9 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     const body = await res.json().catch(() => ({}))
     throw new Error((body as { message?: string })?.message ?? `API error ${res.status}`)
   }
-  return res.json() as Promise<T>
+  const text = await res.text()
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
 }
 
 export const ALGORITHM = {
@@ -115,28 +123,54 @@ export const ALGORITHM = {
 
   getCalendlyOAuthUrl: () => apiFetch<{ url: string }>('/calendly/oauth/start'),
 
-  getCalendlyLiveValue: (connectionId: string, viewType: string) =>
+  getCalendlyLiveValue: (connectionId: string, viewType: string, date?: string) =>
     apiFetch<{ value: string }>(
-      `/calendly/live-value?connectionId=${connectionId}&viewType=${viewType}`,
+      `/calendly/views/live-value?connectionId=${connectionId}&viewType=${viewType}${date ? `&date=${date}` : ''}`,
     ),
 
   getCalendlyMeetingsList: (connectionId: string) =>
     apiFetch<{ meetings: CalendlyMeeting[] }>(
-      `/calendly/meetings-list?connectionId=${connectionId}`,
+      `/calendly/views/meetings-list?connectionId=${connectionId}`,
+    ),
+
+  // ── Google Analytics ─────────────────────────────────────────────────────
+
+  getGoogleAnalyticsOAuthUrl: () =>
+    apiFetch<{ url: string }>('/google-analytics/oauth/start'),
+
+  getGoogleAnalyticsProperties: (connectionId: string) =>
+    apiFetch<{ properties: GAProperty[] }>(`/google-analytics/properties?connectionId=${connectionId}`),
+
+  saveGoogleAnalyticsProperty: (connectionId: string, propertyId: string) =>
+    apiFetch<{ ok: boolean }>(`/google-analytics/property?connectionId=${connectionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ propertyId }),
+    }),
+
+  getGoogleAnalyticsLiveValue: (connectionId: string, viewType: string, date?: string) =>
+    apiFetch<{ value: string }>(
+      `/google-analytics/views/live-value?connectionId=${connectionId}&viewType=${viewType}${date ? `&date=${date}` : ''}`,
+    ),
+
+  // ── Vercel ───────────────────────────────────────────────────────────────
+
+  getVercelProjects: (token: string) =>
+    apiFetch<{ projects: { id: string; name: string }[] }>(
+      `/vercel/connection/projects?token=${encodeURIComponent(token)}`,
     ),
 
   // ── Stripe ────────────────────────────────────────────────────────────────
 
   getStripeOAuthUrl: () => apiFetch<{ url: string }>('/stripe/oauth/start'),
 
-  getStripeManualLiveValue: (connectionId: string, viewType: string) =>
+  getStripeManualLiveValue: (connectionId: string, viewType: string, date?: string) =>
     apiFetch<{ value: string }>(
-      `/stripe-manual/live-value?connectionId=${connectionId}&viewType=${viewType}`,
+      `/stripe/views/live-value?connectionId=${connectionId}&viewType=${viewType}${date ? `&date=${date}` : ''}`,
     ),
 
   getStripeManualChartData: (connectionId: string, viewType: string) =>
     apiFetch<{ points: { label: string; value: number }[] }>(
-      `/stripe-manual/chart-data?connectionId=${connectionId}&viewType=${viewType}`,
+      `/stripe/views/chart-data?connectionId=${connectionId}&viewType=${viewType}`,
     ),
 
   // ── Webhook Keys ──────────────────────────────────────────────────────────
@@ -166,6 +200,11 @@ export const ALGORITHM = {
     ),
 
   getPinnedViews: () => apiFetch<View[]>('/views/pinned'),
+
+  getPosthogLiveValue: (connectionId: string, viewId: string, date?: string) =>
+    apiFetch<{ value: string }>(
+      `/posthog/views/live-value?connectionId=${connectionId}&viewId=${viewId}${date ? `&date=${date}` : ''}`,
+    ),
 
   createView: (body: Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>) =>
     apiFetch<View>('/views', { method: 'POST', body: JSON.stringify(body) }),

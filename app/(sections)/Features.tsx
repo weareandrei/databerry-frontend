@@ -2,11 +2,11 @@
 import { useRef, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { ViewCard } from '@/components/dashboard/view/ViewCard'
-import { ViewCardChart } from '@/components/dashboard/view/ViewCardChart'
+import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
+import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { CheckCircle, ArrowRight } from '@phosphor-icons/react'
 import type { View } from '@/types/view'
-import { RevealOnScroll } from '@/components/RevealOnScroll'
+import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
 
 // ─── fake data helpers ────────────────────────────────────────────────────────
 

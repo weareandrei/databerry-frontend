@@ -1,7 +1,18 @@
 'use client'
-import { useRef, useState, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import InteractableDemo from '@/app/(components)/InteractableDemo/InteractableDemo'
+import { useMobileBreakpoint } from '@/hooks/useMobileBreakpoint'
+
+function DemoBadge() {
+  return (
+    <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
+      <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
+        Interactable demo
+      </span>
+    </span>
+  )
+}
 
 interface DemoCardProps {
   cardRef: React.RefObject<HTMLDivElement | null>
@@ -11,14 +22,7 @@ interface DemoCardProps {
 }
 
 function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps) {
-  const [isMobile, setIsMobile] = useState(false)
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
+  const isMobile = useMobileBreakpoint()
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -48,27 +52,17 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
           <div className="rounded-2xl bg-white/35 overflow-hidden">
             {isMobile ? (
               <div className="relative">
-                {/* Shrinking spacer */}
                 <motion.div style={{ height: spacerHeight }} />
-                {/* Badge floats absolutely, moves up and fades out */}
                 <motion.div
                   className="absolute inset-x-0 top-0 flex justify-center py-3 pointer-events-none"
                   style={{ opacity: badgeOpacity, y: badgeY }}
                 >
-                  <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
-                    <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
-                      Interractable demo
-                    </span>
-                  </span>
+                  <DemoBadge />
                 </motion.div>
               </div>
             ) : (
               <div className="flex justify-center py-3">
-                <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
-                  <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
-                    Interractable demo
-                  </span>
-                </span>
+                <DemoBadge />
               </div>
             )}
 
@@ -107,13 +101,16 @@ function useDemoLayout(cardRef: React.RefObject<HTMLDivElement | null>) {
 
     calculate()
     window.addEventListener('resize', calculate)
+    // Re-measure after hero entrance animation finishes
+    // (heroFade delay 1.5s + duration 0.7s = 2.2s)
+    const animationTimer = setTimeout(calculate, 2300)
 
-    // Hero section changes height when fonts/canvas settle — recalculate then
     const hero = document.querySelector<HTMLElement>('section')
     const ro = new ResizeObserver(calculate)
     if (hero) ro.observe(hero)
 
     return () => {
+      clearTimeout(animationTimer)
       window.removeEventListener('resize', calculate)
       ro.disconnect()
     }

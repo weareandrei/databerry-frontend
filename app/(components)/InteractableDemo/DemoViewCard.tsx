@@ -1,8 +1,8 @@
 'use client'
 
-import { ViewCard } from '@/components/dashboard/view/ViewCard'
-import { ViewCardChart } from '@/components/dashboard/view/ViewCardChart'
-import { ViewCardList } from '@/components/dashboard/view/ViewCardList'
+import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
+import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
+import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
 import type { DemoView, DemoConnection } from './context/DemoContext'
 import type { View as RealView } from '@/types/view'
 

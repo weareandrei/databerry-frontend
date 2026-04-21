@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { XLogo } from '@phosphor-icons/react'
-import { RevealOnScroll } from '@/components/RevealOnScroll'
+import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
 
 export function Footer() {
   return (

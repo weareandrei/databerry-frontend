@@ -3,6 +3,8 @@ export const CONNECTION_DISPLAY_NAMES: Record<string, string> = {
   stripe: 'Stripe (Connect)',
   stripe_manual: 'Stripe',
   calendly: 'Calendly',
+  google_analytics: 'Google Analytics',
+  vercel: 'Vercel',
   webhook: 'Webhook',
   sentry: 'Sentry',
   github: 'GitHub',

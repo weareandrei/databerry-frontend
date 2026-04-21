@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useMobileBreakpoint } from '@/hooks/useMobileBreakpoint'
 import {
   House,
   Folders,
@@ -183,15 +184,8 @@ function DemoSidebarContents({
 }
 
 export function DemoSidebar() {
-  const [isMobile, setIsMobile] = useState(false)
+  const isMobile = useMobileBreakpoint()
   const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768)
-    check()
-    window.addEventListener('resize', check)
-    return () => window.removeEventListener('resize', check)
-  }, [])
 
   if (!isMobile) {
     return (
