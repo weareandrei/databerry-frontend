@@ -23,6 +23,8 @@ interface ViewHeaderProps {
   refreshing?: boolean
   onPin?: () => void
   isPinned?: boolean
+  /** Compact layout: small icon + small title on a single line, no connection label / project chip. */
+  compact?: boolean
 }
 
 export function ViewHeader({
@@ -38,28 +40,46 @@ export function ViewHeader({
   refreshing = false,
   onPin,
   isPinned = false,
+  compact = false,
 }: ViewHeaderProps) {
   return (
-    <div className="flex items-start justify-between gap-1 px-4 pt-3.5 pb-0 shrink-0">
-      <div className="flex items-center gap-2 min-w-0">
-        <ConnectionIcon
-          type={connectionType}
-          size={34}
-          className="shrink-0 text-grey-dark"
-        />
-        <div className="min-w-0">
-          <p className="text-md font-semibold leading-tight truncate text-grey-dark">{name}</p>
-          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-            <p className="text-sm text-grey-light leading-tight">{connectionLabel}</p>
-            {projectName && (
-              <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
-                <Cube size={9} weight="bold" />
-                {projectName}
-              </span>
-            )}
+    <div
+      className={
+        compact
+          ? 'flex items-center justify-between gap-1 px-4 pt-3 pb-0 shrink-0'
+          : 'flex items-start justify-between gap-1 px-4 pt-3.5 pb-0 shrink-0'
+      }
+    >
+      {compact ? (
+        <div className="flex items-center gap-1.5 min-w-0">
+          <ConnectionIcon
+            type={connectionType}
+            size={14}
+            className="shrink-0 text-grey-dark"
+          />
+          <p className="text-sm font-semibold leading-tight truncate text-grey-dark">{name}</p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 min-w-0">
+          <ConnectionIcon
+            type={connectionType}
+            size={34}
+            className="shrink-0 text-grey-dark"
+          />
+          <div className="min-w-0">
+            <p className="text-md font-semibold leading-tight truncate text-grey-dark">{name}</p>
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              <p className="text-sm text-grey-light leading-tight">{connectionLabel}</p>
+              {projectName && (
+                <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
+                  <Cube size={9} weight="bold" />
+                  {projectName}
+                </span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
       <div className="flex items-center gap-0.5 shrink-0">
         {isDisconnected && (
           <TooltipProvider>

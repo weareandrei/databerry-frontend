@@ -12,4 +12,5 @@ export const CONNECTION_DISPLAY_NAMES: Record<string, string> = {
   reddit: 'Reddit',
   gmail: 'Gmail',
   custom: 'Custom',
+  composite: 'Project overview',
 }

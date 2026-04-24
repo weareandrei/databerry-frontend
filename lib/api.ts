@@ -104,13 +104,26 @@ export const ALGORITHM = {
 
   getConnections: () => apiFetch<Connection[]>('/connections'),
 
-  createConnection: (body: { name: string; type: string; config?: Record<string, unknown> }) =>
+  createConnection: (body: {
+    name: string
+    type: string
+    // projectId: null / undefined ⇒ "Common" (shared across all projects).
+    projectId?: string | null
+    config?: Record<string, unknown>
+  }) =>
     apiFetch<Connection>('/connections', { method: 'POST', body: JSON.stringify(body) }),
 
   updateConnection: (connectionId: string, body: { name?: string }) =>
     apiFetch<Connection>(`/connections/${connectionId}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
+    }),
+
+  // Reassign a connection to a different project, or to "Common" (projectId=null).
+  updateConnectionProject: (connectionId: string, projectId: string | null) =>
+    apiFetch<Connection>(`/connections/${connectionId}/project`, {
+      method: 'PATCH',
+      body: JSON.stringify({ projectId }),
     }),
 
   deleteConnection: (connectionId: string) =>
@@ -123,14 +136,19 @@ export const ALGORITHM = {
 
   getCalendlyOAuthUrl: () => apiFetch<{ url: string }>('/calendly/oauth/start'),
 
-  getCalendlyLiveValue: (connectionId: string, viewType: string, date?: string) =>
-    apiFetch<{ value: string }>(
-      `/calendly/views/live-value?connectionId=${connectionId}&viewType=${viewType}${date ? `&date=${date}` : ''}`,
+  getCalendlyLiveValue: (
+    connectionId: string,
+    viewType: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) =>
+    apiFetch<{ value: string | null; unavailable?: boolean }>(
+      `/calendly/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
-  getCalendlyMeetingsList: (connectionId: string) =>
+  getCalendlyMeetingsList: (connectionId: string, dateFrom?: string, dateTo?: string) =>
     apiFetch<{ meetings: CalendlyMeeting[] }>(
-      `/calendly/views/meetings-list?connectionId=${connectionId}`,
+      `/calendly/views/meetings-list?connectionId=${connectionId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
   // ── Google Analytics ─────────────────────────────────────────────────────
@@ -147,9 +165,14 @@ export const ALGORITHM = {
       body: JSON.stringify({ propertyId }),
     }),
 
-  getGoogleAnalyticsLiveValue: (connectionId: string, viewType: string, date?: string) =>
-    apiFetch<{ value: string }>(
-      `/google-analytics/views/live-value?connectionId=${connectionId}&viewType=${viewType}${date ? `&date=${date}` : ''}`,
+  getGoogleAnalyticsLiveValue: (
+    connectionId: string,
+    viewType: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) =>
+    apiFetch<{ value: string | null; unavailable?: boolean }>(
+      `/google-analytics/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
   // ── Vercel ───────────────────────────────────────────────────────────────
@@ -163,14 +186,25 @@ export const ALGORITHM = {
 
   getStripeOAuthUrl: () => apiFetch<{ url: string }>('/stripe/oauth/start'),
 
-  getStripeManualLiveValue: (connectionId: string, viewType: string, date?: string) =>
-    apiFetch<{ value: string }>(
-      `/stripe/views/live-value?connectionId=${connectionId}&viewType=${viewType}${date ? `&date=${date}` : ''}`,
+  getStripeManualLiveValue: (
+    connectionId: string,
+    viewType: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) =>
+    apiFetch<{ value: string | null; unavailable?: boolean }>(
+      `/stripe/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
-  getStripeManualChartData: (connectionId: string, viewType: string) =>
+  getStripeManualChartData: (
+    connectionId: string,
+    viewType: string,
+    dateFrom?: string,
+    dateTo?: string,
+    mode?: 'daily' | 'weekly' | 'monthly',
+  ) =>
     apiFetch<{ points: { label: string; value: number }[] }>(
-      `/stripe/views/chart-data?connectionId=${connectionId}&viewType=${viewType}`,
+      `/stripe/views/chart-data?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${mode ? `&mode=${mode}` : ''}`,
     ),
 
   // ── Webhook Keys ──────────────────────────────────────────────────────────
@@ -201,13 +235,27 @@ export const ALGORITHM = {
 
   getPinnedViews: () => apiFetch<View[]>('/views/pinned'),
 
-  getPosthogLiveValue: (connectionId: string, viewId: string, date?: string) =>
-    apiFetch<{ value: string }>(
-      `/posthog/views/live-value?connectionId=${connectionId}&viewId=${viewId}${date ? `&date=${date}` : ''}`,
+  getPosthogLiveValue: (
+    connectionId: string,
+    viewId: string,
+    dateFrom?: string,
+    dateTo?: string,
+  ) =>
+    apiFetch<{ value: string | null; unavailable?: boolean }>(
+      `/posthog/views/live-value?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
   createView: (body: Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>) =>
     apiFetch<View>('/views', { method: 'POST', body: JSON.stringify(body) }),
+
+  updateView: (
+    viewId: string,
+    body: { config?: Record<string, unknown>; name?: string },
+  ) =>
+    apiFetch<View>(`/views/${viewId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
 
   pinView: (viewId: string) =>
     apiFetch<void>(`/views/${viewId}/pin`, { method: 'POST' }),
@@ -216,4 +264,123 @@ export const ALGORITHM = {
     apiFetch<void>(`/views/${viewId}/unpin`, { method: 'POST' }),
 
   deleteView: (viewId: string) => apiFetch<void>(`/views/${viewId}`, { method: 'DELETE' }),
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Settings
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface UserSettings {
+  userId: string
+  preferredTrafficConnectionId: string | null
+}
+
+export const USER_SETTINGS = {
+  get: () => apiFetch<UserSettings>('/user-settings'),
+
+  update: (patch: { preferredTrafficConnectionId?: string | null }) =>
+    apiFetch<UserSettings>('/user-settings', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    }),
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Project Settings (per-project intelligence configuration)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProjectSettings {
+  projectId: string
+  conversionConnectionId: string | null
+  conversionEvent: string | null
+}
+
+export const PROJECT_SETTINGS = {
+  get: (projectId: string) =>
+    apiFetch<ProjectSettings>(`/project-settings/${projectId}`),
+
+  update: (
+    projectId: string,
+    patch: { conversionConnectionId?: string | null; conversionEvent?: string | null },
+  ) =>
+    apiFetch<ProjectSettings>(`/project-settings/${projectId}`, {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    }),
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Project Overview (composite intelligence view)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface OverviewBucket {
+  label: string
+  total: number
+  bySource: { source: string; label: string; color: string; value: number }[]
+  secondary: number | null
+}
+
+export interface OverviewChartResponse {
+  buckets: OverviewBucket[]
+  totalPrimary: number
+  totalSecondary: number | null
+  primaryUnavailable?: boolean
+  secondaryUnavailable?: boolean
+  trafficProvider: 'google_analytics' | 'posthog' | null
+}
+
+export interface OverviewSource {
+  source: string
+  label: string
+  color: string
+  visitors: number
+  share: number
+}
+
+export interface OverviewUser {
+  pseudoId: string
+  source: string
+  label: string
+  color: string
+  sessionSec: number
+  lastSeen: string
+}
+
+export interface OverviewUsersResponse {
+  users: OverviewUser[]
+  provider: 'google_analytics' | 'posthog' | null
+}
+
+export const PROJECT_OVERVIEW = {
+  getChart: (
+    projectId: string,
+    dateFrom: string,
+    dateTo: string,
+    mode: 'daily' | 'weekly' | 'monthly',
+    primaryMetric: 'visitors' | 'pageviews' | 'conversions' | 'revenue',
+    secondaryMetric:
+      | 'conversion_rate'
+      | 'bounce_rate'
+      | 'avg_session_sec'
+      | 'revenue'
+      | null,
+  ) =>
+    apiFetch<OverviewChartResponse>(
+      `/project-overview/chart?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&mode=${mode}&primaryMetric=${primaryMetric}&secondaryMetric=${secondaryMetric ?? 'none'}`,
+    ),
+
+  getSources: (projectId: string, dateFrom: string, dateTo: string, limit = 10) =>
+    apiFetch<{ sources: OverviewSource[] }>(
+      `/project-overview/sources?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
+    ),
+
+  getUsers: (projectId: string, dateFrom: string, dateTo: string, limit = 100) =>
+    apiFetch<OverviewUsersResponse>(
+      `/project-overview/users?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
+    ),
+
+  getConversionEvents: (connectionId: string) =>
+    apiFetch<{ events: { name: string }[] }>(
+      `/project-overview/conversion-events?connectionId=${connectionId}`,
+    ),
 }

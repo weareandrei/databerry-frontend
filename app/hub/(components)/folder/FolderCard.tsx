@@ -44,7 +44,7 @@ export function FolderCard({ folder, onDelete, onCreateSubfolder, onClick }: Fol
           </button>
 
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex items-center justify-center w-6 h-6 rounded text-grey-light hover:text-grey-dark shrink-0">
+            <DropdownMenuTrigger className="flex items-center justify-center w-6 h-6 rounded cursor-pointer text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors shrink-0 -mr-1">
               <DotsThreeVertical size={18} weight="bold" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">

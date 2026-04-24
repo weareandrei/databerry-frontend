@@ -7,10 +7,12 @@ import { ProjectViewBreadCrumbs } from './ProjectViewBreadCrumbs'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart, type ChartPoint } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
+import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
+import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ALGORITHM, type CalendlyMeeting } from '@/lib/api'
-import { toDateStr, today } from '@/utils/dateHelpers'
+import { periodBoundaries, today } from '@/utils/dateHelpers'
 import type { RootState } from '@/store'
 import type { Project } from '@/types/project'
 import type { Folder } from '@/types/folder'
@@ -20,7 +22,7 @@ import { Button } from '@/components/ui/button'
 
 // ── View type helpers ──────────────────────────────────────────────────────
 
-const CHART_VIEW_TYPES = new Set(['stripe_gross_today', 'stripe_gross_week'])
+const CHART_VIEW_TYPES = new Set(['stripe_gross_today', 'stripe_gross_week', 'stripe_gross'])
 const LIST_VIEW_TYPES = new Set(['calendly_meetings_list'])
 const STRIPE_MANUAL_LIVE_TYPES = ['stripe_revenue_today']
 const CALENDLY_LIVE_TYPES = ['calendly_meetings_today']
@@ -45,15 +47,16 @@ function fetchLiveValue(
   isStripeManualLive: boolean,
   isCalendlyLive: boolean,
   isPosthogLive: boolean,
-  date: string,
-): Promise<{ value: string }> {
-  if (isStripeManualLive) return ALGORITHM.getStripeManualLiveValue(view.connectionId!, view.type, date)
-  if (isCalendlyLive) return ALGORITHM.getCalendlyLiveValue(view.connectionId!, view.type, date)
-  if (isPosthogLive) return ALGORITHM.getPosthogLiveValue(view.connectionId!, view.id, date)
-  return ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId!, view.type, date)
+  dateFrom: string,
+  dateTo: string,
+): Promise<{ value: string | null; unavailable?: boolean }> {
+  if (isStripeManualLive) return ALGORITHM.getStripeManualLiveValue(view.connectionId!, view.type, dateFrom, dateTo)
+  if (isCalendlyLive) return ALGORITHM.getCalendlyLiveValue(view.connectionId!, view.type, dateFrom, dateTo)
+  if (isPosthogLive) return ALGORITHM.getPosthogLiveValue(view.connectionId!, view.id, dateFrom, dateTo)
+  return ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId!, view.type, dateFrom, dateTo)
 }
 
-function useLiveValue(view: View, date: string) {
+function useLiveValue(view: View, dateFrom: string, dateTo: string) {
   const isStripeManualLive =
     view.connectionType === 'stripe_manual' && STRIPE_MANUAL_LIVE_TYPES.includes(view.type)
   const isCalendlyLive =
@@ -72,11 +75,11 @@ function useLiveValue(view: View, date: string) {
     if (!isLive || !view.connectionId) return
     setLiveLoading(true)
     setLiveError(null)
-    fetchLiveValue(view, isStripeManualLive, isCalendlyLive, isPosthogLive, date)
-      .then(res => setLiveValue(res.value))
+    fetchLiveValue(view, isStripeManualLive, isCalendlyLive, isPosthogLive, dateFrom, dateTo)
+      .then(res => setLiveValue(res.unavailable ? null : res.value))
       .catch(err => setLiveError(err instanceof Error ? err.message : 'Failed to fetch'))
       .finally(() => setLiveLoading(false))
-  }, [view.connectionId, view.type, isLive, date, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.connectionId, view.type, isLive, dateFrom, dateTo, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = useCallback(() => {
     if (isLive && view.connectionId) setRefreshTick(t => t + 1)
@@ -90,73 +93,71 @@ function useLiveValue(view: View, date: string) {
   }
 }
 
-function useChartData(view: View, isRange: boolean) {
+function useChartData(
+  view: View,
+  dateFrom: string,
+  dateTo: string,
+  mode: 'daily' | 'weekly' | 'monthly',
+) {
   const isChart = isChartView(view)
   const [points, setPoints] = useState<ChartPoint[]>([])
-  const [loading, setLoading] = useState(isChart && !isRange)
+  const [loading, setLoading] = useState(isChart)
   const [error, setError] = useState<string | null>(null)
-  const [total, setTotal] = useState<number | null>(
-    isRange && view.value != null ? parseInt(view.value, 10) : null,
-  )
+  const [total, setTotal] = useState<number | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
     if (!isChart) return
-    if (isRange) {
-      setLoading(false)
-      setTotal(view.value != null ? parseInt(view.value, 10) : null)
-      setPoints([])
-      return
-    }
     if (!view.connectionId) return
     setLoading(true)
     setError(null)
     Promise.all([
-      ALGORITHM.getStripeManualChartData(view.connectionId, view.type),
-      ALGORITHM.getStripeManualLiveValue(view.connectionId, view.type),
+      ALGORITHM.getStripeManualChartData(view.connectionId, view.type, dateFrom, dateTo, mode),
+      ALGORITHM.getStripeManualLiveValue(view.connectionId, view.type, dateFrom, dateTo),
     ])
       .then(([chartRes, liveRes]) => {
         setPoints(chartRes.points)
-        setTotal(parseInt(liveRes.value, 10))
+        setTotal(liveRes.value != null && !liveRes.unavailable ? parseInt(liveRes.value, 10) : null)
       })
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false))
-  }, [view.connectionId, view.type, isRange, view.value, isChart, refreshTick])
+  }, [view.connectionId, view.type, dateFrom, dateTo, mode, isChart, refreshTick])
 
   const refresh = useCallback(() => {
-    if (isChart && !isRange && view.connectionId) setRefreshTick(t => t + 1)
-  }, [isChart, isRange, view.connectionId])
+    if (isChart && view.connectionId) setRefreshTick(t => t + 1)
+  }, [isChart, view.connectionId])
 
-  return { points, loading, error, total, refresh: isChart && !isRange ? refresh : undefined }
+  return { points, loading, error, total, refresh: isChart ? refresh : undefined }
 }
 
-function useCalendlyMeetings(view: View, isRange: boolean) {
+function useCalendlyMeetings(view: View, dateFrom: string, dateTo: string) {
   const [meetings, setMeetings] = useState<CalendlyMeeting[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
-    if (view.type !== 'calendly_meetings_list' || isRange || !view.connectionId) return
+    if (view.type !== 'calendly_meetings_list' || !view.connectionId) return
     setLoading(true)
     setError(null)
-    ALGORITHM.getCalendlyMeetingsList(view.connectionId)
+    ALGORITHM.getCalendlyMeetingsList(view.connectionId, dateFrom, dateTo)
       .then(res => setMeetings(res.meetings))
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to fetch'))
       .finally(() => setLoading(false))
-  }, [view.connectionId, view.type, isRange, refreshTick])
+  }, [view.connectionId, view.type, dateFrom, dateTo, refreshTick])
 
   const refresh = useCallback(() => {
-    if (!isRange && view.connectionId) setRefreshTick(t => t + 1)
-  }, [isRange, view.connectionId])
+    if (view.connectionId) setRefreshTick(t => t + 1)
+  }, [view.connectionId])
 
-  return { meetings, loading, error, refresh: !isRange ? refresh : undefined }
+  return { meetings, loading, error, refresh }
 }
 
 // ── Project-level state hook ───────────────────────────────────────────────
 
 function useProjectView(project: Project) {
   const { folders: foldersCtx, views: viewsCtx, pins: pinsCtx } = useDashboard()
+  const globalDateMode = useSelector((s: RootState) => s.ui.globalDateMode)
   const globalDateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const globalDateTo = useSelector((s: RootState) => s.ui.globalDateTo)
 
@@ -165,8 +166,11 @@ function useProjectView(project: Project) {
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
 
-  // isRange = selected date is not today (single-date mode: from always equals to)
-  const isRange = globalDateFrom !== toDateStr(today())
+  // isRange = selected period is not the current period in the current mode.
+  // Used for gating behaviours that only apply to historical data.
+  const currentBoundaries = periodBoundaries(globalDateMode, today())
+  const isRange =
+    globalDateFrom !== currentBoundaries.from || globalDateTo !== currentBoundaries.to
 
   const currentFolder = currentFolderId
     ? (foldersCtx.folders.find(f => f.id === currentFolderId) ?? null)
@@ -230,7 +234,9 @@ function useProjectView(project: Project) {
     currentFolder,
     subFolders,
     isRange,
-    selectedDate: globalDateFrom,
+    dateFrom: globalDateFrom,
+    dateTo: globalDateTo,
+    mode: globalDateMode,
     isEmpty,
     handleUntrack,
     handlePin,
@@ -243,16 +249,18 @@ function useProjectView(project: Project) {
 
 // ── View card renderer ─────────────────────────────────────────────────────
 
-function ViewCardRenderer({ view, isRange, date, onUntrack, onPin }: {
+function ViewCardRenderer({ view, isRange, dateFrom, dateTo, mode, onUntrack, onPin }: {
   view: View
   isRange: boolean
-  date: string
+  dateFrom: string
+  dateTo: string
+  mode: 'daily' | 'weekly' | 'monthly'
   onUntrack: (id: string) => void
   onPin: (viewId: string) => void
 }) {
-  const { liveValue, liveLoading, liveError, refresh: liveRefresh } = useLiveValue(view, date)
-  const { points, loading: chartLoading, error: chartError, total, refresh: chartRefresh } = useChartData(view, isRange)
-  const { meetings, loading: listLoading, error: listError, refresh: listRefresh } = useCalendlyMeetings(view, isRange)
+  const { liveValue, liveLoading, liveError, refresh: liveRefresh } = useLiveValue(view, dateFrom, dateTo)
+  const { points, loading: chartLoading, error: chartError, total, refresh: chartRefresh } = useChartData(view, dateFrom, dateTo, mode)
+  const { meetings, loading: listLoading, error: listError, refresh: listRefresh } = useCalendlyMeetings(view, dateFrom, dateTo)
 
   const handlePin = () => onPin(view.id)
 
@@ -299,7 +307,9 @@ export function ProjectView({ project }: ProjectViewProps) {
     currentFolder,
     subFolders,
     isRange,
-    selectedDate,
+    dateFrom,
+    dateTo,
+    mode,
     isEmpty,
     handleUntrack,
     handlePin,
@@ -341,10 +351,14 @@ export function ProjectView({ project }: ProjectViewProps) {
             </Button>
           </div>
         }
-        className="sticky top-0 left-0 z-[10]"
+        // Flush against the bottom of the global top bar (which has its own
+        // `border-b` acting as the divider between the two sticky rows).
+        // Matches PinnedViews' sticky header for consistent stacking.
+        className="sticky top-[74px] left-0 z-[10]"
       />
       {!collapsed && (
         <ProjectBody
+          projectId={project.id}
           currentFolder={currentFolder}
           handleBack={handleBack}
           subFolders={subFolders}
@@ -353,7 +367,9 @@ export function ProjectView({ project }: ProjectViewProps) {
           handleFolderClick={handleFolderClick}
           views={views}
           isRange={isRange}
-          selectedDate={selectedDate}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          mode={mode}
           handleUntrack={handleUntrack}
           handlePin={handlePin}
           isEmpty={isEmpty}
@@ -366,6 +382,7 @@ export function ProjectView({ project }: ProjectViewProps) {
 // ── Project body ───────────────────────────────────────────────────────────
 
 interface ProjectBodyProps {
+  projectId: string
   currentFolder: Folder | null
   handleBack: () => void
   subFolders: Folder[]
@@ -378,13 +395,16 @@ interface ProjectBodyProps {
   handleFolderClick: (folder: Folder) => void
   views: View[]
   isRange: boolean
-  selectedDate: string
+  dateFrom: string
+  dateTo: string
+  mode: 'daily' | 'weekly' | 'monthly'
   handleUntrack: (viewId: string) => void
   handlePin: (viewId: string) => void
   isEmpty: boolean
 }
 
 function ProjectBody({
+  projectId,
   currentFolder,
   handleBack,
   subFolders,
@@ -393,7 +413,9 @@ function ProjectBody({
   handleFolderClick,
   views,
   isRange,
-  selectedDate,
+  dateFrom,
+  dateTo,
+  mode,
   handleUntrack,
   handlePin,
   isEmpty,
@@ -410,40 +432,79 @@ function ProjectBody({
         </button>
       )}
 
-      {subFolders.length > 0 && (
-        <div className="mb-5">
-          <FolderGrid
-            folders={subFolders}
-            onDeleteFolder={foldersCtx.deleteFolder}
-            onCreateSubfolder={foldersCtx.openModal}
-            onFolderClick={id => {
-              const f = foldersCtx.folders.find(fl => fl.id === id)
-              if (f) handleFolderClick(f)
-            }}
-          />
-        </div>
-      )}
+      <div className="mb-5">
+        <FolderGrid
+          folders={subFolders}
+          onDeleteFolder={foldersCtx.deleteFolder}
+          onCreateSubfolder={foldersCtx.openModal}
+          onCreateFolder={() => foldersCtx.openModal(currentFolder?.id ?? null, projectId)}
+          onFolderClick={id => {
+            const f = foldersCtx.folders.find(fl => fl.id === id)
+            if (f) handleFolderClick(f)
+          }}
+        />
+      </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <ArrowsClockwise size={16} weight="bold" className="text-muted-foreground animate-spin" />
         </div>
       ) : views.length > 0 ? (
-        <div
-          className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
-          style={{ gridAutoRows: '140px' }}
-        >
-          {views.map(view => (
-            <ViewCardRenderer
-              key={view.id}
-              view={view}
-              isRange={isRange}
-              date={selectedDate}
-              onUntrack={handleUntrack}
-              onPin={handlePin}
-            />
-          ))}
-        </div>
+        (() => {
+          const chartView = views.find(v => v.type === 'project_overview')
+          const sourcesView = views.find(v => v.type === 'project_overview_sources')
+          const regularViews = views.filter(
+            v => v.type !== 'project_overview' && v.type !== 'project_overview_sources',
+          )
+          return (
+            <div className="flex flex-col gap-6">
+              {(chartView || sourcesView) && (
+                <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
+                  {chartView && (
+                    <ViewCardOverviewChart
+                      key={chartView.id}
+                      view={chartView}
+                      dateFrom={dateFrom}
+                      dateTo={dateTo}
+                      mode={mode}
+                      onUntrack={handleUntrack}
+                      onPin={handlePin}
+                    />
+                  )}
+                  {sourcesView && (
+                    <ViewCardOverviewSources
+                      key={sourcesView.id}
+                      view={sourcesView}
+                      dateFrom={dateFrom}
+                      dateTo={dateTo}
+                      onUntrack={handleUntrack}
+                      onPin={handlePin}
+                    />
+                  )}
+                </div>
+              )}
+              {regularViews.length > 0 && (
+                <div
+                  className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
+                  style={{ gridAutoRows: '140px' }}
+                >
+                  {regularViews.map(view => (
+                    <ViewCardRenderer
+                      key={view.id}
+                      view={view}
+                      isRange={isRange}
+                      dateFrom={dateFrom}
+                      dateTo={dateTo}
+                      mode={mode}
+                      onUntrack={handleUntrack}
+                      onPin={handlePin}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()
       ) : isEmpty ? (
         <p className="text-xs text-muted-foreground py-10">
           {isRange

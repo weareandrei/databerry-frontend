@@ -1,17 +1,13 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
+import { GlobalDateMode, periodBoundaries, shiftPeriod } from '@/utils/dateHelpers'
 
 function todayISO(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function shiftISO(iso: string, days: number): string {
-  const d = new Date(iso + 'T00:00:00')
-  d.setDate(d.getDate() + days)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 interface UiState {
+  globalDateMode: GlobalDateMode
   globalDateFrom: string
   globalDateTo: string
   createProjectModalOpen: boolean
@@ -26,6 +22,7 @@ interface UiState {
 }
 
 const initialState: UiState = {
+  globalDateMode: 'daily',
   globalDateFrom: todayISO(),
   globalDateTo: todayISO(),
   createProjectModalOpen: false,
@@ -47,13 +44,36 @@ const uiSlice = createSlice({
       state.globalDateFrom = action.payload.from
       state.globalDateTo = action.payload.to
     },
-    shiftGlobalRange(state, action: PayloadAction<number>) {
+    setGlobalDateMode(state, action: PayloadAction<GlobalDateMode>) {
+      state.globalDateMode = action.payload
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      const { from, to } = periodBoundaries(action.payload, now)
+      state.globalDateFrom = from
+      state.globalDateTo = to
+    },
+    shiftGlobalPeriod(state, action: PayloadAction<1 | -1>) {
       const today = todayISO()
-      const newTo = shiftISO(state.globalDateTo, action.payload)
-      // Don't shift forward past actual today
-      if (newTo > today) return
-      state.globalDateFrom = shiftISO(state.globalDateFrom, action.payload)
-      state.globalDateTo = newTo
+      const { from, to } = shiftPeriod(
+        state.globalDateMode,
+        state.globalDateFrom,
+        state.globalDateTo,
+        action.payload
+      )
+      // Never advance past today: if the new `from` is already past today, refuse.
+      if (from > today) return
+      // Cap `to` at today so we don't display a future end boundary.
+      state.globalDateFrom = from
+      state.globalDateTo = to > today ? today : to
+    },
+    resetGlobalToCurrent(state) {
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
+      const { from, to } = periodBoundaries(state.globalDateMode, now)
+      state.globalDateFrom = from
+      // Cap `to` at today (e.g. within a current week/month we shouldn't show future dates).
+      const todayStr = todayISO()
+      state.globalDateTo = to > todayStr ? todayStr : to
     },
     openCreateProjectModal(state) {
       state.createProjectModalOpen = true
@@ -94,7 +114,9 @@ const uiSlice = createSlice({
 
 export const {
   setGlobalRange,
-  shiftGlobalRange,
+  setGlobalDateMode,
+  shiftGlobalPeriod,
+  resetGlobalToCurrent,
   openCreateProjectModal,
   closeCreateProjectModal,
   openCreateFolderModal,

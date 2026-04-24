@@ -14,7 +14,7 @@ const STRIPE_MANUAL_LIVE_TYPES = ['stripe_revenue_today']
 const CALENDLY_LIVE_TYPES = ['calendly_meetings_today']
 const GA_LIVE_TYPES = ['ga_active_users', 'ga_users_today', 'ga_sessions_today', 'ga_pageviews_today']
 
-function usePinnedLiveValue(view: View, selectedDate: string) {
+function usePinnedLiveValue(view: View, dateFrom: string, dateTo: string) {
   const isStripeManualLive = view.connectionType === 'stripe_manual' && STRIPE_MANUAL_LIVE_TYPES.includes(view.type)
   const isCalendlyLive = view.connectionType === 'calendly' && CALENDLY_LIVE_TYPES.includes(view.type)
   const isGALive = view.connectionType === 'google_analytics' && GA_LIVE_TYPES.includes(view.type)
@@ -30,16 +30,16 @@ function usePinnedLiveValue(view: View, selectedDate: string) {
     if (!isLive || !view.connectionId) return
     setLiveLoading(true)
     setLiveError(null)
-    let req: Promise<{ value: string }>
-    if (isStripeManualLive) req = ALGORITHM.getStripeManualLiveValue(view.connectionId, view.type, selectedDate)
-    else if (isCalendlyLive) req = ALGORITHM.getCalendlyLiveValue(view.connectionId, view.type, selectedDate)
-    else if (isPosthogLive) req = ALGORITHM.getPosthogLiveValue(view.connectionId, view.id, selectedDate)
-    else req = ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId, view.type, selectedDate)
+    let req: Promise<{ value: string | null; unavailable?: boolean }>
+    if (isStripeManualLive) req = ALGORITHM.getStripeManualLiveValue(view.connectionId, view.type, dateFrom, dateTo)
+    else if (isCalendlyLive) req = ALGORITHM.getCalendlyLiveValue(view.connectionId, view.type, dateFrom, dateTo)
+    else if (isPosthogLive) req = ALGORITHM.getPosthogLiveValue(view.connectionId, view.id, dateFrom, dateTo)
+    else req = ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId, view.type, dateFrom, dateTo)
     req
-      .then(res => setLiveValue(res.value))
+      .then(res => setLiveValue(res.unavailable ? null : res.value))
       .catch(err => setLiveError(err instanceof Error ? err.message : 'Failed to fetch'))
       .finally(() => setLiveLoading(false))
-  }, [view.connectionId, view.type, isLive, selectedDate, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.connectionId, view.type, isLive, dateFrom, dateTo, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = useCallback(() => {
     if (isLive && view.connectionId) setRefreshTick(t => t + 1)
@@ -51,15 +51,17 @@ function usePinnedLiveValue(view: View, selectedDate: string) {
 function PinnedViewCard({
   view,
   projectName,
-  selectedDate,
+  dateFrom,
+  dateTo,
   onUnpin,
 }: {
   view: View
   projectName?: string
-  selectedDate: string
+  dateFrom: string
+  dateTo: string
   onUnpin: (id: string) => void
 }) {
-  const { liveValue, liveLoading, liveError, refresh } = usePinnedLiveValue(view, selectedDate)
+  const { liveValue, liveLoading, liveError, refresh } = usePinnedLiveValue(view, dateFrom, dateTo)
   return (
     <ViewCard
       view={view}
@@ -84,10 +86,18 @@ interface PinnedViewsProps {
 }
 
 const PinnedViews = ({ pins, unpinView, loading = false, projects = [] }: PinnedViewsProps) => {
-  const selectedDate = useSelector((s: RootState) => s.ui.globalDateFrom)
+  const dateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
+  const dateTo = useSelector((s: RootState) => s.ui.globalDateTo)
 
+  // NOTE: no `overflow-hidden` on the wrapper. `overflow: hidden` on an
+  // ancestor establishes a containing block for `position: sticky` children —
+  // the sticky header then tries to stick relative to this wrapper instead of
+  // the viewport, which breaks the intended "pin under the top bar"
+  // behaviour. `ProjectView` doesn't clip, so it works; we match that here.
+  // The rounded corners are preserved by giving the sticky header its own
+  // `rounded-t-xl` so its `bg-main` doesn't paint past the wrapper's border.
   return (
-    <div className="shrink-0 rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
+    <div className="shrink-0 rounded-xl border border-stroke bg-white shadow-card">
       <SectionHeader
         icon={
           <span
@@ -98,6 +108,13 @@ const PinnedViews = ({ pins, unpinView, loading = false, projects = [] }: Pinned
           </span>
         }
         title={<span className="text-base font-bold text-grey-darkest">Pinned</span>}
+        // Flush against the bottom of the global top bar (which has its own
+        // `border-b` acting as the divider between the two sticky rows).
+        // `rounded-t-xl` replaces the removed wrapper clip so the header's
+        // top corners stay rounded when the section is at rest inside its
+        // wrapper; once stuck, the corners sit against the page bg (same
+        // colour as the header's `bg-main`), so they're visually neutral.
+        className="sticky top-[74px] left-0 z-[10] rounded-t-xl"
       />
       {loading ? (
         <div className="flex items-center justify-center py-8">
@@ -119,7 +136,8 @@ const PinnedViews = ({ pins, unpinView, loading = false, projects = [] }: Pinned
                 key={pin.id}
                 view={pin}
                 projectName={projectName}
-                selectedDate={selectedDate}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
                 onUnpin={unpinView}
               />
             )

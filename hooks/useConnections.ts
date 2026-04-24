@@ -1,7 +1,13 @@
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import type { RootState, AppDispatch } from '@/store'
-import { setConnections, addConnection, removeConnection, setLoading } from '@/store/slices/connectionsSlice'
+import {
+  setConnections,
+  addConnection,
+  removeConnection,
+  updateConnection as updateConnectionAction,
+  setLoading,
+} from '@/store/slices/connectionsSlice'
 import { openCreateConnectionModal, closeCreateConnectionModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
 import type { Connection } from '@/types/connection'
@@ -41,6 +47,22 @@ export function useConnections() {
     }
   }
 
+  // Reassign a connection to a different project, or to "Common" (projectId=null).
+  // Optimistic: patch the Redux item immediately; on error, revert + toast.
+  const reassignProject = async (connectionId: string, projectId: string | null) => {
+    const existing = connections.find(c => c.id === connectionId)
+    if (!existing) return
+    dispatch(updateConnectionAction({ ...existing, projectId }))
+    try {
+      const updated = await ALGORITHM.updateConnectionProject(connectionId, projectId)
+      dispatch(updateConnectionAction(updated))
+      return updated
+    } catch {
+      dispatch(updateConnectionAction(existing))
+      toast.error('Failed to reassign connection')
+    }
+  }
+
   const deleteConnection = async (connectionId: string) => {
     const existing = connections.find(c => c.id === connectionId)
     dispatch(removeConnection(connectionId))
@@ -60,6 +82,7 @@ export function useConnections() {
     loadConnections,
     getConnectionsByType,
     createConnection,
+    reassignProject,
     deleteConnection,
     openModal: (folderId: string | null = null) => dispatch(openCreateConnectionModal(folderId)),
     closeModal: () => dispatch(closeCreateConnectionModal()),

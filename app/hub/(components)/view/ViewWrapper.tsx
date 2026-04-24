@@ -2,12 +2,25 @@
 
 import { cn } from '@/lib/utils'
 
+export type ViewVariant = 'default' | 'borderless'
+
 interface ViewWrapperProps {
   children: React.ReactNode
   className?: string
+  variant?: ViewVariant
 }
 
-export function ViewWrapper({ children, className }: ViewWrapperProps) {
+export function ViewWrapper({ children, className, variant = 'default' }: ViewWrapperProps) {
+  if (variant === 'borderless') {
+    return (
+      <div className={cn('relative h-full', className)}>
+        <div className="relative flex flex-col h-full rounded-xl bg-white">
+          {children}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={cn('relative h-full group', className)}>
       {/* Shadow notch — darkens on hover */}

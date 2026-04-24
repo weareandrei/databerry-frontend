@@ -1,7 +1,15 @@
 'use client'
 
 import { Suspense, useState, useEffect } from 'react'
-import { PlugsConnected, Trash, Plus, ArrowsClockwise, Cube } from '@phosphor-icons/react'
+import {
+  PlugsConnected,
+  Trash,
+  Plus,
+  ArrowsClockwise,
+  ArrowsLeftRight,
+  Check,
+  Cube,
+} from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
@@ -19,7 +27,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import type { Connection } from '@/types/connection'
+import type { Project } from '@/types/project'
 
 function OAuthCallbacks() {
   useOAuthCallback('stripe')
@@ -128,10 +143,71 @@ function GoogleAnalyticsPropertyPicker() {
   )
 }
 
-const CLICKABLE_TYPES = new Set(['vercel', 'webhook', 'google_analytics'])
+// ── Reassign-project button ─────────────────────────────────────────────────
+//
+// Always-visible (not hover-gated) — the user asked for this explicitly, on the
+// grounds that seeing/changing which project a connection belongs to is a
+// first-class action, not a hidden one. Clicking anywhere on this trigger
+// stops propagation so the row's own onClick (detail modal) doesn't fire.
+
+function ReassignProjectMenu({
+  connection,
+  projects,
+  onReassign,
+}: {
+  connection: Connection
+  projects: Project[]
+  onReassign: (projectId: string | null) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        onClick={e => e.stopPropagation()}
+        className="flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-grey-darkest transition-colors"
+        title="Reassign to project"
+      >
+        <ArrowsLeftRight size={14} weight="bold" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        onClick={e => e.stopPropagation()}
+        className="min-w-[220px]"
+      >
+        <DropdownMenuItem
+          onClick={e => {
+            e.stopPropagation()
+            onReassign(null)
+          }}
+          className="gap-2 text-sm"
+        >
+          <span className="w-4 shrink-0">
+            {connection.projectId == null && <Check size={12} weight="bold" />}
+          </span>
+          <span className="flex-1">Common (shared)</span>
+        </DropdownMenuItem>
+        {projects.map(p => (
+          <DropdownMenuItem
+            key={p.id}
+            onClick={e => {
+              e.stopPropagation()
+              onReassign(p.id)
+            }}
+            className="gap-2 text-sm"
+          >
+            <span className="w-4 shrink-0">
+              {connection.projectId === p.id && <Check size={12} weight="bold" />}
+            </span>
+            <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
+            <span className="flex-1 truncate">{p.name}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 export default function ConnectionsPage() {
-  const { connections } = useDashboard()
+  const { connections, projects: projectsCtx } = useDashboard()
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null)
 
   return (
@@ -182,36 +258,33 @@ export default function ConnectionsPage() {
         ) : (
           <div className="divide-y divide-stroke">
             {connections.connections.map(connection => {
-              const isClickable = CLICKABLE_TYPES.has(connection.type)
+              // Resolve the project label. null == "Common" (shared across
+              // every project this user owns). Type-specific pills
+              // (gaPropertyName, vercelProjectName) live in the detail modal
+              // now — the row shows exactly one badge: the project scope.
+              const projectName = connection.projectId
+                ? (projectsCtx.projects.find(p => p.id === connection.projectId)?.name ?? 'Project')
+                : 'Common'
               return (
                 <div
                   key={connection.id}
-                  onClick={isClickable ? () => setSelectedConnection(connection) : undefined}
-                  className={`group flex items-center justify-between gap-3 px-4 py-3 transition-colors ${
-                    isClickable ? 'cursor-pointer hover:bg-main' : 'hover:bg-main/50'
-                  }`}
+                  onClick={() => setSelectedConnection(connection)}
+                  className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-main"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <ConnectionIcon type={connection.type} size={20} className="text-grey-dark shrink-0" />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-grey-dark truncate">
-                          {connection.vercelProjectName
-                            ? connection.name.replace(` · ${connection.vercelProjectName}`, '')
-                            : connection.name}
+                          {connection.name}
                         </p>
-                        {connection.gaPropertyName && (
-                          <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
-                            <Cube size={9} weight="bold" />
-                            {connection.gaPropertyName}
-                          </span>
-                        )}
-                        {connection.vercelProjectName && (
-                          <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
-                            <Cube size={9} weight="bold" />
-                            {connection.vercelProjectName}
-                          </span>
-                        )}
+                        <span
+                          className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0"
+                          title={connection.projectId ? 'Project scope' : 'Shared across all projects'}
+                        >
+                          <Cube size={9} weight="bold" />
+                          {projectName}
+                        </span>
                       </div>
                       <p className="text-xs text-grey-light">
                         {CONNECTION_DISPLAY_NAMES[connection.type] ?? connection.type} · Connected{' '}
@@ -219,13 +292,20 @@ export default function ConnectionsPage() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={e => { e.stopPropagation(); connections.deleteConnection(connection.id) }}
-                    className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-destructive transition-colors"
-                    title="Delete"
-                  >
-                    <Trash size={14} weight="bold" />
-                  </button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <ReassignProjectMenu
+                      connection={connection}
+                      projects={projectsCtx.projects}
+                      onReassign={id => connections.reassignProject(connection.id, id)}
+                    />
+                    <button
+                      onClick={e => { e.stopPropagation(); connections.deleteConnection(connection.id) }}
+                      className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-destructive transition-colors"
+                      title="Delete"
+                    >
+                      <Trash size={14} weight="bold" />
+                    </button>
+                  </div>
                 </div>
               )
             })}

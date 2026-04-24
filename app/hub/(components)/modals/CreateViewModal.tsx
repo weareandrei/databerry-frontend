@@ -58,7 +58,7 @@ type WebhookStep = {
 type StripeManualStep = {
   connectionId: string
   connectionName: string
-  viewType: 'stripe_gross_today' | 'stripe_gross_week' | 'stripe_revenue_today' | null
+  viewType: 'stripe_gross' | 'stripe_revenue_today' | null
 }
 
 type CalendlyStep = {
@@ -350,6 +350,52 @@ export function CreateViewModal() {
     }
   }
 
+  // Composite Overview — creates BOTH the chart and the sources views in one call.
+  // They're independent DB rows so the user can later remove one without the other.
+  const handleCreateOverviewView = async () => {
+    if (!views.createViewProjectId) return
+    setTracking(true)
+    try {
+      await views.createViews([
+        {
+          projectId: views.createViewProjectId,
+          folderId: views.createViewFolderId,
+          connectionId: null,
+          connectionType: 'composite',
+          type: 'project_overview',
+          name: 'Overview',
+          config: { primaryMetric: 'visitors', secondaryMetric: null },
+          value: null,
+        },
+        {
+          projectId: views.createViewProjectId,
+          folderId: views.createViewFolderId,
+          connectionId: null,
+          connectionType: 'composite',
+          type: 'project_overview_sources',
+          name: 'Sources',
+          config: { sourcesLimit: 10 },
+          value: null,
+        },
+      ])
+      views.closeModal()
+    } finally {
+      setTracking(false)
+    }
+  }
+
+  // Detect existing overview at the target location (best effort — relies on Redux cache).
+  // We consider the overview "present" when either half exists; picking the tile again
+  // when only one half is missing would duplicate the other, so the user should re-add
+  // the missing half individually (not supported in v1 — deletion removes one; this
+  // tile is an all-or-nothing shortcut).
+  const overviewAlreadyExists = views.views.some(
+    v =>
+      (v.type === 'project_overview' || v.type === 'project_overview_sources') &&
+      v.projectId === views.createViewProjectId &&
+      (v.folderId ?? null) === (views.createViewFolderId ?? null),
+  )
+
   // Webhook — create the selected webhook view type
   const handleCreateWebhookView = async (
     connectionId: string,
@@ -469,9 +515,8 @@ export function CreateViewModal() {
     // Stripe Manual — view type picker
     if (stripeManualStep) {
       const nameMap: Record<string, string> = {
-        stripe_gross_today: 'Today Gross Volume',
-        stripe_gross_week: 'This Week Gross Volume',
-        stripe_revenue_today: 'Total Gross Revenue Today',
+        stripe_gross: 'Gross Volume',
+        stripe_revenue_today: 'Total Gross Revenue',
       }
       return (
         <div className="overflow-y-auto flex-1 px-4 py-4">
@@ -497,8 +542,8 @@ export function CreateViewModal() {
     // Calendly — view type picker
     if (calendlyStep) {
       const nameMap: Record<string, string> = {
-        calendly_meetings_today: 'Meetings Today',
-        calendly_meetings_list: "Today's Meeting List",
+        calendly_meetings_today: 'Meetings',
+        calendly_meetings_list: 'Meetings list',
       }
       return (
         <div className="overflow-y-auto flex-1 px-4 py-4">
@@ -525,9 +570,9 @@ export function CreateViewModal() {
     if (gaStep) {
       const nameMap: Record<string, string> = {
         ga_active_users: 'Active Users Right Now',
-        ga_users_today: 'Users Today',
-        ga_sessions_today: 'Sessions Today',
-        ga_pageviews_today: 'Pageviews Today',
+        ga_users_today: 'Users',
+        ga_sessions_today: 'Sessions',
+        ga_pageviews_today: 'Pageviews',
       }
       return (
         <div className="overflow-y-auto flex-1 px-4 py-4">
@@ -649,9 +694,39 @@ export function CreateViewModal() {
       )
     }
 
-    // Default — integration list
+    // Default — integration list (Overview tile pinned on top)
     return (
       <div className="overflow-y-auto flex-1 px-4 py-4">
+        {/* Composite "Overview" tile */}
+        <button
+          disabled={tracking || overviewAlreadyExists}
+          onClick={() => handleCreateOverviewView()}
+          className={cn(
+            'w-full flex items-center justify-between gap-3 py-3 px-1 -mx-1 rounded-md transition-colors mb-2',
+            overviewAlreadyExists
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-accent/40 cursor-pointer',
+          )}
+          title={overviewAlreadyExists ? 'An overview already exists here' : undefined}
+        >
+          <div className="flex items-center gap-3">
+            <ConnectionIcon type="composite" size={24} className="text-muted-foreground" />
+            <div className="text-left">
+              <p className="text-sm font-medium">Project Overview</p>
+              <p className="text-xs text-muted-foreground">
+                {overviewAlreadyExists
+                  ? 'Already added at this location'
+                  : 'Adds a stacked visitors chart and a sources breakdown as two views'}
+              </p>
+            </div>
+          </div>
+          {!overviewAlreadyExists && (
+            <span className="text-xs font-medium text-muted-foreground">
+              {tracking ? 'Creating…' : 'Add'}
+            </span>
+          )}
+        </button>
+        <Separator className="mb-1" />
         {INTEGRATIONS.map((integration, index) => {
           const isExpanded = expandedType === integration.type
           const existingConnections = connections.getConnectionsByType(integration.type)

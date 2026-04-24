@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Copy, Check } from '@phosphor-icons/react'
 import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
+import { useDashboard } from '@/contexts/DashboardContext'
 import { ALGORITHM, type GAProperty } from '@/lib/api'
 import { toast } from 'sonner'
 import {
@@ -186,6 +187,29 @@ function GenericDetail({ connection }: { connection: Connection }) {
   )
 }
 
+// Shown above every type-specific detail view. Surfaces the project scope
+// (or "Common") and the integration-specific label that used to live as a
+// pill on the connection list row (GA property, Vercel project) — so users
+// can still see these values at a glance after we moved them off the row.
+function SummaryBlock({ connection }: { connection: Connection }) {
+  const { projects } = useDashboard()
+  const projectName = connection.projectId
+    ? (projects.projects.find(p => p.id === connection.projectId)?.name ?? 'Project')
+    : 'Common (shared across projects)'
+
+  return (
+    <div className="rounded-lg border border-stroke bg-main p-3 space-y-2">
+      <Row label="Project" value={projectName} />
+      {connection.gaPropertyName && (
+        <Row label="GA property" value={connection.gaPropertyName} />
+      )}
+      {connection.vercelProjectName && (
+        <Row label="Vercel project" value={connection.vercelProjectName} />
+      )}
+    </div>
+  )
+}
+
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-start justify-between gap-4">
@@ -221,7 +245,8 @@ export function ConnectionDetailModal({ connection, onClose }: ConnectionDetailM
           onClose={onClose}
         />
 
-        <div className="overflow-y-auto flex-1 px-4 py-4">
+        <div className="overflow-y-auto flex-1 px-4 py-4 space-y-4">
+          <SummaryBlock connection={connection} />
           {connection.type === 'vercel' && <VercelDetail connection={connection} />}
           {connection.type === 'webhook' && <WebhookDetail connection={connection} />}
           {connection.type === 'google_analytics' && <GADetail connection={connection} onClose={onClose} />}

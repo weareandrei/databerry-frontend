@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { House, PlugsConnected, List, X, Robot, CaretDown, Plus, Cube } from '@phosphor-icons/react'
+import { House, PlugsConnected, List, X, Robot, CaretDown, Plus, Cube, Gear } from '@phosphor-icons/react'
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
 import { SidebarFolderItem } from './SidebarFolderItem'
@@ -79,6 +79,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
               <SidebarNavItem href="/hub/home" label="Home" icon={House} />
               <SidebarNavItem href="/hub/agent-chat" label="Ask AI" icon={Robot} />
               <SidebarNavItem href="/hub/connections" label="Connections" icon={PlugsConnected} />
+              <SidebarNavItem href="/hub/settings" label="Settings" icon={Gear} />
             </motion.nav>
           )}
         </AnimatePresence>
@@ -157,6 +158,16 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
                               {projectFolders.map(folder => (
                                 <SidebarFolderItem key={folder.id} folder={folder} />
                               ))}
+                              <button
+                                onClick={() => foldersCtx.openModal(null, project.id)}
+                                className="flex w-full items-center gap-1 rounded-md pr-3 transition-colors cursor-pointer hover:bg-hover-fill text-grey-light"
+                                style={{ paddingLeft: '26px' }}
+                              >
+                                <span className="shrink-0">
+                                  <Plus size={13} weight="bold" />
+                                </span>
+                                <span className="py-1.5 text-sm whitespace-nowrap">New folder</span>
+                              </button>
                             </div>
                           </motion.div>
                         )}
@@ -179,7 +190,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-64 screen sticky top-0 shrink-0">
+      <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-64 z-30">
         <SidebarContents />
       </aside>
 

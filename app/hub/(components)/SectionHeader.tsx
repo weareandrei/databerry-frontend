@@ -63,7 +63,7 @@ export function SectionHeader({
   return (
     <div
       className={cn(
-        'shrink-0 flex items-center gap-3 px-4 py-4 border-b border-stroke bg-main text-grey-darkest',
+        'shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-stroke bg-main text-grey-darkest',
         className)}
     >
       {leftContent}

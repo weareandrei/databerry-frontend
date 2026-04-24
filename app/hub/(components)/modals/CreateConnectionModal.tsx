@@ -1,19 +1,26 @@
 'use client'
 
 import { useState } from 'react'
-import { Copy, Check, Info } from '@phosphor-icons/react'
+import { Copy, Check, Info, Cube, CaretDown } from '@phosphor-icons/react'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ALGORITHM } from '@/lib/api'
 import type { Connection } from '@/types/connection'
+import type { Project } from '@/types/project'
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -413,9 +420,81 @@ function VercelCreatedView({ drainUrl, onDone }: { drainUrl: string; onDone: () 
   )
 }
 
+// ── Project picker ─────────────────────────────────────────────────────────
+
+// Shows up at the top of the modal across every view. The chosen value is
+// threaded into every createConnection(...) call below. Default is "Common"
+// (projectId = null) — shared across every project this user owns. OAuth
+// integrations (Calendly / GA / Stripe Connect) always land in Common for now
+// because the OAuth redirect flow doesn't carry this value; the user can
+// reassign via the always-visible button on the connection row afterwards.
+function ProjectPicker({
+  projects,
+  value,
+  onChange,
+  disabled,
+}: {
+  projects: Project[]
+  value: string | null
+  onChange: (id: string | null) => void
+  disabled?: boolean
+}) {
+  const selected = value ? projects.find(p => p.id === value) : null
+  const label = selected?.name ?? 'Common (shared across projects)'
+
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-medium text-muted-foreground">
+        Project
+      </label>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          disabled={disabled}
+          className="flex w-full items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2 text-left text-[13px] font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer disabled:opacity-60"
+        >
+          <Cube size={14} weight="bold" className="shrink-0 text-grey-dark" />
+          <span className="flex-1 truncate">{label}</span>
+          <CaretDown size={10} weight="bold" className="text-muted-foreground shrink-0" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="start"
+          className="w-[var(--radix-dropdown-menu-trigger-width,260px)] min-w-[260px]"
+        >
+          <DropdownMenuItem onClick={() => onChange(null)} className="gap-2 text-sm">
+            <span className="w-4 shrink-0">
+              {value === null && <Check size={12} weight="bold" />}
+            </span>
+            <span className="flex-1">Common (shared across projects)</span>
+          </DropdownMenuItem>
+          {projects.length === 0 ? (
+            <DropdownMenuItem disabled className="text-xs text-grey-light">
+              No projects yet.
+            </DropdownMenuItem>
+          ) : (
+            projects.map(p => (
+              <DropdownMenuItem
+                key={p.id}
+                onClick={() => onChange(p.id)}
+                className="gap-2 text-sm"
+              >
+                <span className="w-4 shrink-0">
+                  {value === p.id && <Check size={12} weight="bold" />}
+                </span>
+                <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
+                <span className="flex-1 truncate">{p.name}</span>
+              </DropdownMenuItem>
+            ))
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  )
+}
+
 export function CreateConnectionModal() {
-  const { connections } = useDashboard()
+  const { connections, projects: projectsCtx } = useDashboard()
   const [view, setView] = useState<View>('list')
+  const [projectId, setProjectId] = useState<string | null>(null)
   const [webhookCreated, setWebhookCreated] = useState<WebhookCreatedInfo | null>(null)
   const [vercelToken, setVercelToken] = useState('')
   const [vercelProjects, setVercelProjects] = useState<{ id: string; name: string }[]>([])
@@ -425,6 +504,7 @@ export function CreateConnectionModal() {
     if (!open) {
       connections.closeModal()
       setView('list')
+      setProjectId(null)
       setWebhookCreated(null)
       setVercelToken('')
       setVercelProjects([])
@@ -461,12 +541,13 @@ export function CreateConnectionModal() {
     }
   }
 
-  const handleVercelConnect = async (projectId: string, projectName: string) => {
+  const handleVercelConnect = async (vercelProjectId: string, projectName: string) => {
     try {
       const connection = await connections.createConnection({
         name: 'Vercel',
         type: 'vercel',
-        config: { apiToken: vercelToken, projectId, projectName },
+        projectId, // our internal project (or null = Common)
+        config: { apiToken: vercelToken, projectId: vercelProjectId, projectName },
       })
       if (!connection) return
       const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
@@ -510,24 +591,26 @@ export function CreateConnectionModal() {
     await connections.createConnection({
       name,
       type: 'stripe_manual',
+      projectId,
       config: { apiKey },
     })
     connections.closeModal()
     setView('list')
   }
 
-  const handlePostHogConnect = async (apiKey: string, projectId: string) => {
+  const handlePostHogConnect = async (apiKey: string, phProjectId: string) => {
     await connections.createConnection({
       name: 'PostHog',
       type: 'posthog',
-      config: { apiKey, projectId },
+      projectId, // our internal project (or null = Common)
+      config: { apiKey, projectId: phProjectId },
     })
     connections.closeModal()
     setView('list')
   }
 
   const handleWebhookConnect = async (name: string) => {
-    const connection = await connections.createConnection({ name, type: 'webhook' })
+    const connection = await connections.createConnection({ name, type: 'webhook', projectId })
     if (!connection) return
 
     try {
@@ -592,6 +675,19 @@ export function CreateConnectionModal() {
           onBack={onBack}
           onClose={() => handleOpenChange(false)}
         />
+
+        {/* Project scope picker — visible on every view so the user always
+            knows where the connection is being attached. Hidden on the final
+            "created" views since the connection already exists by then. */}
+        {view !== 'webhook-created' && view !== 'vercel-created' && (
+          <div className="px-4 pt-4">
+            <ProjectPicker
+              projects={projectsCtx.projects}
+              value={projectId}
+              onChange={setProjectId}
+            />
+          </div>
+        )}
 
         <div className="overflow-y-auto flex-1 px-4 py-4">
           {view === 'list' && (

@@ -9,6 +9,8 @@ import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart, type ChartPoint } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
+import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
+import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
 import type { View } from '@/types/view'
 import { toDateStr, isSameDay, addDays, formatDateLabel } from '@/utils/dateHelpers'
 
@@ -46,12 +48,12 @@ function useLiveValue(view: View, historical: boolean) {
     if (!isLive || !view.connectionId) return
     setLiveLoading(true)
     setLiveError(null)
-    let req: Promise<{ value: string }>
+    let req: Promise<{ value: string | null; unavailable?: boolean }>
     if (isStripeManualLive) req = ALGORITHM.getStripeManualLiveValue(view.connectionId, view.type)
     else if (isCalendlyLive) req = ALGORITHM.getCalendlyLiveValue(view.connectionId, view.type)
     else req = ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId, view.type)
     req
-      .then(res => setLiveValue(res.value))
+      .then(res => setLiveValue(res.unavailable ? null : res.value))
       .catch(err => setLiveError(err instanceof Error ? err.message : 'Failed to fetch'))
       .finally(() => setLiveLoading(false))
   }, [view.connectionId, view.type, isLive, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -90,7 +92,7 @@ function useChartData(view: View, historical: boolean) {
     ])
       .then(([chartRes, liveRes]) => {
         setPoints(chartRes.points)
-        setTotal(parseInt(liveRes.value, 10))
+        setTotal(liveRes.value != null && !liveRes.unavailable ? parseInt(liveRes.value, 10) : null)
       })
       .catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
       .finally(() => setLoading(false))
@@ -129,15 +131,42 @@ function useCalendlyMeetings(view: View, historical: boolean) {
 function ViewCardRouter({
   view,
   historical,
+  selectedDate,
   onUntrack,
 }: {
   view: View
   historical: boolean
+  selectedDate: Date
   onUntrack: (id: string) => void
 }) {
   const { liveValue, liveLoading, liveError, refresh: liveRefresh } = useLiveValue(view, historical)
   const { points, loading: chartLoading, error: chartError, total, refresh: chartRefresh } = useChartData(view, historical)
   const { meetings, loading: listLoading, error: listError, refresh: listRefresh } = useCalendlyMeetings(view, historical)
+
+  if (view.type === 'project_overview') {
+    const dateStr = toDateStr(selectedDate)
+    return (
+      <ViewCardOverviewChart
+        view={view}
+        dateFrom={dateStr}
+        dateTo={dateStr}
+        mode="daily"
+        onUntrack={onUntrack}
+      />
+    )
+  }
+
+  if (view.type === 'project_overview_sources') {
+    const dateStr = toDateStr(selectedDate)
+    return (
+      <ViewCardOverviewSources
+        view={view}
+        dateFrom={dateStr}
+        dateTo={dateStr}
+        onUntrack={onUntrack}
+      />
+    )
+  }
 
   if (isChartView(view))
     return (
@@ -281,19 +310,55 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
               Loading…
             </div>
           ) : folderViews.length > 0 ? (
-            <div
-              className="grid grid-cols-1 md:grid-cols-4 gap-3 grid-flow-dense"
-              style={{ gridAutoRows: '140px' }}
-            >
-              {folderViews.map(view => (
-                <ViewCardRouter
-                  key={view.id}
-                  view={view}
-                  historical={!isToday}
-                  onUntrack={viewsCtx.untrackView}
-                />
-              ))}
-            </div>
+            (() => {
+              const chartView = folderViews.find(v => v.type === 'project_overview')
+              const sourcesView = folderViews.find(v => v.type === 'project_overview_sources')
+              const regularViews = folderViews.filter(
+                v => v.type !== 'project_overview' && v.type !== 'project_overview_sources',
+              )
+              return (
+                <div className="flex flex-col gap-6">
+                  {(chartView || sourcesView) && (
+                    <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
+                      {chartView && (
+                        <ViewCardRouter
+                          key={chartView.id}
+                          view={chartView}
+                          historical={!isToday}
+                          selectedDate={selectedDate}
+                          onUntrack={viewsCtx.untrackView}
+                        />
+                      )}
+                      {sourcesView && (
+                        <ViewCardRouter
+                          key={sourcesView.id}
+                          view={sourcesView}
+                          historical={!isToday}
+                          selectedDate={selectedDate}
+                          onUntrack={viewsCtx.untrackView}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {regularViews.length > 0 && (
+                    <div
+                      className="grid grid-cols-1 md:grid-cols-4 gap-3 grid-flow-dense"
+                      style={{ gridAutoRows: '140px' }}
+                    >
+                      {regularViews.map(view => (
+                        <ViewCardRouter
+                          key={view.id}
+                          view={view}
+                          historical={!isToday}
+                          selectedDate={selectedDate}
+                          onUntrack={viewsCtx.untrackView}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })()
           ) : isEmpty ? (
             <div className="flex flex-col items-center justify-center py-24 text-center">
               <p className="text-muted-foreground text-sm">

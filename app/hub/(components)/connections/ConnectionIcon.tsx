@@ -9,6 +9,7 @@ import {
   EnvelopeSimple,
   WebhooksLogoIcon,
   PlugsConnected,
+  ChartBar,
 } from '@phosphor-icons/react'
 
 // Types that have a custom image in /public/connections/
@@ -29,6 +30,7 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   gmail: EnvelopeSimple,
   webhook: WebhooksLogoIcon,
   custom: PlugsConnected,
+  composite: ChartBar,
 }
 
 interface ConnectionIconProps {

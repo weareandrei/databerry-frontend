@@ -43,6 +43,7 @@ export function ViewCard({
 }: ViewCardProps) {
   const isDisconnected = !view.connectionId
   const displayValue = liveValue ?? view.value
+  const isUnknown = !liveLoading && !isDisconnected && !liveError && (displayValue == null || displayValue === '')
   const connectionLabel = CONNECTION_DISPLAY_NAMES[view.connectionType] ?? view.connectionType
 
   return (
@@ -68,6 +69,8 @@ export function ViewCard({
           <FetchErrorBadge message="No connection" />
         ) : liveError ? (
           <FetchErrorBadge message="Fetch failed" />
+        ) : isUnknown ? (
+          <span className="text-2xl font-semibold leading-none text-grey-light">Unknown</span>
         ) : (
           <span className="text-2xl font-semibold tabular-nums leading-none">
             {formatViewValue(displayValue, view.type)}
