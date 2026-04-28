@@ -118,9 +118,23 @@ function primaryLabel(m: OverviewPrimaryMetric): string {
   }
 }
 
+// Revenue values arrive already-in-dollars from the backend
+// (project-overview.service.ts converts Stripe's cents → dollars before
+// stuffing them into `byBucketTotal` / `bySecondary`). Dividing again here
+// produced the `$0.21` bug where tooltip and y-axis disagreed by 100×.
 function formatPrimary(v: number, m: OverviewPrimaryMetric): string {
-  if (m === 'revenue') return `$${(v / 100).toFixed(2)}`
+  if (m === 'revenue') return formatDollars(v)
   return v.toLocaleString()
+}
+
+function formatDollars(v: number): string {
+  return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+/** Short-form dollars for axis ticks: "$30", "$1.5k". */
+function formatDollarsShort(v: number): string {
+  if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`
+  return `$${Math.round(v)}`
 }
 
 function secondaryLabel(m: Exclude<OverviewSecondaryMetric, null>): string {
@@ -143,7 +157,8 @@ function formatSecondaryValue(v: number, m: Exclude<OverviewSecondaryMetric, nul
       return `${min}m ${sec}s`
     }
     case 'revenue':
-      return `$${(v / 100).toFixed(2)}`
+      // Same rationale as formatPrimary — already in dollars.
+      return formatDollars(v)
   }
 }
 
@@ -446,7 +461,9 @@ export function OverviewChart({
             tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={yAxisFormatter}
+            tickFormatter={(v: number) =>
+              primaryMetric === 'revenue' ? formatDollarsShort(v) : yAxisFormatter(v)
+            }
             domain={[0, yMax]}
             ticks={[0, yMax / 4, yMax / 2, (yMax * 3) / 4, yMax]}
           />
@@ -457,11 +474,13 @@ export function OverviewChart({
               tick={{ fontSize: 11, fill: SECONDARY_COLOR }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v: number) =>
-                secondaryMetric === 'conversion_rate' || secondaryMetric === 'bounce_rate'
-                  ? `${Math.round(v * 100)}%`
-                  : yAxisFormatter(v)
-              }
+              tickFormatter={(v: number) => {
+                if (secondaryMetric === 'conversion_rate' || secondaryMetric === 'bounce_rate') {
+                  return `${Math.round(v * 100)}%`
+                }
+                if (secondaryMetric === 'revenue') return formatDollarsShort(v)
+                return yAxisFormatter(v)
+              }}
             />
           )}
 

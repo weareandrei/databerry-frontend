@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import {
   ArrowsClockwise,
+  Cube,
   DotsThreeVertical,
   Gear,
   PushPin,
@@ -61,11 +62,10 @@ export function ViewCardOverviewSources({
   view,
   dateFrom,
   dateTo,
-  projectName: _projectName,
+  projectName,
   onUntrack,
   onPin,
 }: ViewCardOverviewSourcesProps) {
-  void _projectName
   const config = readConfig(view)
   const [tab, setTab] = useState<Tab>('sources')
   const [sources, setSources] = useState<TabState<OverviewSource[]>>(initialState)
@@ -154,6 +154,15 @@ export function ViewCardOverviewSources({
           <TabButton active={tab === 'users'} onClick={() => setTab('users')}>
             Users
           </TabButton>
+          {/* Project pill — only when the card is rendered away from its own
+              project page (e.g. pinned on Home). On the project page projectName
+              is not passed, so this is silently skipped. */}
+          {projectName && (
+            <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
+              <Cube size={9} weight="bold" />
+              {projectName}
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-0.5 shrink-0">

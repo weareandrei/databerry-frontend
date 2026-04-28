@@ -1,9 +1,10 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { GlobalDateMode, periodBoundaries, shiftPeriod } from '@/utils/dateHelpers'
+import { GlobalDateMode, periodBoundaries, shiftPeriod, toDateStr } from '@/utils/dateHelpers'
 
+// Wraps `toDateStr(new Date())` for readability at call sites. UTC-anchored
+// (matches how the backend interprets every dateFrom/dateTo string).
 function todayISO(): string {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return toDateStr(new Date())
 }
 
 interface UiState {
@@ -47,7 +48,7 @@ const uiSlice = createSlice({
     setGlobalDateMode(state, action: PayloadAction<GlobalDateMode>) {
       state.globalDateMode = action.payload
       const now = new Date()
-      now.setHours(0, 0, 0, 0)
+      now.setUTCHours(0, 0, 0, 0)
       const { from, to } = periodBoundaries(action.payload, now)
       state.globalDateFrom = from
       state.globalDateTo = to
@@ -68,7 +69,7 @@ const uiSlice = createSlice({
     },
     resetGlobalToCurrent(state) {
       const now = new Date()
-      now.setHours(0, 0, 0, 0)
+      now.setUTCHours(0, 0, 0, 0)
       const { from, to } = periodBoundaries(state.globalDateMode, now)
       state.globalDateFrom = from
       // Cap `to` at today (e.g. within a current week/month we shouldn't show future dates).

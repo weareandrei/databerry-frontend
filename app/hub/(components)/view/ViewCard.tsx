@@ -3,9 +3,11 @@
 import { ArrowsClockwise, Warning } from '@phosphor-icons/react'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
+import { IntegrationReauthBanner } from './IntegrationReauthBanner'
 import type { View } from '@/types/view'
 import { formatViewValue } from '@/utils/formatters'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
+import { IntegrationReauthError } from '@/lib/api'
 
 export function FetchErrorBadge({ message }: { message: string }) {
   return (
@@ -21,7 +23,14 @@ interface ViewCardProps {
   onUntrack?: (id: string) => void
   liveValue?: string | null
   liveLoading?: boolean
-  liveError?: string | null
+  /**
+   * `string` for legacy/generic fetch errors (rendered as "Fetch failed" badge),
+   * or an `IntegrationReauthError` instance when the OAuth refresh token is
+   * dead — the latter triggers an inline "Reconnect <Integration>" prompt
+   * that links into the existing OAuth start flow. See
+   * `lib/api.ts#IntegrationReauthError` and `IntegrationReauthBanner`.
+   */
+  liveError?: string | IntegrationReauthError | null
   projectName?: string
   onRefresh?: () => void
   refreshing?: boolean
@@ -45,6 +54,7 @@ export function ViewCard({
   const displayValue = liveValue ?? view.value
   const isUnknown = !liveLoading && !isDisconnected && !liveError && (displayValue == null || displayValue === '')
   const connectionLabel = CONNECTION_DISPLAY_NAMES[view.connectionType] ?? view.connectionType
+  const isReauthError = liveError instanceof IntegrationReauthError
 
   return (
     <ViewWrapper className="col-span-1 row-span-1">
@@ -67,6 +77,8 @@ export function ViewCard({
           <ArrowsClockwise size={14} weight="bold" className="text-muted-foreground animate-spin" />
         ) : isDisconnected ? (
           <FetchErrorBadge message="No connection" />
+        ) : isReauthError ? (
+          <IntegrationReauthBanner error={liveError as IntegrationReauthError} />
         ) : liveError ? (
           <FetchErrorBadge message="Fetch failed" />
         ) : isUnknown ? (

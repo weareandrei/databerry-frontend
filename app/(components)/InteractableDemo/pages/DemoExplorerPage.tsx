@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog'
+} from '@/components/ui/Dialog'
 import { Input } from '@/components/ui/input'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { useDemoContext } from '../context/DemoContext'

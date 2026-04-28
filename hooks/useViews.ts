@@ -63,6 +63,7 @@ export function useViews() {
     dispatch(removeView(viewId))
     try {
       await ALGORITHM.deleteView(viewId)
+      toast.success('View removed')
     } catch {
       if (existing) dispatch(addViews([existing]))
       toast.error('Failed to untrack view')

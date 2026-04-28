@@ -36,6 +36,40 @@ export interface PosthogEventDefinition {
   last_url: string | null
 }
 
+// ── Stripe products ──────────────────────────────────────────────────────────
+
+export interface StripeProductOption {
+  id: string
+  name: string
+  active: boolean
+}
+
+export interface StripeProductsForConnection {
+  products: StripeProductOption[]
+  selectedProductIds: string[]
+  /**
+   * Backfill of the underlying Stripe account is finished. While `false`, the
+   * picker shows an "Importing…" banner and polls `getStripeAccountStatus`.
+   */
+  backfillComplete: boolean
+  backfillStatus: 'pending' | 'in_progress' | 'complete' | 'error' | null
+  /**
+   * Last backfill error, populated when `backfillStatus === 'error'`. Surfaced
+   * in the picker so users can act on real Stripe errors (scope mismatches,
+   * key revocations) instead of staring at a generic "Importing…" banner.
+   */
+  backfillError: string | null
+  stripeAccountId: string | null
+}
+
+export interface StripeAccountStatus {
+  stripeAccountId: string
+  backfillStatus: 'pending' | 'in_progress' | 'complete' | 'error' | null
+  backfilledThrough: string | null
+  lastSyncedAt: string | null
+  backfillError: string | null
+}
+
 const BASE = process.env.NEXT_PUBLIC_API_URL
 
 async function getAuthHeader(): Promise<string> {
@@ -45,6 +79,47 @@ async function getAuthHeader(): Promise<string> {
   } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Not authenticated')
   return `Bearer ${session.access_token}`
+}
+
+/**
+ * Thrown when a `live-value` (or any other integration-backed) request
+ * comes back with the structured `INTEGRATION_NEEDS_REAUTH` body.
+ *
+ * The backend returns this when the OAuth refresh token is dead — most
+ * commonly because Google revoked it (Testing-mode 7-day rule, user
+ * disconnected the app, scope changed) or Calendly responded 4xx to a
+ * refresh attempt. The user MUST reconnect the integration; nothing the
+ * frontend retries will fix it.
+ *
+ * Callers should let this propagate up to UI that can render a
+ * "Reconnect <Integration>" prompt (see `IntegrationReauthBanner`).
+ */
+export class IntegrationReauthError extends Error {
+  readonly integration: 'google_analytics' | 'calendly'
+  readonly connectionId: string
+  constructor(integration: 'google_analytics' | 'calendly', connectionId: string, detail?: string) {
+    super(detail ?? `Reauth required for ${integration}`)
+    this.name = 'IntegrationReauthError'
+    this.integration = integration
+    this.connectionId = connectionId
+  }
+}
+
+interface IntegrationReauthBody {
+  error: 'INTEGRATION_NEEDS_REAUTH'
+  integration: 'google_analytics' | 'calendly'
+  connectionId: string
+  detail?: string
+}
+
+function isReauthBody(body: unknown): body is IntegrationReauthBody {
+  if (!body || typeof body !== 'object') return false
+  const b = body as Record<string, unknown>
+  return (
+    b.error === 'INTEGRATION_NEEDS_REAUTH' &&
+    (b.integration === 'google_analytics' || b.integration === 'calendly') &&
+    typeof b.connectionId === 'string'
+  )
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -59,6 +134,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
+    // Structured reauth signal from backend `IntegrationReauthRequiredException`.
+    // Surfaced as a typed error so view tiles can render the inline reconnect
+    // prompt instead of a generic "Fetch failed" badge.
+    if (res.status === 401 && isReauthBody(body)) {
+      throw new IntegrationReauthError(body.integration, body.connectionId, body.detail)
+    }
     throw new Error((body as { message?: string })?.message ?? `API error ${res.status}`)
   }
   const text = await res.text()
@@ -206,6 +287,21 @@ export const ALGORITHM = {
     apiFetch<{ points: { label: string; value: number }[] }>(
       `/stripe/views/chart-data?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${mode ? `&mode=${mode}` : ''}`,
     ),
+
+  /** List products available on a connection's Stripe account + current filter. */
+  getStripeProducts: (connectionId: string) =>
+    apiFetch<StripeProductsForConnection>(`/stripe/connections/${connectionId}/products`),
+
+  /** Save the per-connection product filter. Pass [] for "All products". */
+  saveStripeProducts: (connectionId: string, productIds: string[]) =>
+    apiFetch<{ selectedProductIds: string[] }>(`/stripe/connections/${connectionId}/products`, {
+      method: 'POST',
+      body: JSON.stringify({ productIds }),
+    }),
+
+  /** Backfill status for a Stripe account (modal polls this every few seconds). */
+  getStripeAccountStatus: (stripeAccountId: string) =>
+    apiFetch<StripeAccountStatus>(`/stripe/accounts/${stripeAccountId}/status`),
 
   // ── Webhook Keys ──────────────────────────────────────────────────────────
 

@@ -68,6 +68,7 @@ export function useConnections() {
     dispatch(removeConnection(connectionId))
     try {
       await ALGORITHM.deleteConnection(connectionId)
+      toast.success('Connection deleted')
     } catch {
       if (existing) dispatch(addConnection(existing))
       toast.error('Failed to delete connection')

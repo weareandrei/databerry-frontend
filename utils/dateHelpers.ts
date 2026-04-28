@@ -1,11 +1,23 @@
+// All date helpers are UTC-anchored. The backend interprets every date
+// string we send (`dateFrom` / `dateTo`) as a UTC calendar date — the
+// HogQL queries do `toDate(timestamp) BETWEEN '<from>' AND '<to>'` (which
+// ClickHouse parses as UTC), and `buildBuckets` builds 24 hourly UTC
+// buckets via `setUTCHours`. The chart's x-axis labels (e.g. "12am",
+// "1pm") are therefore UTC hours. Standardising the frontend on UTC
+// keeps the picker's "Today" and the chart's "12am…11pm" in the same
+// frame of reference, eliminating off-by-one-day failures for users
+// far from UTC. (See the plan note: a previous bug had the picker emit
+// local-date strings while the backend queried UTC, so users east of
+// UTC saw an empty Today view in the early hours of their day.)
+
 export function today(): Date {
   const d = new Date()
-  d.setHours(0, 0, 0, 0)
+  d.setUTCHours(0, 0, 0, 0)
   return d
 }
 
 export function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
 export function isSameDay(a: Date, b: Date): boolean {
@@ -14,23 +26,31 @@ export function isSameDay(a: Date, b: Date): boolean {
 
 export function addDays(d: Date, n: number): Date {
   const r = new Date(d)
-  r.setDate(r.getDate() + n)
+  r.setUTCDate(r.getUTCDate() + n)
   return r
 }
 
 export function formatDateLabel(d: Date): string {
-  const today = new Date()
-  if (isSameDay(d, today)) return 'Today'
-  if (isSameDay(d, addDays(today, -1))) return 'Yesterday'
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+  const t = today()
+  if (isSameDay(d, t)) return 'Today'
+  if (isSameDay(d, addDays(t, -1))) return 'Yesterday'
+  // The toLocaleDateString call here is for the "long form" display; we
+  // pass `timeZone: 'UTC'` so the formatted weekday/month/day match the
+  // UTC calendar date the rest of the system is keyed on.
+  return d.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: 'UTC',
+  })
 }
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
 export function formatDateRange(start: Date, end: Date): string {
-  const sm = start.getMonth(), em = end.getMonth()
-  const sy = start.getFullYear(), ey = end.getFullYear()
-  const sd = start.getDate(), ed = end.getDate()
+  const sm = start.getUTCMonth(), em = end.getUTCMonth()
+  const sy = start.getUTCFullYear(), ey = end.getUTCFullYear()
+  const sd = start.getUTCDate(), ed = end.getUTCDate()
 
   // Same day
   if (sy === ey && sm === em && sd === ed) {
@@ -53,18 +73,20 @@ export function differenceInDays(a: Date, b: Date): number {
 }
 
 export function parseISODate(s: string): Date {
-  return new Date(s + 'T00:00:00')
+  // Append `Z` so the date is parsed at UTC midnight. This makes
+  // `parseISODate(toDateStr(d))` an identity for any UTC-midnight Date.
+  return new Date(s + 'T00:00:00Z')
 }
 
 export type GlobalDateMode = 'daily' | 'weekly' | 'monthly'
 
-// Monday-based week helpers
+// Monday-based week helpers — all UTC.
 export function startOfWeekMonday(d: Date): Date {
   const r = new Date(d)
-  r.setHours(0, 0, 0, 0)
-  const day = r.getDay() // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  r.setUTCHours(0, 0, 0, 0)
+  const day = r.getUTCDay() // 0 = Sunday, 1 = Monday, ... 6 = Saturday
   const diffToMonday = day === 0 ? -6 : 1 - day
-  r.setDate(r.getDate() + diffToMonday)
+  r.setUTCDate(r.getUTCDate() + diffToMonday)
   return r
 }
 
@@ -74,22 +96,23 @@ export function endOfWeekMonday(d: Date): Date {
 }
 
 export function startOfMonth(d: Date): Date {
-  const r = new Date(d.getFullYear(), d.getMonth(), 1)
-  r.setHours(0, 0, 0, 0)
-  return r
+  // Date.UTC returns ms for the given UTC Y/M/D — Date(ms) constructor
+  // interprets ms as absolute, so we land at UTC midnight of day 1.
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1))
 }
 
 export function endOfMonth(d: Date): Date {
-  const r = new Date(d.getFullYear(), d.getMonth() + 1, 0)
-  r.setHours(0, 0, 0, 0)
-  return r
+  // Day 0 of next month = last day of this month, in UTC.
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0))
 }
 
 export function addMonths(d: Date, n: number): Date {
   const r = new Date(d)
-  const targetMonth = r.getMonth() + n
-  r.setDate(1)
-  r.setMonth(targetMonth)
+  const targetMonth = r.getUTCMonth() + n
+  // Snap to day 1 first to avoid month-overflow when the source date is
+  // e.g. Jan 31 + 1 month (would otherwise become Mar 3 in UTC).
+  r.setUTCDate(1)
+  r.setUTCMonth(targetMonth)
   return r
 }
 
@@ -151,24 +174,23 @@ const MONTHS_LONG = [
 export function formatDailyLabel(iso: string): { main: string; year: string } {
   const d = parseISODate(iso)
   return {
-    main: `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`,
-    year: String(d.getFullYear()),
+    main: `${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`,
+    year: String(d.getUTCFullYear()),
   }
 }
 
 export function formatWeeklyLabel(from: string, to: string): { main: string; year: string } {
   const start = parseISODate(from)
   const end = parseISODate(to)
-  const main = `${start.getDate()} ${MONTHS_SHORT[start.getMonth()]} → ${end.getDate()} ${MONTHS_SHORT[end.getMonth()]}`
+  const main = `${start.getUTCDate()} ${MONTHS_SHORT[start.getUTCMonth()]} → ${end.getUTCDate()} ${MONTHS_SHORT[end.getUTCMonth()]}`
   // Use end year — if the week spans a year boundary the end date sets the displayed year.
-  return { main, year: String(end.getFullYear()) }
+  return { main, year: String(end.getUTCFullYear()) }
 }
 
 export function formatMonthlyLabel(iso: string): { main: string; year: string } {
   const d = parseISODate(iso)
   return {
-    main: MONTHS_LONG[d.getMonth()],
-    year: String(d.getFullYear()),
+    main: MONTHS_LONG[d.getUTCMonth()],
+    year: String(d.getUTCFullYear()),
   }
 }
-

@@ -5,7 +5,7 @@ import { useState, useRef } from 'react'
 import { CaretLeft, CaretRight, CaretDown } from '@phosphor-icons/react'
 import { DayPicker } from 'react-day-picker'
 import type { DateRange } from 'react-day-picker'
-import { addDays, formatDateRange, differenceInDays, toDateStr, today } from '@/utils/dateHelpers'
+import { addDays, formatDateRange, differenceInDays, startOfMonth, toDateStr, today } from '@/utils/dateHelpers'
 import { useClickOutside } from '@/hooks/useClickOutside'
 
 interface ProjectDateRangePickerProps {
@@ -38,7 +38,7 @@ const PRESETS: Preset[] = [
   },
   {
     label: 'This month',
-    fn: () => { const t = today(); return { start: new Date(t.getFullYear(), t.getMonth(), 1), end: t } },
+    fn: () => { const t = today(); return { start: startOfMonth(t), end: t } },
   },
 ]
 

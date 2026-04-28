@@ -4,7 +4,7 @@ import { use, useEffect, useState, useCallback } from 'react'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ALGORITHM, type CalendlyMeeting } from '@/lib/api'
+import { ALGORITHM, IntegrationReauthError, type CalendlyMeeting } from '@/lib/api'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart, type ChartPoint } from '@/app/hub/(components)/view/ViewCardChart'
@@ -41,7 +41,9 @@ function useLiveValue(view: View, historical: boolean) {
 
   const [liveValue, setLiveValue] = useState<string | null>(null)
   const [liveLoading, setLiveLoading] = useState(false)
-  const [liveError, setLiveError] = useState<string | null>(null)
+  // Typed-error preserved here (vs string-only) so ViewCard can route a
+  // dead-refresh-token failure to the inline reconnect prompt.
+  const [liveError, setLiveError] = useState<string | IntegrationReauthError | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
@@ -54,7 +56,10 @@ function useLiveValue(view: View, historical: boolean) {
     else req = ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId, view.type)
     req
       .then(res => setLiveValue(res.unavailable ? null : res.value))
-      .catch(err => setLiveError(err instanceof Error ? err.message : 'Failed to fetch'))
+      .catch(err => {
+        if (err instanceof IntegrationReauthError) setLiveError(err)
+        else setLiveError(err instanceof Error ? err.message : 'Failed to fetch')
+      })
       .finally(() => setLiveLoading(false))
   }, [view.connectionId, view.type, isLive, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
 

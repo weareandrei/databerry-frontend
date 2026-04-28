@@ -1,6 +1,6 @@
 'use client'
 
-import { DotsThreeVertical, Warning, Cube, ArrowsClockwise, PushPin, PushPinSlash } from '@phosphor-icons/react'
+import { DotsThreeVertical, Warning, Cube, ArrowsClockwise, PushPin, PushPinSlash, Info } from '@phosphor-icons/react'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import {
   DropdownMenu,
@@ -81,6 +81,28 @@ export function ViewHeader({
         </div>
       )}
       <div className="flex items-center gap-0.5 shrink-0">
+        {/*
+          Refund-handling caveat. Currently the revenue sums in any Stripe
+          tile are based on `charges.amount` (gross succeeded), not net of
+          refunds. The `?` icon makes that explicit so a user staring at a
+          revenue tile doesn't assume refunds have been subtracted.
+          Schema-wise we do persist `amount_refunded`; the UI just hasn't
+          subtracted it yet (see plan: out-of-scope for v1).
+        */}
+        {(connectionType === 'stripe' || connectionType === 'stripe_manual') && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Info size={13} weight="bold" className="text-grey-light cursor-default" />
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-56">
+                <p className="text-xs">
+                  Refunds aren&rsquo;t reflected in this view yet. Coming soon.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         {isDisconnected && (
           <TooltipProvider>
             <Tooltip>

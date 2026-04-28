@@ -11,7 +11,7 @@ import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverv
 import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ALGORITHM, type CalendlyMeeting } from '@/lib/api'
+import { ALGORITHM, IntegrationReauthError, type CalendlyMeeting } from '@/lib/api'
 import { periodBoundaries, today } from '@/utils/dateHelpers'
 import type { RootState } from '@/store'
 import type { Project } from '@/types/project'
@@ -68,7 +68,9 @@ function useLiveValue(view: View, dateFrom: string, dateTo: string) {
 
   const [liveValue, setLiveValue] = useState<string | null>(null)
   const [liveLoading, setLiveLoading] = useState(false)
-  const [liveError, setLiveError] = useState<string | null>(null)
+  // Typed-error preserved here (vs string-only) so ViewCard can route a
+  // dead-refresh-token failure to the inline reconnect prompt.
+  const [liveError, setLiveError] = useState<string | IntegrationReauthError | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
 
   useEffect(() => {
@@ -77,7 +79,10 @@ function useLiveValue(view: View, dateFrom: string, dateTo: string) {
     setLiveError(null)
     fetchLiveValue(view, isStripeManualLive, isCalendlyLive, isPosthogLive, dateFrom, dateTo)
       .then(res => setLiveValue(res.unavailable ? null : res.value))
-      .catch(err => setLiveError(err instanceof Error ? err.message : 'Failed to fetch'))
+      .catch(err => {
+        if (err instanceof IntegrationReauthError) setLiveError(err)
+        else setLiveError(err instanceof Error ? err.message : 'Failed to fetch')
+      })
       .finally(() => setLiveLoading(false))
   }, [view.connectionId, view.type, isLive, dateFrom, dateTo, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -168,9 +173,19 @@ function useProjectView(project: Project) {
 
   // isRange = selected period is not the current period in the current mode.
   // Used for gating behaviours that only apply to historical data.
-  const currentBoundaries = periodBoundaries(globalDateMode, today())
-  const isRange =
-    globalDateFrom !== currentBoundaries.from || globalDateTo !== currentBoundaries.to
+  //
+  // Defer `today()` until after hydration. The redux store carries
+  // server-computed dates across hydration; computing `today()` on the server
+  // vs the client can flip `isRange` and cause a React 19 hydration mismatch
+  // (and we'd kick off the wrong fetches on first render). Pre-mount we treat
+  // the period as "current" (isRange=false), which matches the most common
+  // case and never triggers historical-only branches inadvertently.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const currentBoundaries = mounted ? periodBoundaries(globalDateMode, today()) : null
+  const isRange = currentBoundaries
+    ? globalDateFrom !== currentBoundaries.from || globalDateTo !== currentBoundaries.to
+    : false
 
   const currentFolder = currentFolderId
     ? (foldersCtx.folders.find(f => f.id === currentFolderId) ?? null)

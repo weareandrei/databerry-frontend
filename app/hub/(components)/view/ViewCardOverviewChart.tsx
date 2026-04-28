@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwise, CaretDown, Check, DotsThreeVertical, Gear, PushPin, PushPinSlash, Target, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, CaretDown, Check, Cube, DotsThreeVertical, Gear, PushPin, PushPinSlash, Target, Warning } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -198,11 +198,13 @@ export function ViewCardOverviewChart({
   const secondaryUnavailable = chart?.secondaryUnavailable ?? false
   const totalPrimary = chart?.totalPrimary ?? 0
 
-  void projectName
-
   return (
     <ViewWrapper variant="borderless">
-      {/* Metric selectors row — replaces the standard header for this composite view */}
+      {/* Metric selectors row — replaces the standard header for this composite view.
+          When a projectName is passed (pinned views on Home), a small project pill
+          sits after the metric dropdowns so the user can see which project the
+          card came from. On a project page the pill is omitted (the project
+          context is already obvious from the route). */}
       <div className="px-4 pt-3.5 pb-3 flex items-center gap-4 flex-wrap shrink-0">
         <MetricDropdown
           label="Primary"
@@ -217,6 +219,12 @@ export function ViewCardOverviewChart({
           onChange={onSecondaryChange}
           colorDot={config.secondaryMetric ? '#F46719' : undefined}
         />
+        {projectName && (
+          <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
+            <Cube size={9} weight="bold" />
+            {projectName}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-1.5">
           {!loading && !error && (
             <span className="text-xs text-grey-light tabular-nums">

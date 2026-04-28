@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
+} from '@/components/ui/Dialog'
 import { cn } from '@/lib/utils'
 import { useDemoContext } from './context/DemoContext'
 import type { DemoView, DemoConnection } from './context/DemoContext'

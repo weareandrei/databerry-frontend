@@ -1,5 +1,17 @@
 'use client'
 
+/**
+ * CenterDialog — the original centered popup, extracted verbatim from the
+ * legacy `components/ui/dialog.tsx`. Use for confirmations and small forms.
+ *
+ * For multi-step flows (create connection, create view, connection detail),
+ * use `BottomDialog` from the same folder instead — that one's a bottom
+ * sheet with internal page navigation and drag-to-dismiss.
+ *
+ * The legacy `Dialog`/`DialogContent`/etc. names still work via the shim at
+ * `components/ui/dialog.tsx`, which re-exports these under the old names.
+ */
+
 import * as React from 'react'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
@@ -7,23 +19,23 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { XIcon } from 'lucide-react'
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
+function CenterDialog({ ...props }: DialogPrimitive.Root.Props) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
+function CenterDialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
   return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
 }
 
-function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
+function CenterDialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
   return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
 }
 
-function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
+function CenterDialogClose({ ...props }: DialogPrimitive.Close.Props) {
   return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
 }
 
-function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
+function CenterDialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) {
   return (
     <DialogPrimitive.Backdrop
       data-slot="dialog-overlay"
@@ -36,7 +48,7 @@ function DialogOverlay({ className, ...props }: DialogPrimitive.Backdrop.Props) 
   )
 }
 
-function DialogContent({
+function CenterDialogContent({
   className,
   children,
   showCloseButton = true,
@@ -45,8 +57,8 @@ function DialogContent({
   showCloseButton?: boolean
 }) {
   return (
-    <DialogPortal>
-      <DialogOverlay />
+    <CenterDialogPortal>
+      <CenterDialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
@@ -66,17 +78,17 @@ function DialogContent({
           </DialogPrimitive.Close>
         )}
       </DialogPrimitive.Popup>
-    </DialogPortal>
+    </CenterDialogPortal>
   )
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
+function CenterDialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div data-slot="dialog-header" className={cn('flex flex-col gap-2', className)} {...props} />
   )
 }
 
-function DialogFooter({
+function CenterDialogFooter({
   className,
   showCloseButton = false,
   children,
@@ -101,7 +113,7 @@ function DialogFooter({
   )
 }
 
-function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
+function CenterDialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
@@ -111,7 +123,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   )
 }
 
-function DialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {
+function CenterDialogDescription({ className, ...props }: DialogPrimitive.Description.Props) {
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
@@ -125,14 +137,14 @@ function DialogDescription({ className, ...props }: DialogPrimitive.Description.
 }
 
 export {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogOverlay,
-  DialogPortal,
-  DialogTitle,
-  DialogTrigger,
+  CenterDialog,
+  CenterDialogClose,
+  CenterDialogContent,
+  CenterDialogDescription,
+  CenterDialogFooter,
+  CenterDialogHeader,
+  CenterDialogOverlay,
+  CenterDialogPortal,
+  CenterDialogTitle,
+  CenterDialogTrigger,
 }

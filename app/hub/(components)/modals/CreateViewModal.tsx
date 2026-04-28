@@ -1,44 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { CaretRight } from '@phosphor-icons/react'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { Plus } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { useRouter } from 'next/navigation'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { BottomDialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
 import { ALGORITHM, type PosthogEventDefinition } from '@/lib/api'
-import { STRIPE_VIEW_OPTIONS, CALENDLY_VIEW_OPTIONS, GA_VIEW_OPTIONS, VERCEL_VIEW_OPTIONS } from '@/constants/viewOptions'
-
-const INTEGRATIONS = [
-  { type: 'posthog', label: 'PostHog', description: 'Product analytics & event tracking' },
-  {
-    type: 'stripe',
-    label: 'Stripe (Connect)',
-    description: 'OAuth — payments, revenue & subscriptions',
-  },
-  {
-    type: 'stripe_manual',
-    label: 'Stripe (API key)',
-    description: 'Manual key — gross volume & revenue',
-  },
-  { type: 'calendly', label: 'Calendly', description: 'Scheduled meetings & booking links' },
-  { type: 'google_analytics', label: 'Google Analytics', description: 'Website traffic & user behavior' },
-  { type: 'webhook', label: 'Custom Webhook', description: 'Accept POST requests from any source' },
-  { type: 'sentry', label: 'Sentry', description: 'Error monitoring & performance' },
-  { type: 'github', label: 'GitHub', description: 'Repositories, PRs & issues' },
-  { type: 'x', label: 'X (Twitter)', description: 'Followers, posts & engagement' },
-  { type: 'reddit', label: 'Reddit', description: 'Subreddit stats & mentions' },
-  { type: 'gmail', label: 'Gmail', description: 'Emails & threads' },
-] as const
+import {
+  STRIPE_VIEW_OPTIONS,
+  CALENDLY_VIEW_OPTIONS,
+  GA_VIEW_OPTIONS,
+  WEBHOOK_VIEW_OPTIONS,
+  COMPOSITE_VIEW_OPTIONS,
+  type ViewKind,
+} from '@/constants/viewOptions'
+import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
+import type { Connection } from '@/types/connection'
+import { ViewPickerRow } from './ViewPickerRow'
+import type { ViewTypeCardProps } from './ViewTypeCard'
 
 type EventsStep = {
   connectionId: string
@@ -48,111 +28,51 @@ type EventsStep = {
   error: string | null
 }
 
+// Webhook needs a field name for `gauge` / `append`, so when the user
+// picks one of those from the picker we push this sub-page just to
+// collect the field. `webhook_counter` doesn't need a field — it bypasses
+// this step entirely and creates immediately.
 type WebhookStep = {
   connectionId: string
   connectionName: string
-  viewType: 'webhook_counter' | 'webhook_gauge' | 'webhook_append' | null
+  viewType: 'webhook_gauge' | 'webhook_append'
   field: string
 }
 
-type StripeManualStep = {
-  connectionId: string
-  connectionName: string
-  viewType: 'stripe_gross' | 'stripe_revenue_today' | null
+// View-type display-name maps. The flat picker creates inline so it
+// needs the human-readable name to write into `views_values.name`.
+const STRIPE_NAME_MAP: Record<string, string> = {
+  stripe_gross: 'Gross Volume',
+  stripe_revenue_today: 'Total Gross Revenue',
 }
-
-type CalendlyStep = {
-  connectionId: string
-  connectionName: string
-  viewType: 'calendly_meetings_today' | 'calendly_meetings_list' | null
+const CALENDLY_NAME_MAP: Record<string, string> = {
+  calendly_meetings_today: 'Meetings',
+  calendly_meetings_list: 'Meetings list',
 }
-
-type GAStep = {
-  connectionId: string
-  connectionName: string
-  viewType: 'ga_active_users' | 'ga_users_today' | 'ga_sessions_today' | 'ga_pageviews_today' | null
+const GA_NAME_MAP: Record<string, string> = {
+  ga_active_users: 'Active Users Right Now',
+  ga_users_today: 'Users',
+  ga_sessions_today: 'Sessions',
+  ga_pageviews_today: 'Pageviews',
 }
-
-type VercelStep = {
-  connectionId: string
-  connectionName: string
-  viewType: 'vercel_pageviews_today' | 'vercel_pageviews_week' | 'vercel_sources' | null
-}
-
-// ── Shared sub-components ─────────────────────────────────────────────────
-
-interface ViewTypeOption {
-  type: string
-  name: string
-  desc: string
-}
-
-function ViewTypePicker({
-  options,
-  selectedType,
-  tracking,
-  onSelect,
-  onCreate,
-}: {
-  options: ViewTypeOption[]
-  selectedType: string | null
-  tracking: boolean
-  onSelect: (type: string) => void
-  onCreate: () => void
-}) {
-  return (
-    <div className="mt-1 space-y-3">
-      {options.map(opt => (
-        <div
-          key={opt.type}
-          onClick={() => onSelect(opt.type)}
-          className={cn(
-            'rounded-lg border p-3 cursor-pointer transition-all select-none',
-            selectedType === opt.type
-              ? 'border-foreground bg-foreground/5'
-              : 'hover:border-foreground/20',
-          )}
-        >
-          <p className="text-sm font-medium">{opt.name}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
-        </div>
-      ))}
-      <div className="pt-1">
-        <Button
-          className="w-full"
-          disabled={!selectedType || tracking}
-          onClick={onCreate}
-        >
-          {tracking ? 'Creating…' : 'Create view'}
-        </Button>
-      </div>
-    </div>
-  )
+const WEBHOOK_NAME_MAP: Record<string, string> = {
+  webhook_counter: 'Event Counter',
+  webhook_gauge: 'Gauge',
+  webhook_append: 'Timeline',
 }
 
 export function CreateViewModal() {
   const { views, connections } = useDashboard()
-  const router = useRouter()
-  const [expandedType, setExpandedType] = useState<string | null>(null)
   const [eventsStep, setEventsStep] = useState<EventsStep | null>(null)
   const [webhookStep, setWebhookStep] = useState<WebhookStep | null>(null)
-  const [stripeManualStep, setStripeManualStep] = useState<StripeManualStep | null>(null)
-  const [calendlyStep, setCalendlyStep] = useState<CalendlyStep | null>(null)
-  const [gaStep, setGaStep] = useState<GAStep | null>(null)
-  const [vercelStep, setVercelStep] = useState<VercelStep | null>(null)
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set())
   const [tracking, setTracking] = useState(false)
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       views.closeModal()
-      setExpandedType(null)
       setEventsStep(null)
       setWebhookStep(null)
-      setStripeManualStep(null)
-      setCalendlyStep(null)
-      setGaStep(null)
-      setVercelStep(null)
       setSelectedEvents(new Set())
     }
   }
@@ -165,6 +85,8 @@ export function CreateViewModal() {
       return next
     })
   }
+
+  // ── PostHog event picker (sub-page) ──────────────────────────────────────
 
   const handleTrackEvents = async () => {
     if (!eventsStep || selectedEvents.size === 0 || !views.createViewProjectId) return
@@ -190,12 +112,7 @@ export function CreateViewModal() {
     }
   }
 
-  const toggleExpand = (type: string) => {
-    setExpandedType(prev => (prev === type ? null : type))
-  }
-
-  // PostHog — fetches event list then transitions to eventsStep view
-  const handleCreatePosthogView = async (connectionId: string, connectionName: string) => {
+  const openPosthogEventPicker = async (connectionId: string, connectionName: string) => {
     setEventsStep({ connectionId, connectionName, events: null, loading: true, error: null })
     try {
       const events = await ALGORITHM.getPosthogEventDefinitions(connectionId)
@@ -211,184 +128,141 @@ export function CreateViewModal() {
     }
   }
 
-  // Stripe Connect — creates a single daily_revenue view immediately
-  const handleCreateStripeView = async (connectionId: string, folderId: string | null) => {
-    if (!views.createViewProjectId) return
-    setTracking(true)
-    try {
-      await views.createViews([
-        {
-          projectId: views.createViewProjectId,
-          folderId,
-          connectionId,
-          connectionType: 'stripe',
-          type: 'daily_revenue',
-          name: 'Daily Revenue',
-          config: {},
-          value: null,
-        },
-      ])
-      views.closeModal()
-    } finally {
-      setTracking(false)
-    }
-  }
+  // ── Direct creators (no sub-page) ────────────────────────────────────────
 
-  // Stripe Manual — create the selected view type
-  const handleCreateStripeManualView = async (
-    connectionId: string,
-    folderId: string | null,
-    type: NonNullable<StripeManualStep['viewType']>,
-    name: string,
+  const createView = async (
+    body: {
+      connectionId: string | null
+      connectionType: string
+      type: string
+      name: string
+      config: Record<string, unknown>
+    } | {
+      connectionId: string | null
+      connectionType: string
+      type: string
+      name: string
+      config: Record<string, unknown>
+    }[],
   ) => {
     if (!views.createViewProjectId) return
+    const list = Array.isArray(body) ? body : [body]
     setTracking(true)
     try {
-      await views.createViews([
-        {
-          projectId: views.createViewProjectId,
-          folderId,
-          connectionId,
-          connectionType: 'stripe_manual',
-          type,
-          name,
-          config: {},
+      await views.createViews(
+        list.map(b => ({
+          projectId: views.createViewProjectId!,
+          folderId: views.createViewFolderId,
+          ...b,
           value: null,
-        },
-      ])
+        })),
+      )
       views.closeModal()
-      setStripeManualStep(null)
     } finally {
       setTracking(false)
     }
   }
 
-  // Calendly — create the selected view type
-  const handleCreateCalendlyView = async (
-    connectionId: string,
-    folderId: string | null,
-    type: NonNullable<CalendlyStep['viewType']>,
-    name: string,
-  ) => {
-    if (!views.createViewProjectId) return
-    setTracking(true)
-    try {
-      await views.createViews([
-        {
-          projectId: views.createViewProjectId,
-          folderId,
-          connectionId,
-          connectionType: 'calendly',
-          type,
-          name,
-          config: {},
-          value: null,
-        },
-      ])
-      views.closeModal()
-      setCalendlyStep(null)
-    } finally {
-      setTracking(false)
-    }
-  }
+  // Stripe Connect — single auto-named view, no view-type choice.
+  const handleCreateStripeConnect = (conn: Connection) =>
+    createView({
+      connectionId: conn.id,
+      connectionType: 'stripe',
+      type: 'daily_revenue',
+      name: 'Daily Revenue',
+      config: {},
+    })
 
-  // Google Analytics — create the selected view type
-  const handleCreateGAView = async (
-    connectionId: string,
-    folderId: string | null,
-    type: NonNullable<GAStep['viewType']>,
-    name: string,
-  ) => {
-    if (!views.createViewProjectId) return
-    setTracking(true)
-    try {
-      await views.createViews([
-        {
-          projectId: views.createViewProjectId,
-          folderId,
-          connectionId,
-          connectionType: 'google_analytics',
-          type,
-          name,
-          config: {},
-          value: null,
-        },
-      ])
-      views.closeModal()
-      setGaStep(null)
-    } finally {
-      setTracking(false)
-    }
-  }
+  const handleCreateStripeManual = (conn: Connection, type: 'stripe_gross' | 'stripe_revenue_today') =>
+    createView({
+      connectionId: conn.id,
+      connectionType: 'stripe_manual',
+      type,
+      name: STRIPE_NAME_MAP[type],
+      config: {},
+    })
 
-  // Vercel — create the selected view type
-  const handleCreateVercelView = async (
-    connectionId: string,
-    folderId: string | null,
-    type: NonNullable<VercelStep['viewType']>,
-    name: string,
-  ) => {
-    if (!views.createViewProjectId) return
-    setTracking(true)
-    try {
-      await views.createViews([
-        {
-          projectId: views.createViewProjectId,
-          folderId,
-          connectionId,
-          connectionType: 'vercel',
-          type,
-          name,
-          config: {},
-          value: null,
-        },
-      ])
-      views.closeModal()
-      setVercelStep(null)
-    } finally {
-      setTracking(false)
-    }
-  }
+  const handleCreateCalendly = (conn: Connection, type: 'calendly_meetings_today' | 'calendly_meetings_list') =>
+    createView({
+      connectionId: conn.id,
+      connectionType: 'calendly',
+      type,
+      name: CALENDLY_NAME_MAP[type],
+      config: {},
+    })
 
-  // Composite Overview — creates BOTH the chart and the sources views in one call.
-  // They're independent DB rows so the user can later remove one without the other.
-  const handleCreateOverviewView = async () => {
-    if (!views.createViewProjectId) return
+  const handleCreateGA = (
+    conn: Connection,
+    type: 'ga_active_users' | 'ga_users_today' | 'ga_sessions_today' | 'ga_pageviews_today',
+  ) =>
+    createView({
+      connectionId: conn.id,
+      connectionType: 'google_analytics',
+      type,
+      name: GA_NAME_MAP[type],
+      config: {},
+    })
+
+  // Webhook counter doesn't need a field — `body.value ??= 1` is the
+  // implicit increment. Gauge/append push the WebhookStep page so the
+  // user can specify which body key to read.
+  const handleCreateWebhookCounter = (conn: Connection) =>
+    createView({
+      connectionId: conn.id,
+      connectionType: 'webhook',
+      type: 'webhook_counter',
+      name: WEBHOOK_NAME_MAP.webhook_counter,
+      config: {},
+    })
+
+  const handleCreateWebhookWithField = async () => {
+    if (!webhookStep || !views.createViewProjectId) return
     setTracking(true)
     try {
       await views.createViews([
         {
           projectId: views.createViewProjectId,
           folderId: views.createViewFolderId,
-          connectionId: null,
-          connectionType: 'composite',
-          type: 'project_overview',
-          name: 'Overview',
-          config: { primaryMetric: 'visitors', secondaryMetric: null },
-          value: null,
-        },
-        {
-          projectId: views.createViewProjectId,
-          folderId: views.createViewFolderId,
-          connectionId: null,
-          connectionType: 'composite',
-          type: 'project_overview_sources',
-          name: 'Sources',
-          config: { sourcesLimit: 10 },
+          connectionId: webhookStep.connectionId,
+          connectionType: 'webhook',
+          type: webhookStep.viewType,
+          name: WEBHOOK_NAME_MAP[webhookStep.viewType],
+          config: { field: webhookStep.field },
           value: null,
         },
       ])
       views.closeModal()
+      setWebhookStep(null)
     } finally {
       setTracking(false)
     }
   }
 
-  // Detect existing overview at the target location (best effort — relies on Redux cache).
-  // We consider the overview "present" when either half exists; picking the tile again
-  // when only one half is missing would duplicate the other, so the user should re-add
-  // the missing half individually (not supported in v1 — deletion removes one; this
-  // tile is an all-or-nothing shortcut).
+  // Project Overview is connection-less and creates a pair of views
+  // (chart + sources). Backend stores them as independent rows so the
+  // user can later remove either.
+  const handleCreateOverview = () =>
+    createView([
+      {
+        connectionId: null,
+        connectionType: 'composite',
+        type: 'project_overview',
+        name: 'Overview',
+        config: { primaryMetric: 'visitors', secondaryMetric: null },
+      },
+      {
+        connectionId: null,
+        connectionType: 'composite',
+        type: 'project_overview_sources',
+        name: 'Sources',
+        config: { sourcesLimit: 10 },
+      },
+    ])
+
+  // ── Build the picker rows ────────────────────────────────────────────────
+
+  // "Project Overview" already added at this folder/project? We treat it
+  // as a pair, so existence of either half disables the card.
   const overviewAlreadyExists = views.views.some(
     v =>
       (v.type === 'project_overview' || v.type === 'project_overview_sources') &&
@@ -396,54 +270,149 @@ export function CreateViewModal() {
       (v.folderId ?? null) === (views.createViewFolderId ?? null),
   )
 
-  // Webhook — create the selected webhook view type
-  const handleCreateWebhookView = async (
-    connectionId: string,
-    folderId: string | null,
-    type: 'webhook_counter' | 'webhook_gauge' | 'webhook_append',
-    name: string,
-    field?: string,
-  ) => {
-    if (!views.createViewProjectId) return
-    setTracking(true)
-    try {
-      await views.createViews([
-        {
-          projectId: views.createViewProjectId,
-          folderId,
-          connectionId,
-          connectionType: 'webhook',
-          type,
-          name,
-          config: field ? { field } : {},
-          value: null,
-        },
-      ])
-      views.closeModal()
-    } finally {
-      setTracking(false)
+  // Per-connection row builders. Each returns a `ViewTypeCardProps[]` that
+  // ViewPickerRow renders as cards. Rows for connection types we don't
+  // support yet (vercel, sentry, github, etc.) yield `null` and are
+  // filtered out — the user only sees rows they can actually act on.
+  function buildCardsForConnection(conn: Connection): ViewTypeCardProps[] | null {
+    switch (conn.type) {
+      case 'stripe':
+        return [
+          {
+            type: 'stripe_daily_revenue',
+            name: 'Daily Revenue',
+            description: 'Stripe Connect — auto-synced daily totals',
+            kind: 'chart' as ViewKind,
+            iconType: 'stripe',
+            disabled: tracking,
+            onSelect: () => handleCreateStripeConnect(conn),
+          },
+        ]
+      case 'stripe_manual':
+        return STRIPE_VIEW_OPTIONS.map(opt => ({
+          type: opt.type,
+          name: opt.name,
+          description: opt.desc,
+          kind: opt.kind,
+          iconType: 'stripe',
+          disabled: tracking,
+          onSelect: () => handleCreateStripeManual(conn, opt.type),
+        }))
+      case 'calendly':
+        return CALENDLY_VIEW_OPTIONS.map(opt => ({
+          type: opt.type,
+          name: opt.name,
+          description: opt.desc,
+          kind: opt.kind,
+          iconType: 'calendly',
+          disabled: tracking,
+          onSelect: () => handleCreateCalendly(conn, opt.type),
+        }))
+      case 'google_analytics':
+        return GA_VIEW_OPTIONS.map(opt => ({
+          type: opt.type,
+          name: opt.name,
+          description: opt.desc,
+          kind: opt.kind,
+          iconType: 'google_analytics',
+          disabled: tracking,
+          onSelect: () => handleCreateGA(conn, opt.type),
+        }))
+      case 'webhook':
+        return WEBHOOK_VIEW_OPTIONS.map(opt => ({
+          type: opt.type,
+          name: opt.name,
+          description: opt.desc,
+          kind: opt.kind,
+          iconType: 'webhook',
+          disabled: tracking,
+          onSelect: () => {
+            if (opt.type === 'webhook_counter') {
+              handleCreateWebhookCounter(conn)
+            } else {
+              setWebhookStep({
+                connectionId: conn.id,
+                connectionName: conn.name,
+                viewType: opt.type,
+                field: 'value',
+              })
+            }
+          },
+        }))
+      case 'posthog':
+        // PostHog views are user-supplied event names — surface a single
+        // entrypoint card that opens the events sub-page.
+        return [
+          {
+            type: 'posthog_track_events',
+            name: 'Track events',
+            description: 'Pick events to count daily — one tile per event',
+            kind: 'value' as ViewKind,
+            iconType: 'posthog',
+            disabled: tracking,
+            onSelect: () => openPosthogEventPicker(conn.id, conn.name),
+          },
+        ]
+      // Vercel + the in-development integrations (sentry/github/x/reddit/gmail)
+      // have no view-type implementations yet. Connections of those types
+      // simply don't produce a row.
+      default:
+        return null
     }
   }
 
-  // ── Body ─────────────────────────────────────────────────────────────────
+  // Project Overview row — connection-less, prepended above the
+  // per-connection rows so the most-common compositional view is the
+  // first thing the user sees.
+  const overviewRow: ViewTypeCardProps[] = [
+    {
+      type: 'project_overview',
+      name: COMPOSITE_VIEW_OPTIONS[0].name,
+      description: 'Visitors chart + sources breakdown',
+      kind: 'chart',
+      iconType: 'composite',
+      disabled: overviewAlreadyExists || tracking,
+      badge: overviewAlreadyExists ? 'Added' : undefined,
+      onSelect: handleCreateOverview,
+    },
+  ]
 
-  const renderBody = () => {
-    // PostHog events picker — full-layout with section-wrapper style header
-    if (eventsStep) {
-      return (
-        <div className="flex flex-col flex-1 min-h-0">
-          {/* Scrollable body */}
-          <div className="overflow-y-auto flex-1 px-4 py-4">
-            {eventsStep.loading && (
-              <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
-            )}
-            {eventsStep.error && (
-              <p className="text-sm text-destructive py-4 text-center">{eventsStep.error}</p>
-            )}
-            {eventsStep.events && eventsStep.events.length === 0 && (
-              <p className="text-sm text-grey-light py-4 text-center">No events found.</p>
-            )}
-            {eventsStep.events && eventsStep.events.length > 0 && (
+  // One row per connection. Empty/unsupported types drop out.
+  const connectionRows: { conn: Connection; cards: ViewTypeCardProps[] }[] = []
+  for (const conn of connections.connections) {
+    const cards = buildCardsForConnection(conn)
+    if (cards && cards.length > 0) connectionRows.push({ conn, cards })
+  }
+
+  return (
+    <BottomDialog open={views.isModalOpen} onOpenChange={handleOpenChange}>
+      {/* Page priority: PostHog event picker > Webhook field form > root.
+          Only one Page renders at a time (BottomDialog picks the first
+          truthy child). */}
+
+      {eventsStep && (
+        <BottomDialog.Page
+          title={`${eventsStep.connectionName} — Event types`}
+          pageKey={`events:${eventsStep.connectionId}`}
+          onBack={() => {
+            setEventsStep(null)
+            setSelectedEvents(new Set())
+          }}
+        >
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            All event types ever tracked in this project
+          </p>
+          {eventsStep.loading && (
+            <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+          )}
+          {eventsStep.error && (
+            <p className="text-sm text-destructive py-4 text-center">{eventsStep.error}</p>
+          )}
+          {eventsStep.events && eventsStep.events.length === 0 && (
+            <p className="text-sm text-grey-light py-4 text-center">No events found.</p>
+          )}
+          {eventsStep.events && eventsStep.events.length > 0 && (
+            <>
               <div className="grid grid-cols-2 gap-2">
                 {eventsStep.events.map((def, i) => {
                   const isSelected = selectedEvents.has(def.name)
@@ -489,168 +458,34 @@ export function CreateViewModal() {
                   )
                 })}
               </div>
-            )}
-          </div>
-
-          {/* Footer button */}
-          {eventsStep.events && eventsStep.events.length > 0 && (
-            <div className="px-4 py-3 border-t border-stroke shrink-0">
-              <button
-                disabled={selectedEvents.size === 0 || tracking}
-                onClick={handleTrackEvents}
-                className="w-full rounded-lg bg-brand text-white text-sm font-semibold py-3 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-              >
-                {tracking
-                  ? 'Tracking…'
-                  : selectedEvents.size === 0
-                    ? 'Select events to track'
-                    : `Track ${selectedEvents.size} event${selectedEvents.size > 1 ? 's' : ''}`}
-              </button>
-            </div>
-          )}
-        </div>
-      )
-    }
-
-    // Stripe Manual — view type picker
-    if (stripeManualStep) {
-      const nameMap: Record<string, string> = {
-        stripe_gross: 'Gross Volume',
-        stripe_revenue_today: 'Total Gross Revenue',
-      }
-      return (
-        <div className="overflow-y-auto flex-1 px-4 py-4">
-          <ViewTypePicker
-            options={STRIPE_VIEW_OPTIONS}
-            selectedType={stripeManualStep.viewType}
-            tracking={tracking}
-            onSelect={type => setStripeManualStep({ ...stripeManualStep, viewType: type as StripeManualStep['viewType'] })}
-            onCreate={() => {
-              if (!stripeManualStep.viewType) return
-              handleCreateStripeManualView(
-                stripeManualStep.connectionId,
-                views.createViewFolderId,
-                stripeManualStep.viewType,
-                nameMap[stripeManualStep.viewType],
-              )
-            }}
-          />
-        </div>
-      )
-    }
-
-    // Calendly — view type picker
-    if (calendlyStep) {
-      const nameMap: Record<string, string> = {
-        calendly_meetings_today: 'Meetings',
-        calendly_meetings_list: 'Meetings list',
-      }
-      return (
-        <div className="overflow-y-auto flex-1 px-4 py-4">
-          <ViewTypePicker
-            options={CALENDLY_VIEW_OPTIONS}
-            selectedType={calendlyStep.viewType}
-            tracking={tracking}
-            onSelect={type => setCalendlyStep({ ...calendlyStep, viewType: type as CalendlyStep['viewType'] })}
-            onCreate={() => {
-              if (!calendlyStep.viewType) return
-              handleCreateCalendlyView(
-                calendlyStep.connectionId,
-                views.createViewFolderId,
-                calendlyStep.viewType,
-                nameMap[calendlyStep.viewType],
-              )
-            }}
-          />
-        </div>
-      )
-    }
-
-    // Google Analytics — view type picker
-    if (gaStep) {
-      const nameMap: Record<string, string> = {
-        ga_active_users: 'Active Users Right Now',
-        ga_users_today: 'Users',
-        ga_sessions_today: 'Sessions',
-        ga_pageviews_today: 'Pageviews',
-      }
-      return (
-        <div className="overflow-y-auto flex-1 px-4 py-4">
-          <ViewTypePicker
-            options={GA_VIEW_OPTIONS}
-            selectedType={gaStep.viewType}
-            tracking={tracking}
-            onSelect={type => setGaStep({ ...gaStep, viewType: type as GAStep['viewType'] })}
-            onCreate={() => {
-              if (!gaStep.viewType) return
-              handleCreateGAView(
-                gaStep.connectionId,
-                views.createViewFolderId,
-                gaStep.viewType,
-                nameMap[gaStep.viewType],
-              )
-            }}
-          />
-        </div>
-      )
-    }
-
-    // Vercel — view type picker
-    if (vercelStep) {
-      const nameMap: Record<string, string> = {
-        vercel_pageviews_today: 'Pageviews Today',
-        vercel_pageviews_week: 'Pageviews This Week',
-        vercel_sources: 'Traffic Sources',
-      }
-      return (
-        <div className="overflow-y-auto flex-1 px-4 py-4">
-          <ViewTypePicker
-            options={VERCEL_VIEW_OPTIONS}
-            selectedType={vercelStep.viewType}
-            tracking={tracking}
-            onSelect={type => setVercelStep({ ...vercelStep, viewType: type as VercelStep['viewType'] })}
-            onCreate={() => {
-              if (!vercelStep.viewType) return
-              handleCreateVercelView(
-                vercelStep.connectionId,
-                views.createViewFolderId,
-                vercelStep.viewType,
-                nameMap[vercelStep.viewType],
-              )
-            }}
-          />
-        </div>
-      )
-    }
-
-    // Webhook — view type picker
-    if (webhookStep) {
-      return (
-        <div className="overflow-y-auto flex-1 px-4 py-4">
-          <div className="space-y-3">
-          {(['webhook_counter', 'webhook_gauge', 'webhook_append'] as const).map(type => {
-            const labels: Record<string, { name: string; desc: string }> = {
-              webhook_counter: { name: 'Event Counter', desc: 'Increments by +1 on every POST' },
-              webhook_gauge: { name: 'Gauge', desc: 'Replaces value on every POST' },
-              webhook_append: { name: 'Timeline', desc: 'Appends a new entry on every POST' },
-            }
-            const selected = webhookStep.viewType === type
-            return (
-              <div
-                key={type}
-                onClick={() => setWebhookStep({ ...webhookStep, viewType: type })}
-                className={cn(
-                  'rounded-lg border p-3 cursor-pointer transition-all select-none',
-                  selected ? 'border-foreground bg-foreground/5' : 'hover:border-foreground/20',
-                )}
-              >
-                <p className="text-sm font-medium">{labels[type].name}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{labels[type].desc}</p>
+              <div className="sticky bottom-0 -mx-4 -mb-6 mt-3 border-t border-stroke bg-popover px-4 py-3">
+                <button
+                  disabled={selectedEvents.size === 0 || tracking}
+                  onClick={handleTrackEvents}
+                  className="w-full rounded-lg bg-brand text-white text-sm font-semibold py-3 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
+                >
+                  {tracking
+                    ? 'Tracking…'
+                    : selectedEvents.size === 0
+                      ? 'Select events to track'
+                      : `Track ${selectedEvents.size} event${selectedEvents.size > 1 ? 's' : ''}`}
+                </button>
               </div>
-            )
-          })}
+            </>
+          )}
+        </BottomDialog.Page>
+      )}
 
-          {webhookStep.viewType && webhookStep.viewType !== 'webhook_counter' && (
+      {!eventsStep && webhookStep && (
+        <BottomDialog.Page
+          title={`${webhookStep.connectionName} — ${WEBHOOK_NAME_MAP[webhookStep.viewType]}`}
+          pageKey={`webhook:${webhookStep.connectionId}:${webhookStep.viewType}`}
+          onBack={() => setWebhookStep(null)}
+        >
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Which key in the POST body should this view read?
+          </p>
+          <div className="space-y-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Body field name</label>
               <input
@@ -664,232 +499,60 @@ export function CreateViewModal() {
                 <code className="bg-muted px-1 rounded">total_price</code>
               </p>
             </div>
-          )}
-
-          <div className="pt-1">
             <Button
               className="w-full"
-              disabled={!webhookStep.viewType || tracking}
-              onClick={() => {
-                if (!webhookStep.viewType) return
-                const nameMap: Record<string, string> = {
-                  webhook_counter: 'Event Counter',
-                  webhook_gauge: 'Gauge',
-                  webhook_append: 'Timeline',
-                }
-                handleCreateWebhookView(
-                  webhookStep.connectionId,
-                  views.createViewFolderId,
-                  webhookStep.viewType,
-                  nameMap[webhookStep.viewType],
-                  webhookStep.viewType !== 'webhook_counter' ? webhookStep.field : undefined,
-                )
-              }}
+              disabled={!webhookStep.field || tracking}
+              onClick={handleCreateWebhookWithField}
             >
               {tracking ? 'Creating…' : 'Create view'}
             </Button>
           </div>
-          </div>
-        </div>
-      )
-    }
+        </BottomDialog.Page>
+      )}
 
-    // Default — integration list (Overview tile pinned on top)
-    return (
-      <div className="overflow-y-auto flex-1 px-4 py-4">
-        {/* Composite "Overview" tile */}
-        <button
-          disabled={tracking || overviewAlreadyExists}
-          onClick={() => handleCreateOverviewView()}
-          className={cn(
-            'w-full flex items-center justify-between gap-3 py-3 px-1 -mx-1 rounded-md transition-colors mb-2',
-            overviewAlreadyExists
-              ? 'opacity-50 cursor-not-allowed'
-              : 'hover:bg-accent/40 cursor-pointer',
-          )}
-          title={overviewAlreadyExists ? 'An overview already exists here' : undefined}
-        >
-          <div className="flex items-center gap-3">
-            <ConnectionIcon type="composite" size={24} className="text-muted-foreground" />
-            <div className="text-left">
-              <p className="text-sm font-medium">Project Overview</p>
-              <p className="text-xs text-muted-foreground">
-                {overviewAlreadyExists
-                  ? 'Already added at this location'
-                  : 'Adds a stacked visitors chart and a sources breakdown as two views'}
-              </p>
-            </div>
-          </div>
-          {!overviewAlreadyExists && (
-            <span className="text-xs font-medium text-muted-foreground">
-              {tracking ? 'Creating…' : 'Add'}
-            </span>
-          )}
-        </button>
-        <Separator className="mb-1" />
-        {INTEGRATIONS.map((integration, index) => {
-          const isExpanded = expandedType === integration.type
-          const existingConnections = connections.getConnectionsByType(integration.type)
+      {!eventsStep && !webhookStep && (
+        <BottomDialog.Page title="Add a view">
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Pick what to track. Each row groups views you can create from one of your connections.
+          </p>
 
-          return (
-            <div key={integration.type}>
+          <div className="space-y-5">
+            {/* Project Overview always renders first — it's the headline
+                composite tile and the most-likely click for a fresh project. */}
+            <ViewPickerRow title="Project" cards={overviewRow} />
+
+            {/* One row per connection. We label each row with the
+                integration's display name plus the user's connection
+                name so two connections of the same type are visually
+                distinct ("Stripe — Main account" vs. "Stripe — Side hustle"). */}
+            {connectionRows.map(({ conn, cards }) => (
+              <ViewPickerRow
+                key={conn.id}
+                title={CONNECTION_DISPLAY_NAMES[conn.type] ?? conn.type}
+                subtitle={conn.name}
+                cards={cards}
+              />
+            ))}
+
+            {/* "+ New connection" CTA. Always visible — even with zero
+                connections (the empty state) and as a way to add more
+                from this picker without leaving the flow. */}
+            <div className="pt-1">
               <button
-                className="w-full flex items-center justify-between py-3 hover:bg-accent/40 rounded-md px-1 -mx-1 transition-colors"
-                onClick={() => toggleExpand(integration.type)}
+                type="button"
+                onClick={() => {
+                  views.closeModal()
+                  connections.openModal(views.createViewFolderId)
+                }}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-foreground/15 bg-card/40 px-3 py-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-card hover:text-foreground"
               >
-                <div className="flex items-center gap-3">
-                  <ConnectionIcon
-                    type={integration.type}
-                    size={24}
-                    className="text-muted-foreground"
-                  />
-                  <div className="text-left">
-                    <p className="text-sm font-medium">{integration.label}</p>
-                    <p className="text-xs text-muted-foreground">{integration.description}</p>
-                  </div>
-                </div>
-                <CaretRight
-                  size={14}
-                  weight="bold"
-                  className={cn(
-                    'text-muted-foreground transition-transform duration-150 shrink-0',
-                    isExpanded && 'rotate-90',
-                  )}
-                />
+                <Plus size={13} weight="bold" />
+                New connection
               </button>
-
-              {isExpanded && (
-                <div className="mb-2 ml-11 space-y-1">
-                  {existingConnections.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2">
-                      No connections yet.{' '}
-                      <span
-                        className="underline underline-offset-2 cursor-pointer hover:text-foreground transition-colors"
-                        onClick={() => {
-                          views.closeModal()
-                          router.push('/hub/connections')
-                        }}
-                      >
-                        Add one first.
-                      </span>
-                    </p>
-                  ) : (
-                    existingConnections.map(conn => (
-                      <div key={conn.id} className="flex items-center justify-between py-1.5">
-                        <div>
-                          <p className="text-sm">{conn.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {new Date(conn.createdAt).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={tracking}
-                          onClick={() => {
-                            if (integration.type === 'stripe') {
-                              handleCreateStripeView(conn.id, views.createViewFolderId)
-                            } else if (integration.type === 'stripe_manual') {
-                              setStripeManualStep({
-                                connectionId: conn.id,
-                                connectionName: conn.name,
-                                viewType: null,
-                              })
-                            } else if (integration.type === 'calendly') {
-                              setCalendlyStep({
-                                connectionId: conn.id,
-                                connectionName: conn.name,
-                                viewType: null,
-                              })
-                            } else if (integration.type === 'google_analytics') {
-                              setGaStep({
-                                connectionId: conn.id,
-                                connectionName: conn.name,
-                                viewType: null,
-                              })
-                            } else if (integration.type === 'webhook') {
-                              setWebhookStep({
-                                connectionId: conn.id,
-                                connectionName: conn.name,
-                                viewType: null,
-                                field: 'value',
-                              })
-                            } else {
-                              handleCreatePosthogView(conn.id, conn.name)
-                            }
-                          }}
-                        >
-                          Create view
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {index < INTEGRATIONS.length - 1 && <Separator />}
             </div>
-          )
-        })}
-      </div>
-    )
-  }
-
-  // ── Derived header values ────────────────────────────────────────────────
-
-  const headerTitle = eventsStep
-    ? `${eventsStep.connectionName} — Event types`
-    : stripeManualStep
-      ? stripeManualStep.connectionName
-      : calendlyStep
-        ? calendlyStep.connectionName
-        : gaStep
-          ? gaStep.connectionName
-          : vercelStep
-            ? vercelStep.connectionName
-            : webhookStep
-              ? webhookStep.connectionName
-              : 'Add a view'
-
-  const headerSubtitle = eventsStep
-    ? 'All event types ever tracked in this project'
-    : stripeManualStep || calendlyStep || gaStep || vercelStep || webhookStep
-      ? 'Select a view type'
-      : 'Choose a connection to create a view'
-
-  const onBack: (() => void) | null = eventsStep
-    ? () => setEventsStep(null)
-    : stripeManualStep
-      ? () => setStripeManualStep(null)
-      : calendlyStep
-        ? () => setCalendlyStep(null)
-        : gaStep
-          ? () => setGaStep(null)
-          : vercelStep
-            ? () => setVercelStep(null)
-            : webhookStep
-              ? () => setWebhookStep(null)
-              : null
-
-  return (
-    <Dialog open={views.isModalOpen} onOpenChange={handleOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className={cn(
-          'p-0 overflow-hidden gap-0 dashboard flex flex-col max-h-[80vh]',
-          eventsStep ? 'sm:max-w-2xl' : 'sm:max-w-md',
-        )}
-      >
-        <DialogTitle className="sr-only">{headerTitle}</DialogTitle>
-        <DialogDescription className="sr-only">{headerSubtitle}</DialogDescription>
-        <SectionHeader
-          title={headerTitle}
-          subtitle={headerSubtitle}
-          onBack={onBack ?? undefined}
-          onClose={() => handleOpenChange(false)}
-        />
-        {renderBody()}
-      </DialogContent>
-    </Dialog>
+          </div>
+        </BottomDialog.Page>
+      )}
+    </BottomDialog>
   )
 }

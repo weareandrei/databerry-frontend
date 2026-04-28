@@ -17,6 +17,7 @@ import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { useOAuthCallback } from '@/hooks/useOAuthCallback'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { ConnectionDetailModal } from '@/app/hub/(components)/modals/ConnectionDetailModal'
+import { StripeProductPicker } from '@/app/hub/connections/(modals)/StripeProductPicker'
 import { ALGORITHM, type GAProperty } from '@/lib/api'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -26,7 +27,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-} from '@/components/ui/dialog'
+} from '@/components/ui/Dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,12 @@ function GoogleAnalyticsPropertyPicker() {
   const [properties, setProperties] = useState<GAProperty[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  // Two-step UX (matches StripeProductPicker): clicking a row only marks it as
+  // selected, then the footer Save button commits. The previous one-click-
+  // commit was confusing — users clicked expecting a "select" affordance and
+  // got an immediate save (or, with no visual confirmation, thought nothing
+  // happened and looked for a Confirm button that didn't exist).
+  const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null)
 
   useEffect(() => {
     const status = searchParams.get('google_analytics')
@@ -61,7 +68,12 @@ function GoogleAnalyticsPropertyPicker() {
       setConnectionId(cid)
       setLoading(true)
       ALGORITHM.getGoogleAnalyticsProperties(cid)
-        .then(res => setProperties(res.properties))
+        .then(res => {
+          setProperties(res.properties)
+          // Pre-select the first property so Save is immediately actionable
+          // and the highlight gives the user a visual anchor on open.
+          if (res.properties.length > 0) setSelectedPropertyId(res.properties[0].id)
+        })
         .catch(() => {
           toast.error('Failed to load Google Analytics properties')
           window.history.replaceState({}, '', '/hub/connections')
@@ -73,15 +85,22 @@ function GoogleAnalyticsPropertyPicker() {
   const dismiss = () => {
     setProperties(null)
     setConnectionId(null)
+    setSelectedPropertyId(null)
     window.history.replaceState({}, '', '/hub/connections')
   }
 
+  // Skip / close without explicit save: persist the currently-highlighted
+  // property (= the pre-selected first one if untouched). Connection works
+  // out of the box; user can revisit later. No write if nothing's selected
+  // or save is in flight.
   const handleClose = async () => {
-    // Auto-select the first property when user dismisses without picking
-    if (properties && properties.length > 0 && connectionId && !saving) {
+    if (selectedPropertyId && connectionId && !saving) {
       try {
-        await ALGORITHM.saveGoogleAnalyticsProperty(connectionId, properties[0].id)
-        toast.success(`Auto-selected "${properties[0].displayName}". You can change this by clicking the connection.`)
+        await ALGORITHM.saveGoogleAnalyticsProperty(connectionId, selectedPropertyId)
+        const picked = properties?.find(p => p.id === selectedPropertyId)
+        if (picked) {
+          toast.success(`Auto-selected "${picked.displayName}". You can change this by clicking the connection.`)
+        }
         connections.loadConnections()
       } catch {
         // silently ignore — user can click the connection to re-select
@@ -90,11 +109,11 @@ function GoogleAnalyticsPropertyPicker() {
     dismiss()
   }
 
-  const handleSelect = async (propertyId: string) => {
-    if (!connectionId) return
+  const handleSave = async () => {
+    if (!connectionId || !selectedPropertyId) return
     setSaving(true)
     try {
-      await ALGORITHM.saveGoogleAnalyticsProperty(connectionId, propertyId)
+      await ALGORITHM.saveGoogleAnalyticsProperty(connectionId, selectedPropertyId)
       toast.success('Google Analytics connected successfully!')
       connections.loadConnections()
       dismiss()
@@ -107,6 +126,8 @@ function GoogleAnalyticsPropertyPicker() {
 
   if (!connectionId) return null
 
+  const hasProperties = !!properties && properties.length > 0
+
   return (
     <Dialog open onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
@@ -118,26 +139,50 @@ function GoogleAnalyticsPropertyPicker() {
         </DialogHeader>
         {loading ? (
           <p className="text-sm text-muted-foreground py-4 text-center">Loading properties…</p>
-        ) : properties && properties.length === 0 ? (
+        ) : !hasProperties ? (
           <p className="text-sm text-muted-foreground py-4 text-center">No GA4 properties found.</p>
         ) : (
-          <div className="mt-1 space-y-2">
-            {properties?.map(prop => (
-              <Button
-                key={prop.id}
-                variant="outline"
-                disabled={saving}
-                onClick={() => handleSelect(prop.id)}
-                className="w-full justify-start h-auto p-3"
-              >
-                <div className="text-left">
-                  <p className="text-sm font-medium">{prop.displayName}</p>
-                  <p className="text-xs text-muted-foreground">{prop.name}</p>
-                </div>
-              </Button>
-            ))}
+          <div className="mt-1 max-h-72 overflow-y-auto pr-1 space-y-1.5">
+            {properties!.map(prop => {
+              const checked = selectedPropertyId === prop.id
+              return (
+                <button
+                  key={prop.id}
+                  type="button"
+                  onClick={() => setSelectedPropertyId(prop.id)}
+                  disabled={saving}
+                  className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+                    checked ? 'border-foreground bg-muted' : 'border-stroke hover:bg-main cursor-pointer'
+                  }`}
+                >
+                  <span
+                    className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                      checked ? 'border-foreground bg-foreground text-background' : 'border-stroke'
+                    }`}
+                  >
+                    {checked && <Check size={10} weight="bold" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{prop.displayName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{prop.name}</p>
+                  </div>
+                </button>
+              )
+            })}
           </div>
         )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
+            {hasProperties ? 'Skip' : 'Cancel'}
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={saving || !selectedPropertyId}
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )
@@ -215,6 +260,7 @@ export default function ConnectionsPage() {
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />
+        <StripeProductPicker />
       </Suspense>
 
       <ConnectionDetailModal

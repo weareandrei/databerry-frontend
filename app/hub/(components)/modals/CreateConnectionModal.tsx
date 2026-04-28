@@ -1,20 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Copy, Check, Info, Cube, CaretDown } from '@phosphor-icons/react'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ALGORITHM } from '@/lib/api'
 import type { Connection } from '@/types/connection'
 import type { Project } from '@/types/project'
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+import { BottomDialog } from '@/components/ui/Dialog'
+import { IntegrationGrid, type IntegrationCard } from '@/components/ui/IntegrationGrid'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,32 +19,25 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 
-const INTEGRATIONS: {
-  type: string
-  label: string
-  description: string
-  disabled?: boolean
-  note?: string
-}[] = [
-  { type: 'posthog', label: 'PostHog', description: 'Product analytics & event tracking' },
-  { type: 'stripe', label: 'Stripe', description: 'Payments, revenue & subscriptions' },
-  { type: 'calendly', label: 'Calendly', description: 'Scheduled meetings & booking links' },
-  { type: 'google_analytics', label: 'Google Analytics', description: 'Website traffic & user behavior' },
+const INTEGRATIONS: IntegrationCard[] = [
+  { id: 'posthog', name: 'PostHog', description: 'Product analytics & event tracking' },
+  { id: 'stripe', name: 'Stripe', description: 'Payments, revenue & subscriptions' },
+  { id: 'calendly', name: 'Calendly', description: 'Scheduled meetings & booking links' },
+  { id: 'google_analytics', name: 'Google Analytics', description: 'Website traffic & user behavior' },
   {
-    type: 'vercel',
-    label: 'Vercel',
+    id: 'vercel',
+    name: 'Vercel',
     description: 'Page views & traffic sources via Web Analytics',
     disabled: true,
-    note: 'In development',
+    badge: 'In development',
   },
-  { type: 'webhook', label: 'Custom Webhook', description: 'Accept POST requests from any source' },
-  { type: 'sentry', label: 'Sentry', description: 'Error monitoring & performance', disabled: true, note: 'In development' },
-  { type: 'github', label: 'GitHub', description: 'Repositories, PRs & issues', disabled: true, note: 'In development' },
-  { type: 'x', label: 'X (Twitter)', description: 'Followers, posts & engagement', disabled: true, note: 'In development' },
-  { type: 'reddit', label: 'Reddit', description: 'Subreddit stats & mentions', disabled: true, note: 'In development' },
-  { type: 'gmail', label: 'Gmail', description: 'Emails & threads', disabled: true, note: 'In development' },
+  { id: 'webhook', name: 'Custom Webhook', description: 'Accept POST requests from any source' },
+  { id: 'sentry', name: 'Sentry', description: 'Error monitoring & performance', disabled: true, badge: 'In development' },
+  { id: 'github', name: 'GitHub', description: 'Repositories, PRs & issues', disabled: true, badge: 'In development' },
+  { id: 'x', name: 'X (Twitter)', description: 'Followers, posts & engagement', disabled: true, badge: 'In development' },
+  { id: 'reddit', name: 'Reddit', description: 'Subreddit stats & mentions', disabled: true, badge: 'In development' },
+  { id: 'gmail', name: 'Gmail', description: 'Emails & threads', disabled: true, badge: 'In development' },
 ]
 
 type View =
@@ -443,18 +431,21 @@ function ProjectPicker({
   const label = selected?.name ?? 'Common (shared across projects)'
 
   return (
-    <div className="space-y-1.5">
+    <div className="inline-flex flex-col gap-1.5">
       <label className="text-xs font-medium text-muted-foreground">
         Project
       </label>
       <DropdownMenu>
         <DropdownMenuTrigger
           disabled={disabled}
-          className="flex w-full items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2 text-left text-[13px] font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer disabled:opacity-60"
+          // Compact, content-sized trigger — full-width felt like a form
+          // field; this is just a project switcher and should sit small in
+          // the corner.
+          className="inline-flex w-auto max-w-[280px] items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-left text-[12px] font-medium text-grey-darkest transition-colors hover:bg-muted disabled:opacity-60"
         >
-          <Cube size={14} weight="bold" className="shrink-0 text-grey-dark" />
+          <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
           <span className="flex-1 truncate">{label}</span>
-          <CaretDown size={10} weight="bold" className="text-muted-foreground shrink-0" />
+          <CaretDown size={9} weight="bold" className="shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
@@ -493,6 +484,7 @@ function ProjectPicker({
 
 export function CreateConnectionModal() {
   const { connections, projects: projectsCtx } = useDashboard()
+  const router = useRouter()
   const [view, setView] = useState<View>('list')
   const [projectId, setProjectId] = useState<string | null>(null)
   const [webhookCreated, setWebhookCreated] = useState<WebhookCreatedInfo | null>(null)
@@ -588,7 +580,7 @@ export function CreateConnectionModal() {
   }
 
   const handleStripeManualConnect = async (name: string, apiKey: string) => {
-    await connections.createConnection({
+    const created = await connections.createConnection({
       name,
       type: 'stripe_manual',
       projectId,
@@ -596,6 +588,13 @@ export function CreateConnectionModal() {
     })
     connections.closeModal()
     setView('list')
+    // Hop to the connections page with the picker query params. The picker
+    // reads `?stripe=select-products&connectionId=…` and opens itself.
+    if (created) {
+      router.push(
+        `/hub/connections?stripe=select-products&connectionId=${created.id}`,
+      )
+    }
   }
 
   const handlePostHogConnect = async (apiKey: string, phProjectId: string) => {
@@ -626,151 +625,124 @@ export function CreateConnectionModal() {
     }
   }
 
-  // ── Derived header values ─────────────────────────────────────────────────
+  // Project picker shows on every step where the connection hasn't been
+  // created yet — i.e. everything except the final "credentials shown once"
+  // pages. Pulled out so each Page can include or exclude it cleanly.
+  const projectPickerEl =
+    view !== 'webhook-created' && view !== 'vercel-created' ? (
+      <div className="mb-4">
+        <ProjectPicker
+          projects={projectsCtx.projects}
+          value={projectId}
+          onChange={setProjectId}
+        />
+      </div>
+    ) : null
 
-  const headerTitle =
-    view === 'list' ? 'Add a connection'
-    : view === 'posthog' ? 'PostHog'
-    : view === 'stripe-choose' ? 'Stripe'
-    : view === 'stripe-manual-form' ? 'Stripe (API key)'
-    : view === 'webhook-form' ? 'Custom Webhook'
-    : view === 'webhook-created' ? 'Webhook ready'
-    : view === 'calendly-connecting' ? 'Calendly'
-    : view === 'google-analytics-connecting' ? 'Google Analytics'
-    : view === 'vercel-token' ? 'Vercel'
-    : view === 'vercel-project-select' ? 'Vercel'
-    : 'Vercel'
-
-  const headerSubtitle =
-    view === 'list' ? 'Choose a service to connect'
-    : view === 'posthog' ? 'Enter your PostHog credentials'
-    : view === 'stripe-choose' ? 'Choose how to connect'
-    : view === 'stripe-manual-form' ? 'Enter your API key'
-    : view === 'webhook-form' ? 'Configure your webhook'
-    : view === 'webhook-created' ? 'Save these credentials — shown once'
-    : view === 'calendly-connecting' ? 'Redirecting to Calendly…'
-    : view === 'google-analytics-connecting' ? 'Redirecting to Google…'
-    : view === 'vercel-token' ? 'Enter your personal access token'
-    : view === 'vercel-project-select' ? 'Choose a project to track'
-    : 'Set up your log drain'
-
-  const onBack: (() => void) | undefined =
-    view === 'stripe-manual-form' ? () => setView('stripe-choose')
-    : view === 'vercel-project-select' ? () => setView('vercel-token')
-    : view !== 'list' && view !== 'webhook-created' && view !== 'vercel-created'
-      ? () => setView('list')
-    : undefined
+  // Back handler from a sub-step. Manual stripe and vercel-project-select
+  // step back to their parent step rather than the root list.
+  const backToList = () => setView('list')
+  const backToStripeChoose = () => setView('stripe-choose')
+  const backToVercelToken = () => setView('vercel-token')
 
   return (
-    <Dialog open={connections.isModalOpen} onOpenChange={handleOpenChange}>
-      <DialogContent
-        showCloseButton={false}
-        className="p-0 overflow-hidden gap-0 dashboard flex flex-col max-h-[80vh] sm:max-w-md"
-      >
-        <DialogTitle className="sr-only">{headerTitle}</DialogTitle>
-        <DialogDescription className="sr-only">{headerSubtitle}</DialogDescription>
-        <SectionHeader
-          title={headerTitle}
-          subtitle={headerSubtitle}
-          onBack={onBack}
-          onClose={() => handleOpenChange(false)}
-        />
+    <BottomDialog open={connections.isModalOpen} onOpenChange={handleOpenChange}>
+      {view === 'list' && (
+        <BottomDialog.Page title="Add a connection">
+          {projectPickerEl}
+          <IntegrationGrid items={INTEGRATIONS} onSelect={handleConnect} />
+        </BottomDialog.Page>
+      )}
 
-        {/* Project scope picker — visible on every view so the user always
-            knows where the connection is being attached. Hidden on the final
-            "created" views since the connection already exists by then. */}
-        {view !== 'webhook-created' && view !== 'vercel-created' && (
-          <div className="px-4 pt-4">
-            <ProjectPicker
-              projects={projectsCtx.projects}
-              value={projectId}
-              onChange={setProjectId}
-            />
+      {view === 'posthog' && (
+        <BottomDialog.Page title="PostHog" onBack={backToList}>
+          {projectPickerEl}
+          <PostHogForm onConnect={handlePostHogConnect} />
+        </BottomDialog.Page>
+      )}
+
+      {view === 'stripe-choose' && (
+        <BottomDialog.Page title="Stripe" onBack={backToList}>
+          {projectPickerEl}
+          <StripeChooseView
+            onOAuth={handleStripeOAuth}
+            onManual={() => setView('stripe-manual-form')}
+          />
+        </BottomDialog.Page>
+      )}
+
+      {view === 'stripe-manual-form' && (
+        <BottomDialog.Page
+          title="Stripe (API key)"
+          pageKey="stripe-manual-form"
+          onBack={backToStripeChoose}
+        >
+          {projectPickerEl}
+          <StripeManualForm onConnect={handleStripeManualConnect} />
+        </BottomDialog.Page>
+      )}
+
+      {view === 'calendly-connecting' && (
+        <BottomDialog.Page title="Calendly" onBack={backToList}>
+          <div className="flex items-center justify-center py-8">
+            <p className="text-sm text-muted-foreground">Opening Calendly authorization…</p>
           </div>
-        )}
+        </BottomDialog.Page>
+      )}
 
-        <div className="overflow-y-auto flex-1 px-4 py-4">
-          {view === 'list' && (
-            <div>
-              {INTEGRATIONS.map((integration, index) => (
-                <div key={integration.type}>
-                  <div className={`flex items-center justify-between py-3 gap-3 ${integration.disabled ? 'opacity-50' : ''}`}>
-                    <div className="flex items-center gap-3 min-w-0">
-                      <ConnectionIcon
-                        type={integration.type}
-                        size={24}
-                        className="text-muted-foreground shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium">{integration.label}</p>
-                        <p className="text-xs text-muted-foreground">{integration.description}</p>
-                        {integration.note && (
-                          <p className="text-xs text-amber-600 mt-0.5">{integration.note}</p>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={integration.disabled}
-                      onClick={() => !integration.disabled && handleConnect(integration.type)}
-                    >
-                      Connect
-                    </Button>
-                  </div>
-                  {index < INTEGRATIONS.length - 1 && <Separator />}
-                </div>
-              ))}
-            </div>
-          )}
+      {view === 'google-analytics-connecting' && (
+        <BottomDialog.Page title="Google Analytics" onBack={backToList}>
+          <div className="flex items-center justify-center py-8">
+            <p className="text-sm text-muted-foreground">Opening Google authorization…</p>
+          </div>
+        </BottomDialog.Page>
+      )}
 
-          {view === 'posthog' && <PostHogForm onConnect={handlePostHogConnect} />}
+      {view === 'webhook-form' && (
+        <BottomDialog.Page title="Custom Webhook" onBack={backToList}>
+          {projectPickerEl}
+          <WebhookForm onConnect={handleWebhookConnect} />
+        </BottomDialog.Page>
+      )}
 
-          {view === 'stripe-choose' && (
-            <StripeChooseView
-              onOAuth={handleStripeOAuth}
-              onManual={() => setView('stripe-manual-form')}
-            />
-          )}
+      {view === 'webhook-created' && webhookCreated && (
+        <BottomDialog.Page title="Webhook ready">
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Save these credentials — shown once.
+          </p>
+          <WebhookCreatedView info={webhookCreated} onDone={() => handleOpenChange(false)} />
+        </BottomDialog.Page>
+      )}
 
-          {view === 'stripe-manual-form' && (
-            <StripeManualForm onConnect={handleStripeManualConnect} />
-          )}
+      {view === 'vercel-token' && (
+        <BottomDialog.Page title="Vercel" onBack={backToList}>
+          {projectPickerEl}
+          <VercelTokenForm onFetch={handleVercelFetchProjects} />
+        </BottomDialog.Page>
+      )}
 
-          {view === 'calendly-connecting' && (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">Opening Calendly authorization…</p>
-            </div>
-          )}
+      {view === 'vercel-project-select' && (
+        <BottomDialog.Page
+          title="Vercel"
+          pageKey="vercel-project-select"
+          onBack={backToVercelToken}
+        >
+          {projectPickerEl}
+          <VercelProjectSelectForm
+            projects={vercelProjects}
+            onConnect={handleVercelConnect}
+          />
+        </BottomDialog.Page>
+      )}
 
-          {view === 'google-analytics-connecting' && (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-sm text-muted-foreground">Opening Google authorization…</p>
-            </div>
-          )}
-
-          {view === 'webhook-form' && <WebhookForm onConnect={handleWebhookConnect} />}
-
-          {view === 'webhook-created' && webhookCreated && (
-            <WebhookCreatedView info={webhookCreated} onDone={() => handleOpenChange(false)} />
-          )}
-
-          {view === 'vercel-token' && (
-            <VercelTokenForm onFetch={handleVercelFetchProjects} />
-          )}
-
-          {view === 'vercel-project-select' && (
-            <VercelProjectSelectForm
-              projects={vercelProjects}
-              onConnect={handleVercelConnect}
-            />
-          )}
-
-          {view === 'vercel-created' && (
-            <VercelCreatedView drainUrl={vercelDrainUrl} onDone={() => handleOpenChange(false)} />
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+      {view === 'vercel-created' && (
+        <BottomDialog.Page title="Vercel" pageKey="vercel-created">
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Set up your log drain.
+          </p>
+          <VercelCreatedView drainUrl={vercelDrainUrl} onDone={() => handleOpenChange(false)} />
+        </BottomDialog.Page>
+      )}
+    </BottomDialog>
   )
 }

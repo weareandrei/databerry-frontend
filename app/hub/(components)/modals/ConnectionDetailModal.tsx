@@ -1,18 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Copy, Check } from '@phosphor-icons/react'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowsClockwise, Check, Copy, Warning } from '@phosphor-icons/react'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ALGORITHM, type GAProperty } from '@/lib/api'
-import { toast } from 'sonner'
 import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog'
+  ALGORITHM,
+  type GAProperty,
+  type StripeProductOption,
+} from '@/lib/api'
+import { toast } from 'sonner'
+import { BottomDialog } from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/button'
 import type { Connection } from '@/types/connection'
 
@@ -175,6 +173,283 @@ function GADetail({ connection, onClose }: { connection: Connection; onClose: ()
   )
 }
 
+/**
+ * Stripe product filter — same data model as the post-creation
+ * `StripeProductPicker` modal (empty selection = "All products"), but inline.
+ * The duplication between the two surfaces is deliberate: the post-creation
+ * modal has Skip semantics (auto-save empty filter on dismiss) and a banner
+ * that polls backfill status; this one is a settings panel with an explicit
+ * "Save changes" button and inherits the modal's normal close behaviour.
+ */
+function StripeDetail({ connection, onClose }: { connection: Connection; onClose: () => void }) {
+  const [products, setProducts] = useState<StripeProductOption[] | null>(null)
+  const [allProducts, setAllProducts] = useState(true)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [initialKey, setInitialKey] = useState<string>('') // serialised initial state for dirty-check
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null)
+  const [backfillStatus, setBackfillStatus] = useState<
+    'pending' | 'in_progress' | 'complete' | 'error' | null
+  >(null)
+  const [backfillError, setBackfillError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Serialise selected/all into a stable string so we can detect "no changes
+  // pending" without diffing two Sets every render.
+  const serialise = (all: boolean, ids: Set<string>) =>
+    all ? '<all>' : Array.from(ids).sort().join(',')
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    ALGORITHM.getStripeProducts(connection.id)
+      .then(res => {
+        if (cancelled) return
+        setProducts(res.products)
+        setStripeAccountId(res.stripeAccountId)
+        setBackfillStatus(res.backfillStatus)
+        setBackfillError(res.backfillError)
+        if (res.selectedProductIds.length === 0) {
+          setAllProducts(true)
+          setSelected(new Set())
+          setInitialKey(serialise(true, new Set()))
+        } else {
+          setAllProducts(false)
+          const ids = new Set(res.selectedProductIds)
+          setSelected(ids)
+          setInitialKey(serialise(false, ids))
+        }
+      })
+      .catch(() => toast.error('Failed to load Stripe products'))
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [connection.id])
+
+  // Keep status fresh while the modal is open and backfill is still running.
+  useEffect(() => {
+    if (!stripeAccountId) return
+    if (backfillStatus === 'complete' || backfillStatus === 'error' || backfillStatus === null) return
+    const handle = setInterval(async () => {
+      try {
+        const status = await ALGORITHM.getStripeAccountStatus(stripeAccountId)
+        setBackfillStatus(status.backfillStatus)
+        setBackfillError(status.backfillError)
+        if (status.backfillStatus === 'complete') {
+          // Pick up any newly-discovered products.
+          const refreshed = await ALGORITHM.getStripeProducts(connection.id)
+          setProducts(refreshed.products)
+        }
+      } catch {
+        /* soft-fail */
+      }
+    }, 5000)
+    return () => clearInterval(handle)
+  }, [stripeAccountId, backfillStatus, connection.id])
+
+  const sortedProducts = useMemo(() => {
+    if (!products) return []
+    return [...products].sort((a, b) => {
+      if (a.active !== b.active) return a.active ? -1 : 1
+      return a.name.localeCompare(b.name)
+    })
+  }, [products])
+
+  const toggleProduct = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const dirty = serialise(allProducts, selected) !== initialKey
+
+  const handleSave = async () => {
+    const ids = allProducts ? [] : Array.from(selected)
+    if (!allProducts && ids.length === 0) {
+      toast.error('Pick at least one product, or switch on "All products".')
+      return
+    }
+    setSaving(true)
+    try {
+      await ALGORITHM.saveStripeProducts(connection.id, ids)
+      toast.success(
+        ids.length === 0
+          ? 'Tracking all products on this connection.'
+          : `Tracking ${ids.length} product${ids.length === 1 ? '' : 's'}.`,
+      )
+      onClose()
+    } catch {
+      toast.error('Failed to save selection. Please try again.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Mirror the picker's state machine: each backfill state gets distinct UI
+  // copy, no more conflated "Still importing…" fallback.
+  const isImporting =
+    backfillStatus === 'pending' || backfillStatus === 'in_progress'
+  const hasError = backfillStatus === 'error'
+  const isComplete = backfillStatus === 'complete' || backfillStatus === null
+  const hasNoProducts = isComplete && sortedProducts.length === 0
+  const hasProducts = sortedProducts.length > 0
+  // Toggle + list only make sense when we have something (or are still
+  // importing things). With zero products, swap to a clear empty-state card.
+  const showProductChooser = hasProducts || isImporting
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Pick which Stripe products count toward this connection&rsquo;s revenue tiles.
+      </p>
+
+      {isImporting && (
+        <div className="flex items-center gap-2 rounded-md border border-stroke bg-main px-3 py-2">
+          <ArrowsClockwise size={14} weight="bold" className="text-muted-foreground animate-spin shrink-0" />
+          <p className="text-xs text-muted-foreground">
+            Importing 90 days of payment history… (~3 minutes). Products appear as we discover them.
+          </p>
+        </div>
+      )}
+
+      {hasError && (
+        <div className="flex items-start gap-2 rounded-md border border-stroke bg-main px-3 py-2">
+          <Warning size={14} weight="bold" className="text-destructive shrink-0 mt-0.5" />
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className="font-medium text-foreground">Couldn&rsquo;t finish importing.</p>
+            {backfillError && <p className="break-words">{backfillError}</p>}
+            <p>
+              Common causes: the API key is missing the{' '}
+              <span className="font-mono">Products → Read</span> or{' '}
+              <span className="font-mono">Charges → Read</span> scope, or the key was revoked.
+              Fix the key in Stripe and re-create this connection to retry.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Empty-state card — backfill done but Stripe legitimately has no
+          products on this account. Most often: test-mode key vs live-mode
+          dashboard. Saving still works (writes empty filter = "all charges"),
+          we just stop pretending the toggle has something to act on. */}
+      {hasNoProducts && !hasError && (
+        <div className="rounded-md border border-stroke bg-main px-3 py-3 space-y-2">
+          <p className="text-sm font-medium">No products found on this Stripe account.</p>
+          <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-4">
+            <li>
+              If you&rsquo;re using a <span className="font-mono">rk_test_…</span> key, products
+              must exist in <strong>test mode</strong> — live-mode products won&rsquo;t show up.
+              Toggle test mode in your Stripe Dashboard to confirm.
+            </li>
+            <li>
+              Make sure your Restricted Key has{' '}
+              <span className="font-mono">Products → Read</span> enabled (under Core resources).
+            </li>
+            <li>
+              If you don&rsquo;t use Stripe Products, you can still save — every charge will count
+              as &ldquo;all products&rdquo;.
+            </li>
+          </ul>
+        </div>
+      )}
+
+      {/* All-products toggle — only meaningful when we have a list. Hidden
+          (in favor of the empty-state card) when zero products exist. */}
+      {showProductChooser && (
+        <button
+          type="button"
+          onClick={() => setAllProducts(v => !v)}
+          className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors ${
+            allProducts ? 'border-foreground bg-muted' : 'border-stroke hover:bg-main'
+          }`}
+        >
+          <span
+            className={`flex h-4 w-4 items-center justify-center rounded-sm border ${
+              allProducts ? 'border-foreground bg-foreground text-background' : 'border-stroke'
+            }`}
+          >
+            {allProducts && <Check size={10} weight="bold" />}
+          </span>
+          <div className="flex-1">
+            <p className="text-sm font-medium">
+              All products
+              {sortedProducts.length > 0 && (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  ({sortedProducts.length})
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Every charge on this Stripe account counts. Default and recommended.
+            </p>
+          </div>
+        </button>
+      )}
+
+      {/* Product list — visible while we have something. Items are
+          non-interactive while "All products" is on; toggling off makes
+          them selectable. */}
+      {showProductChooser && (
+        <div className="max-h-64 overflow-y-auto pr-1 space-y-1.5">
+          {loading ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">Loading products…</p>
+          ) : sortedProducts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">
+              Products will appear here as we discover them…
+            </p>
+          ) : (
+            sortedProducts.map(p => {
+              const checked = allProducts ? true : selected.has(p.id)
+              const interactive = !allProducts
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => interactive && toggleProduct(p.id)}
+                  disabled={!interactive}
+                  className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
+                    checked ? 'border-foreground bg-muted' : 'border-stroke'
+                  } ${interactive ? 'hover:bg-main cursor-pointer' : 'cursor-default opacity-70'} ${
+                    p.active ? '' : 'opacity-60'
+                  }`}
+                >
+                  <span
+                    className={`flex h-4 w-4 items-center justify-center rounded-sm border ${
+                      checked ? 'border-foreground bg-foreground text-background' : 'border-stroke'
+                    }`}
+                  >
+                    {checked && <Check size={10} weight="bold" />}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{p.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {p.active ? p.id : `${p.id} · archived`}
+                    </p>
+                  </div>
+                </button>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      <Button
+        className="w-full bg-brand hover:bg-brand/90 text-white"
+        disabled={!dirty || saving}
+        onClick={handleSave}
+      >
+        {saving ? 'Saving…' : 'Save changes'}
+      </Button>
+    </div>
+  )
+}
+
 function GenericDetail({ connection }: { connection: Connection }) {
   return (
     <div className="space-y-3">
@@ -232,30 +507,26 @@ export function ConnectionDetailModal({ connection, onClose }: ConnectionDetailM
   const displayName = CONNECTION_DISPLAY_NAMES[connection.type] ?? connection.type
 
   return (
-    <Dialog open={!!connection} onOpenChange={open => !open && onClose()}>
-      <DialogContent
-        showCloseButton={false}
-        className="p-0 overflow-hidden gap-0 dashboard flex flex-col max-h-[80vh] sm:max-w-md"
-      >
-        <DialogTitle className="sr-only">{connection.name}</DialogTitle>
-        <DialogDescription className="sr-only">{displayName} connection settings</DialogDescription>
-        <SectionHeader
-          title={connection.name}
-          subtitle={displayName}
-          onClose={onClose}
-        />
-
-        <div className="overflow-y-auto flex-1 px-4 py-4 space-y-4">
+    <BottomDialog open={!!connection} onOpenChange={open => !open && onClose()}>
+      <BottomDialog.Page title={connection.name}>
+        <p className="-mt-1 mb-4 text-xs text-muted-foreground">{displayName}</p>
+        <div className="space-y-4">
           <SummaryBlock connection={connection} />
           {connection.type === 'vercel' && <VercelDetail connection={connection} />}
           {connection.type === 'webhook' && <WebhookDetail connection={connection} />}
           {connection.type === 'google_analytics' && <GADetail connection={connection} onClose={onClose} />}
-          {connection.type !== 'vercel' && connection.type !== 'webhook' && connection.type !== 'google_analytics' && (
-            <GenericDetail connection={connection} />
+          {(connection.type === 'stripe' || connection.type === 'stripe_manual') && (
+            <StripeDetail connection={connection} onClose={onClose} />
           )}
+          {connection.type !== 'vercel' &&
+            connection.type !== 'webhook' &&
+            connection.type !== 'google_analytics' &&
+            connection.type !== 'stripe' &&
+            connection.type !== 'stripe_manual' && (
+              <GenericDetail connection={connection} />
+            )}
         </div>
-
-      </DialogContent>
-    </Dialog>
+      </BottomDialog.Page>
+    </BottomDialog>
   )
 }

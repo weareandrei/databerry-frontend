@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { CaretLeft, CaretRight, ArrowRight } from '@phosphor-icons/react'
 import type { RootState } from '@/store'
@@ -19,11 +20,24 @@ export function GlobalDateChange() {
   const from = useSelector((s: RootState) => s.ui.globalDateFrom)
   const to = useSelector((s: RootState) => s.ui.globalDateTo)
 
-  const now = today()
-  const todayStr = toDateStr(now)
-  const currentBoundaries = periodBoundaries(mode, now)
-  const onCurrentPeriod = from === currentBoundaries.from && to === currentBoundaries.to
-  const atTodayEnd = to === todayStr
+  // Defer `today()` until after hydration. The Redux store is a module-level
+  // singleton in Next.js App Router, so `globalDateFrom`/`globalDateTo` may
+  // already encode a stale boot-time date from the server. If we compute
+  // `now`/`currentBoundaries` synchronously on first render, the server's
+  // "today" can disagree with the client's "today" — flipping `onCurrentPeriod`
+  // and conditionally rendering the reset pill, which trips the React 19
+  // hydration-mismatch error. Pre-mount we render the "neutral" state
+  // (no reset pill, forward arrow disabled) which is identical on both sides.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  const now = mounted ? today() : null
+  const todayStr = now ? toDateStr(now) : ''
+  const currentBoundaries = now ? periodBoundaries(mode, now) : null
+  const onCurrentPeriod = currentBoundaries
+    ? from === currentBoundaries.from && to === currentBoundaries.to
+    : true
+  const atTodayEnd = mounted ? to === todayStr : true
 
   // Select label parts based on mode
   let main = ''
