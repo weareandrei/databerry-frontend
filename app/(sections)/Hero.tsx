@@ -202,8 +202,9 @@ export function Hero() {
           className="mt-5 max-w-xl text-base md:text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
           style={{ fontFamily: 'var(--font-inter)' }}
         >
-          Integrate business data from any platform you work with into a single page. See only data
-          that matters.
+          Connect Google Analytics, Stripe, PostHog and more .. Everything that founders use to
+          track their projects day-to-day. Multiple projects. Multiple dashboards. All living in
+          a harmony inside Databerry.
         </motion.h4>
 
         {/* CTA — mobile only */}
