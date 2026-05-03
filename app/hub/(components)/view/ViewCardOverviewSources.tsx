@@ -75,13 +75,18 @@ export function ViewCardOverviewSources({
   const [sourcesTick, setSourcesTick] = useState(0)
   const [usersTick, setUsersTick] = useState(0)
 
-  // ── Sources fetch (runs when tab becomes 'sources' the first time, or on
-  //    range / limit changes while visible, or when its refresh tick bumps). ─
+  // ── Sources fetch (runs when tab becomes 'sources' the first time, on
+  //    range changes while visible, or when its refresh tick bumps). ────
+  // The view's `sourcesLimit` config is *not* sent as the API limit any
+  // more — instead it controls the panel's local page size. We always
+  // ask for the backend default (100) so pagination has something to
+  // page through. Switching `sourcesLimit` therefore doesn't invalidate
+  // the cached data, only the pager's view of it.
   useEffect(() => {
     if (tab !== 'sources') return
     let cancelled = false
     setSources(s => ({ ...s, loading: true, error: null }))
-    PROJECT_OVERVIEW.getSources(view.projectId, dateFrom, dateTo, config.sourcesLimit ?? 10)
+    PROJECT_OVERVIEW.getSources(view.projectId, dateFrom, dateTo)
       .then(res => {
         if (cancelled) return
         setSources({ data: res.sources, loading: false, error: null, fetched: true })
@@ -98,7 +103,7 @@ export function ViewCardOverviewSources({
     return () => {
       cancelled = true
     }
-  }, [tab, view.projectId, dateFrom, dateTo, config.sourcesLimit, sourcesTick])
+  }, [tab, view.projectId, dateFrom, dateTo, sourcesTick])
 
   // ── Users fetch (same lazy+refresh pattern). ────────────────────────────
   useEffect(() => {
@@ -209,7 +214,7 @@ export function ViewCardOverviewSources({
 
       <div className="p-4 min-w-0">
         {tab === 'sources'
-          ? renderSources(sources)
+          ? renderSources(sources, config.sourcesLimit ?? 10)
           : renderUsers(users)
         }
       </div>
@@ -223,11 +228,14 @@ export function ViewCardOverviewSources({
 // loading / error / empty / data variant.
 // ────────────────────────────────────────────────────────────────────────────
 
-function renderSources(state: TabState<OverviewSource[]>): React.ReactElement {
+function renderSources(
+  state: TabState<OverviewSource[]>,
+  pageSize: number,
+): React.ReactElement {
   if (state.error) return <ErrorState message={state.error} />
   if (state.loading || !state.fetched) return <LoadingState />
   if (!state.data || state.data.length === 0) return <NoTrafficState />
-  return <OverviewSourcesPanel sources={state.data} />
+  return <OverviewSourcesPanel sources={state.data} pageSize={pageSize} />
 }
 
 function renderUsers(state: TabState<OverviewUser[]>): React.ReactElement {

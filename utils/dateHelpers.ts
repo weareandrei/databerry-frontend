@@ -16,6 +16,85 @@ export function today(): Date {
   return d
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Timezone-aware variants. The legacy UTC helpers above stay for code paths
+// that genuinely operate on UTC days (caching keys, certain formatting); the
+// helpers below are what view-fetch hooks should call so dates align to the
+// user's wall-clock day rather than UTC.
+//
+// Mirrors `backend/src/common/tz.ts`'s approach (Intl-based, no library).
+// ────────────────────────────────────────────────────────────────────────────
+
+interface ZonedFields {
+  year: number
+  month: number
+  day: number
+}
+
+function fieldsInTz(date: Date, tz: string): ZonedFields {
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  const parts = fmt.formatToParts(date)
+  const get = (t: Intl.DateTimeFormatPartTypes) =>
+    parseInt(parts.find(p => p.type === t)!.value, 10)
+  return { year: get('year'), month: get('month'), day: get('day') }
+}
+
+/** "YYYY-MM-DD" of `date` as observed in `tz`. */
+export function toDateStrInTz(date: Date, tz: string): string {
+  const f = fieldsInTz(date, tz)
+  return `${f.year}-${String(f.month).padStart(2, '0')}-${String(f.day).padStart(2, '0')}`
+}
+
+/**
+ * Returns a UTC `Date` such that `toDateStrInTz(date, tz)` equals the
+ * user's *current* local date. The Date itself is at UTC midnight of that
+ * local-day boundary's UTC instant — so subtracting a UTC day from it (for
+ * "yesterday") works the same way the rest of the codebase expects.
+ *
+ * Example: at wall-clock 23:30 on Apr 30 in Bucharest (UTC+3), `today()`
+ * returns the UTC instant 2026-04-30 00:00, but `todayInTz('Europe/Bucharest')`
+ * returns an instant tagged Apr 30 from the user's perspective — the
+ * downstream `toDateStrInTz` of that instant is `'2026-04-30'`.
+ */
+export function todayInTz(tz: string): Date {
+  // We can't just `new Date()` and `setUTCHours(0)` — that gives UTC
+  // midnight, which is "yesterday" for users west of UTC at the right
+  // moment. Instead: read today's date *in tz*, then build the UTC
+  // midnight of that wall-clock day. The resulting Date prints
+  // identically to `today()` for UTC users.
+  const now = new Date()
+  const f = fieldsInTz(now, tz)
+  return new Date(Date.UTC(f.year, f.month - 1, f.day, 0, 0, 0, 0))
+}
+
+/**
+ * Tz-aware `periodBoundaries`. Caller usually passes
+ * `todayInTz(tz)` as the anchor; we then format with `toDateStrInTz` so
+ * monthly/weekly windows align to wall-clock month/week boundaries.
+ *
+ * The result strings are UTC `YYYY-MM-DD` (same shape as the legacy
+ * function), which is what the backend expects — but they correspond to
+ * *local* days for the user. The backend uses `localMidnightUtc` and the
+ * HogQL `toDate(toTimeZone(...))` chain to evaluate them in the user's tz.
+ */
+export function periodBoundariesInTz(
+  mode: GlobalDateMode,
+  anchor: Date,
+  _tz: string,
+): { from: string; to: string } {
+  // The anchor is already a UTC-midnight Date built from `todayInTz`, so
+  // `toDateStr` (UTC) and `toDateStrInTz(anchor, tz)` produce the same
+  // YYYY-MM-DD. We can therefore reuse the existing UTC math — week/month
+  // boundary computations operate on day-of-week / day-of-month, which
+  // are already in the local frame thanks to the anchor.
+  return periodBoundaries(mode, anchor)
+}
+
 export function toDateStr(d: Date): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
@@ -65,6 +144,36 @@ export function formatDateRange(start: Date, end: Date): string {
     return `${MONTHS[sm]} ${sd} – ${MONTHS[em]} ${ed}, ${ey}`
   }
   return `${MONTHS[sm]} ${sd}, ${sy} – ${MONTHS[em]} ${ed}, ${ey}`
+}
+
+/**
+ * Convenience wrapper around `formatDateRange` for callers that hold the
+ * range as ISO date strings (`YYYY-MM-DD`) — the shape Redux globals carry.
+ * Returns null when either side is missing or unparseable so the caller
+ * can omit the caption cleanly without inline ternary noise.
+ *
+ * Lives here (next to `formatDateRange`) so the date-string parsing
+ * convention stays in one place. Previously this was duplicated inline
+ * inside `ViewCard` as part of the MRR caption, which forced the view
+ * component to know about the Redux-globals date shape — directly
+ * violating "low-level components don't reach into app-level state".
+ */
+export function formatIsoDateRange(
+  fromIso: string | null | undefined,
+  toIso: string | null | undefined,
+): string | null {
+  const from = isoDateToUtcDate(fromIso)
+  const to = isoDateToUtcDate(toIso)
+  return from && to ? formatDateRange(from, to) : null
+}
+
+function isoDateToUtcDate(iso: string | null | undefined): Date | null {
+  if (!iso) return null
+  // Anchor to midnight UTC so the resulting Date reflects the calendar
+  // day the caller picked, not whatever the local-tz interpretation
+  // would shift it to.
+  const d = new Date(`${iso}T00:00:00Z`)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
 export function differenceInDays(a: Date, b: Date): number {

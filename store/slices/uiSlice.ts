@@ -11,6 +11,15 @@ interface UiState {
   globalDateMode: GlobalDateMode
   globalDateFrom: string
   globalDateTo: string
+  /**
+   * IANA timezone for every view-fetch (forwarded as `?tz=` to the
+   * backend). Mirrors `UserSettingsContext.settings.timezone` — the context
+   * is the writer, this slice is the read side that view hooks subscribe
+   * to. `null` until the auto-detect/load completes — hooks that read it
+   * should treat null as "skip fetch" so we don't fire duplicate requests
+   * once it lands. Falls back to `'UTC'` if the user has no value persisted.
+   */
+  globalTimeZone: string | null
   createProjectModalOpen: boolean
   createFolderModalOpen: boolean
   createFolderParentId: string | null
@@ -26,6 +35,10 @@ const initialState: UiState = {
   globalDateMode: 'daily',
   globalDateFrom: todayISO(),
   globalDateTo: todayISO(),
+  // null = "still loading from UserSettingsContext". The provider hydrates
+  // this on mount; until then view hooks block fetches so we don't run
+  // queries with the wrong tz then re-run with the right one.
+  globalTimeZone: null,
   createProjectModalOpen: false,
   createFolderModalOpen: false,
   createFolderParentId: null,
@@ -76,6 +89,14 @@ const uiSlice = createSlice({
       const todayStr = todayISO()
       state.globalDateTo = to > todayStr ? todayStr : to
     },
+    /**
+     * Mirror the user's tz from `UserSettingsContext` into redux. Called by
+     * the provider's effect whenever the context value changes (initial
+     * load, auto-detect, settings save).
+     */
+    setGlobalTimeZone(state, action: PayloadAction<string | null>) {
+      state.globalTimeZone = action.payload
+    },
     openCreateProjectModal(state) {
       state.createProjectModalOpen = true
     },
@@ -118,6 +139,7 @@ export const {
   setGlobalDateMode,
   shiftGlobalPeriod,
   resetGlobalToCurrent,
+  setGlobalTimeZone,
   openCreateProjectModal,
   closeCreateProjectModal,
   openCreateFolderModal,

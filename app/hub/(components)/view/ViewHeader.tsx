@@ -1,6 +1,6 @@
 'use client'
 
-import { DotsThreeVertical, Warning, Cube, ArrowsClockwise, PushPin, PushPinSlash, Info } from '@phosphor-icons/react'
+import { DotsThreeVertical, Warning, Cube, ArrowsClockwise, PushPin, PushPinSlash, Info, Plug } from '@phosphor-icons/react'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import {
   DropdownMenu,
@@ -15,6 +15,21 @@ interface ViewHeaderProps {
   connectionType: string
   connectionLabel: string
   isDisconnected?: boolean
+  /**
+   * Connection FK on the view points at a row that no longer exists for
+   * this user (typically because the connection was deleted while the
+   * tile was open). Same UX treatment as `isDisconnected` from the
+   * dropdown's perspective — both surface a "Reconnect" item that opens
+   * the reassign-connection dialog. See `ViewCard` for the badge side.
+   */
+  isConnectionMissing?: boolean
+  /**
+   * Click handler for the dropdown's "Reconnect" item. Wired by `ViewCard`
+   * to open `ReassignConnectionDialog`. The item is shown only when the
+   * view is in a state that benefits from reattachment — i.e.
+   * `isDisconnected || isConnectionMissing`.
+   */
+  onReconnect?: () => void
   onUntrack?: (id: string) => void
   viewId: string
   extraMenuItems?: React.ReactNode
@@ -32,6 +47,8 @@ export function ViewHeader({
   connectionType,
   connectionLabel,
   isDisconnected = false,
+  isConnectionMissing = false,
+  onReconnect,
   onUntrack,
   viewId,
   extraMenuItems,
@@ -42,6 +59,10 @@ export function ViewHeader({
   isPinned = false,
   compact = false,
 }: ViewHeaderProps) {
+  // "Needs reattach" covers both true orphans and dangling FKs — same
+  // remedy (point this view at a different connection of the same type),
+  // same dropdown affordance.
+  const needsReattach = isDisconnected || isConnectionMissing
   return (
     <div
       className={
@@ -103,14 +124,18 @@ export function ViewHeader({
             </Tooltip>
           </TooltipProvider>
         )}
-        {isDisconnected && (
+        {needsReattach && (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
                 <Warning size={13} weight="bold" className="text-amber-500 cursor-default" />
               </TooltipTrigger>
               <TooltipContent side="left">
-                <p className="text-xs">Not connected to any integration</p>
+                <p className="text-xs">
+                  {isConnectionMissing
+                    ? 'Connection no longer exists'
+                    : 'Not connected to any integration'}
+                </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -120,7 +145,23 @@ export function ViewHeader({
             <DotsThreeVertical size={18} weight="bold" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-36">
-            {isDisconnected && <DropdownMenuItem className="text-sm">Connect</DropdownMenuItem>}
+            {/*
+              Always available when a parent passes `onReconnect` — the
+              user might want to swap connections even when nothing is
+              visibly broken (e.g. the live value loaded but is wrong
+              because the connection points at the wrong account, or the
+              backend's generic "Couldn't load value" error doesn't
+              specifically signal `CONNECTION_MISSING`).
+              The earlier inert "Connect" item only worked for strict
+              orphans (`view.connectionId == null`) and never had an
+              `onClick` — replaced by this.
+            */}
+            {onReconnect && (
+              <DropdownMenuItem onClick={onReconnect} className="text-sm gap-2">
+                <Plug size={13} weight="bold" />
+                Reconnect
+              </DropdownMenuItem>
+            )}
             {extraMenuItems}
             {onPin && (
               <DropdownMenuItem onClick={onPin} className="text-sm gap-2">

@@ -8,7 +8,11 @@ import { useDashboard } from '@/contexts/DashboardContext'
 import { ALGORITHM } from '@/lib/api'
 import type { Connection } from '@/types/connection'
 import type { Project } from '@/types/project'
-import { BottomDialog } from '@/components/ui/Dialog'
+import {
+  BottomDialog,
+  type BottomDialogPageSlotContext,
+} from '@/components/ui/Dialog'
+import { HeaderSaveCancel } from './HeaderSaveCancel'
 import { IntegrationGrid, type IntegrationCard } from '@/components/ui/IntegrationGrid'
 import {
   DropdownMenu,
@@ -82,21 +86,24 @@ function CopyField({ label, value }: { label: string; value: string }) {
   )
 }
 
+// Form components in this file are now CONTROLLED — they own no state
+// of their own. The `CreateConnectionModal` parent holds the values
+// and the submit handlers, then renders `<HeaderSaveCancel>` in the
+// dialog's top-right slot. This swap is what made the create-connection
+// flow visually consistent with the create-view and connection-detail
+// dialogs (every form-bearing bottom dialog now uses the same top-right
+// save/cancel cluster).
 function PostHogForm({
-  onConnect,
+  apiKey,
+  projectId,
+  onApiKeyChange,
+  onProjectIdChange,
 }: {
-  onConnect: (apiKey: string, projectId: string) => Promise<void>
+  apiKey: string
+  projectId: string
+  onApiKeyChange: (v: string) => void
+  onProjectIdChange: (v: string) => void
 }) {
-  const [apiKey, setApiKey] = useState('')
-  const [projectId, setProjectId] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleConnect = async () => {
-    setLoading(true)
-    await onConnect(apiKey, projectId)
-    setLoading(false)
-  }
-
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
@@ -104,7 +111,7 @@ function PostHogForm({
         <Input
           placeholder="phx_xxxxxxxxxxxxxxxxxxxx"
           value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
+          onChange={e => onApiKeyChange(e.target.value)}
           autoFocus
         />
       </div>
@@ -113,36 +120,20 @@ function PostHogForm({
         <Input
           placeholder="12345"
           value={projectId}
-          onChange={e => setProjectId(e.target.value)}
+          onChange={e => onProjectIdChange(e.target.value)}
         />
-      </div>
-      <div className="flex justify-end pt-2">
-        <Button
-          size="sm"
-          disabled={!apiKey.trim() || !projectId.trim() || loading}
-          onClick={handleConnect}
-        >
-          Connect
-        </Button>
       </div>
     </div>
   )
 }
 
 function WebhookForm({
-  onConnect,
+  name,
+  onNameChange,
 }: {
-  onConnect: (name: string) => Promise<void>
+  name: string
+  onNameChange: (v: string) => void
 }) {
-  const [name, setName] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleConnect = async () => {
-    setLoading(true)
-    await onConnect(name.trim() || 'Custom Webhook')
-    setLoading(false)
-  }
-
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
@@ -150,18 +141,13 @@ function WebhookForm({
         <Input
           placeholder="My Webhook"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={e => onNameChange(e.target.value)}
           autoFocus
         />
       </div>
       <p className="text-xs text-muted-foreground">
         You'll get a unique webhook URL and API key after connecting.
       </p>
-      <div className="flex justify-end pt-2">
-        <Button size="sm" disabled={loading} onClick={handleConnect}>
-          Create
-        </Button>
-      </div>
     </div>
   )
 }
@@ -244,20 +230,16 @@ function StripeChooseView({
 }
 
 function StripeManualForm({
-  onConnect,
+  name,
+  apiKey,
+  onNameChange,
+  onApiKeyChange,
 }: {
-  onConnect: (name: string, apiKey: string) => Promise<void>
+  name: string
+  apiKey: string
+  onNameChange: (v: string) => void
+  onApiKeyChange: (v: string) => void
 }) {
-  const [name, setName] = useState('Stripe')
-  const [apiKey, setApiKey] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleConnect = async () => {
-    setLoading(true)
-    await onConnect(name.trim() || 'Stripe', apiKey.trim())
-    setLoading(false)
-  }
-
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
@@ -265,7 +247,7 @@ function StripeManualForm({
         <Input
           placeholder="Stripe"
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={e => onNameChange(e.target.value)}
           autoFocus
         />
       </div>
@@ -274,7 +256,7 @@ function StripeManualForm({
         <Input
           placeholder="rk_live_xxxxxxxxxxxxxxxxxxxx"
           value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
+          onChange={e => onApiKeyChange(e.target.value)}
         />
         <p className="text-xs text-muted-foreground">
           Create a{' '}
@@ -289,29 +271,17 @@ function StripeManualForm({
           with read access to: Charges, Customers, Subscriptions, Balance.
         </p>
       </div>
-      <div className="flex justify-end pt-2">
-        <Button size="sm" disabled={!apiKey.trim() || loading} onClick={handleConnect}>
-          Connect
-        </Button>
-      </div>
     </div>
   )
 }
 
 function VercelTokenForm({
-  onFetch,
+  token,
+  onTokenChange,
 }: {
-  onFetch: (token: string) => Promise<void>
+  token: string
+  onTokenChange: (v: string) => void
 }) {
-  const [token, setToken] = useState('')
-  const [loading, setLoading] = useState(false)
-
-  const handleFetch = async () => {
-    setLoading(true)
-    await onFetch(token.trim())
-    setLoading(false)
-  }
-
   return (
     <div className="space-y-3">
       <div className="space-y-1.5">
@@ -319,7 +289,7 @@ function VercelTokenForm({
         <Input
           placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
           value={token}
-          onChange={e => setToken(e.target.value)}
+          onChange={e => onTokenChange(e.target.value)}
           autoFocus
         />
         <p className="text-xs text-muted-foreground">
@@ -334,33 +304,19 @@ function VercelTokenForm({
           </a>
         </p>
       </div>
-      <div className="flex justify-end pt-2">
-        <Button size="sm" disabled={!token.trim() || loading} onClick={handleFetch}>
-          {loading ? 'Fetching…' : 'Fetch projects'}
-        </Button>
-      </div>
     </div>
   )
 }
 
 function VercelProjectSelectForm({
   projects,
-  onConnect,
+  selectedId,
+  onSelect,
 }: {
   projects: { id: string; name: string }[]
-  onConnect: (projectId: string, projectName: string) => Promise<void>
+  selectedId: string
+  onSelect: (id: string) => void
 }) {
-  const [selected, setSelected] = useState<string>('')
-  const [loading, setLoading] = useState(false)
-
-  const handleConnect = async () => {
-    const project = projects.find(p => p.id === selected)
-    if (!project) return
-    setLoading(true)
-    await onConnect(project.id, project.name)
-    setLoading(false)
-  }
-
   return (
     <div className="space-y-3">
       <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
@@ -368,19 +324,14 @@ function VercelProjectSelectForm({
           <Button
             key={p.id}
             variant="outline"
-            onClick={() => setSelected(p.id)}
+            onClick={() => onSelect(p.id)}
             className={`w-full justify-start h-auto px-3 py-2.5 text-sm ${
-              selected === p.id ? 'border-foreground bg-muted' : ''
+              selectedId === p.id ? 'border-foreground bg-muted' : ''
             }`}
           >
             {p.name}
           </Button>
         ))}
-      </div>
-      <div className="flex justify-end pt-2">
-        <Button size="sm" disabled={!selected || loading} onClick={handleConnect}>
-          {loading ? 'Connecting…' : 'Connect'}
-        </Button>
       </div>
     </div>
   )
@@ -488,9 +439,39 @@ export function CreateConnectionModal() {
   const [view, setView] = useState<View>('list')
   const [projectId, setProjectId] = useState<string | null>(null)
   const [webhookCreated, setWebhookCreated] = useState<WebhookCreatedInfo | null>(null)
+
+  // Form state lifted from each `*Form` component so the modal can render
+  // a top-right Save/Cancel cluster instead of the old bottom-wide button.
+  // See the `*Form` components above and the `<HeaderSaveCancel>` props
+  // wired below for how each form's value+disabled state plumbs into the
+  // dialog header.
+  const [posthogApiKey, setPosthogApiKey] = useState('')
+  const [posthogProjectId, setPosthogProjectId] = useState('')
+  const [webhookName, setWebhookName] = useState('')
+  const [stripeManualName, setStripeManualName] = useState('Stripe')
+  const [stripeManualKey, setStripeManualKey] = useState('')
   const [vercelToken, setVercelToken] = useState('')
   const [vercelProjects, setVercelProjects] = useState<{ id: string; name: string }[]>([])
+  const [vercelSelectedId, setVercelSelectedId] = useState<string>('')
   const [vercelDrainUrl, setVercelDrainUrl] = useState('')
+
+  // Single in-flight flag per form. `submitting` covers all forms because
+  // only one is visible at a time; conflating them keeps the conditional
+  // rendering inside `<HeaderSaveCancel>` simple.
+  const [submitting, setSubmitting] = useState(false)
+
+  const resetFormState = () => {
+    setPosthogApiKey('')
+    setPosthogProjectId('')
+    setWebhookName('')
+    setStripeManualName('Stripe')
+    setStripeManualKey('')
+    setVercelToken('')
+    setVercelProjects([])
+    setVercelSelectedId('')
+    setVercelDrainUrl('')
+    setSubmitting(false)
+  }
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -498,9 +479,7 @@ export function CreateConnectionModal() {
       setView('list')
       setProjectId(null)
       setWebhookCreated(null)
-      setVercelToken('')
-      setVercelProjects([])
-      setVercelDrainUrl('')
+      resetFormState()
     }
   }
 
@@ -522,24 +501,36 @@ export function CreateConnectionModal() {
     }
   }
 
-  const handleVercelFetchProjects = async (token: string) => {
+  const handleVercelFetchProjects = async () => {
+    const trimmed = vercelToken.trim()
+    if (!trimmed) return
+    setSubmitting(true)
     try {
-      const data = await ALGORITHM.getVercelProjects(token)
-      setVercelToken(token)
+      const data = await ALGORITHM.getVercelProjects(trimmed)
+      setVercelToken(trimmed)
       setVercelProjects(data.projects)
       setView('vercel-project-select')
     } catch {
       toast.error('Failed to fetch Vercel projects. Check your token.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const handleVercelConnect = async (vercelProjectId: string, projectName: string) => {
+  const handleVercelConnect = async () => {
+    const project = vercelProjects.find(p => p.id === vercelSelectedId)
+    if (!project) return
+    setSubmitting(true)
     try {
       const connection = await connections.createConnection({
         name: 'Vercel',
         type: 'vercel',
         projectId, // our internal project (or null = Common)
-        config: { apiToken: vercelToken, projectId: vercelProjectId, projectName },
+        config: {
+          apiToken: vercelToken,
+          projectId: project.id,
+          projectName: project.name,
+        },
       })
       if (!connection) return
       const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
@@ -547,6 +538,8 @@ export function CreateConnectionModal() {
       setView('vercel-created')
     } catch {
       toast.error('Failed to create Vercel connection.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -579,49 +572,79 @@ export function CreateConnectionModal() {
     }
   }
 
-  const handleStripeManualConnect = async (name: string, apiKey: string) => {
-    const created = await connections.createConnection({
-      name,
-      type: 'stripe_manual',
-      projectId,
-      config: { apiKey },
-    })
-    connections.closeModal()
-    setView('list')
-    // Hop to the connections page with the picker query params. The picker
-    // reads `?stripe=select-products&connectionId=…` and opens itself.
-    if (created) {
-      router.push(
-        `/hub/connections?stripe=select-products&connectionId=${created.id}`,
-      )
+  const handleStripeManualConnect = async () => {
+    const trimmedName = stripeManualName.trim() || 'Stripe'
+    const trimmedKey = stripeManualKey.trim()
+    if (!trimmedKey) return
+    setSubmitting(true)
+    try {
+      const created = await connections.createConnection({
+        name: trimmedName,
+        type: 'stripe_manual',
+        projectId,
+        config: { apiKey: trimmedKey },
+      })
+      connections.closeModal()
+      setView('list')
+      resetFormState()
+      // Hop to the connections page with the picker query params. The
+      // picker reads `?stripe=select-products&connectionId=…` and opens
+      // itself.
+      if (created) {
+        router.push(
+          `/hub/connections?stripe=select-products&connectionId=${created.id}`,
+        )
+      }
+    } finally {
+      setSubmitting(false)
     }
   }
 
-  const handlePostHogConnect = async (apiKey: string, phProjectId: string) => {
-    await connections.createConnection({
-      name: 'PostHog',
-      type: 'posthog',
-      projectId, // our internal project (or null = Common)
-      config: { apiKey, projectId: phProjectId },
-    })
-    connections.closeModal()
-    setView('list')
-  }
-
-  const handleWebhookConnect = async (name: string) => {
-    const connection = await connections.createConnection({ name, type: 'webhook', projectId })
-    if (!connection) return
-
+  const handlePostHogConnect = async () => {
+    const trimmedKey = posthogApiKey.trim()
+    const trimmedProject = posthogProjectId.trim()
+    if (!trimmedKey || !trimmedProject) return
+    setSubmitting(true)
     try {
-      const keyData = await ALGORITHM.createWebhookKey(connection.id, 'Default')
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
-      const webhookUrl = `${backendUrl}/webhooks/custom/${connection.webhookId}`
-      setWebhookCreated({ connection, webhookUrl, apiKey: keyData.key })
-      setView('webhook-created')
-    } catch {
-      toast.error('Connection created but failed to generate API key')
+      await connections.createConnection({
+        name: 'PostHog',
+        type: 'posthog',
+        projectId, // our internal project (or null = Common)
+        config: { apiKey: trimmedKey, projectId: trimmedProject },
+      })
       connections.closeModal()
       setView('list')
+      resetFormState()
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleWebhookConnect = async () => {
+    const trimmedName = webhookName.trim() || 'Custom Webhook'
+    setSubmitting(true)
+    try {
+      const connection = await connections.createConnection({
+        name: trimmedName,
+        type: 'webhook',
+        projectId,
+      })
+      if (!connection) return
+
+      try {
+        const keyData = await ALGORITHM.createWebhookKey(connection.id, 'Default')
+        const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
+        const webhookUrl = `${backendUrl}/webhooks/custom/${connection.webhookId}`
+        setWebhookCreated({ connection, webhookUrl, apiKey: keyData.key })
+        setView('webhook-created')
+      } catch {
+        toast.error('Connection created but failed to generate API key')
+        connections.closeModal()
+        setView('list')
+        resetFormState()
+      }
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -645,8 +668,24 @@ export function CreateConnectionModal() {
   const backToStripeChoose = () => setView('stripe-choose')
   const backToVercelToken = () => setView('vercel-token')
 
+  // `dirty` drives the BottomDialog's "bounce on attempted dismiss" behaviour
+  // — when the user has typed into a form and clicks the backdrop / hits Esc,
+  // the close is intercepted and the save/cancel cluster bounces. Computed
+  // per active view so we don't bounce on the picker grid or post-success
+  // info pages where there's nothing to save.
+  const dirty =
+    (view === 'posthog' && (posthogApiKey.trim() !== '' || posthogProjectId.trim() !== '')) ||
+    (view === 'stripe-manual-form' && stripeManualKey.trim() !== '') ||
+    (view === 'webhook-form' && webhookName.trim() !== '') ||
+    (view === 'vercel-token' && vercelToken.trim() !== '') ||
+    (view === 'vercel-project-select' && vercelSelectedId !== '')
+
   return (
-    <BottomDialog open={connections.isModalOpen} onOpenChange={handleOpenChange}>
+    <BottomDialog
+      open={connections.isModalOpen}
+      onOpenChange={handleOpenChange}
+      dirty={dirty}
+    >
       {view === 'list' && (
         <BottomDialog.Page title="Add a connection">
           {projectPickerEl}
@@ -655,9 +694,28 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'posthog' && (
-        <BottomDialog.Page title="PostHog" onBack={backToList}>
+        <BottomDialog.Page
+          title="PostHog"
+          onBack={backToList}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handlePostHogConnect}
+              onCancel={backToList}
+              saving={submitting}
+              disabled={!posthogApiKey.trim() || !posthogProjectId.trim()}
+              bounce={ctx.bounce}
+              saveLabel="Connect"
+              savingLabel="Connecting…"
+            />
+          )}
+        >
           {projectPickerEl}
-          <PostHogForm onConnect={handlePostHogConnect} />
+          <PostHogForm
+            apiKey={posthogApiKey}
+            projectId={posthogProjectId}
+            onApiKeyChange={setPosthogApiKey}
+            onProjectIdChange={setPosthogProjectId}
+          />
         </BottomDialog.Page>
       )}
 
@@ -676,9 +734,25 @@ export function CreateConnectionModal() {
           title="Stripe (API key)"
           pageKey="stripe-manual-form"
           onBack={backToStripeChoose}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleStripeManualConnect}
+              onCancel={backToStripeChoose}
+              saving={submitting}
+              disabled={!stripeManualKey.trim()}
+              bounce={ctx.bounce}
+              saveLabel="Connect"
+              savingLabel="Connecting…"
+            />
+          )}
         >
           {projectPickerEl}
-          <StripeManualForm onConnect={handleStripeManualConnect} />
+          <StripeManualForm
+            name={stripeManualName}
+            apiKey={stripeManualKey}
+            onNameChange={setStripeManualName}
+            onApiKeyChange={setStripeManualKey}
+          />
         </BottomDialog.Page>
       )}
 
@@ -699,9 +773,24 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'webhook-form' && (
-        <BottomDialog.Page title="Custom Webhook" onBack={backToList}>
+        <BottomDialog.Page
+          title="Custom Webhook"
+          onBack={backToList}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleWebhookConnect}
+              onCancel={backToList}
+              saving={submitting}
+              // Webhook name has a sensible default ("Custom Webhook"),
+              // so the form is always submittable.
+              bounce={ctx.bounce}
+              saveLabel="Create"
+              savingLabel="Creating…"
+            />
+          )}
+        >
           {projectPickerEl}
-          <WebhookForm onConnect={handleWebhookConnect} />
+          <WebhookForm name={webhookName} onNameChange={setWebhookName} />
         </BottomDialog.Page>
       )}
 
@@ -715,9 +804,23 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'vercel-token' && (
-        <BottomDialog.Page title="Vercel" onBack={backToList}>
+        <BottomDialog.Page
+          title="Vercel"
+          onBack={backToList}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleVercelFetchProjects}
+              onCancel={backToList}
+              saving={submitting}
+              disabled={!vercelToken.trim()}
+              bounce={ctx.bounce}
+              saveLabel="Fetch projects"
+              savingLabel="Fetching…"
+            />
+          )}
+        >
           {projectPickerEl}
-          <VercelTokenForm onFetch={handleVercelFetchProjects} />
+          <VercelTokenForm token={vercelToken} onTokenChange={setVercelToken} />
         </BottomDialog.Page>
       )}
 
@@ -726,11 +829,23 @@ export function CreateConnectionModal() {
           title="Vercel"
           pageKey="vercel-project-select"
           onBack={backToVercelToken}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleVercelConnect}
+              onCancel={backToVercelToken}
+              saving={submitting}
+              disabled={!vercelSelectedId}
+              bounce={ctx.bounce}
+              saveLabel="Connect"
+              savingLabel="Connecting…"
+            />
+          )}
         >
           {projectPickerEl}
           <VercelProjectSelectForm
             projects={vercelProjects}
-            onConnect={handleVercelConnect}
+            selectedId={vercelSelectedId}
+            onSelect={setVercelSelectedId}
           />
         </BottomDialog.Page>
       )}

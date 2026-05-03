@@ -6,6 +6,7 @@ import { House, PlugsConnected, List, X, Robot, CaretDown, Plus, Cube, Gear } fr
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
 import { SidebarFolderItem } from './SidebarFolderItem'
+import { SidebarTimezone } from './SidebarTimezone'
 import { useDashboard } from '@/contexts/DashboardContext'
 
 function SectionHeader({
@@ -55,7 +56,7 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
   })
 
   return (
-    <div className="flex flex-col flex-1 overflow-hidden font-semibold tracking-[0.05em]" onClick={onNavigate}>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden font-semibold tracking-[0.05em]" onClick={onNavigate}>
       <div className="px-3 pt-3 pb-7">
         <SidebarUserProfile />
       </div>
@@ -98,6 +99,9 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
                 projectsCtx.openModal()
               }}
               className="flex items-center justify-center w-5 h-5 rounded-full bg-white border border-stroke text-grey-dark hover:text-grey-darkest transition-colors"
+              // Intentionally a smaller shadow than the shared `shadow-pill` —
+              // this is a tight inline action (sidebar `+`), not a section
+              // icon, so a lighter drop shadow is more proportionate.
               style={{ boxShadow: '1px 1px 4px rgba(0,0,0,0.08)' }}
             >
               <Plus size={10} weight="bold" />
@@ -180,6 +184,12 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Bottom-most row: timezone label + 3-dots menu. Anchored with
+          `mt-auto` (set inside SidebarTimezone) so it stays pinned to the
+          bottom even when the projects list is short. Separated by
+          `border-t` for visual divorce from the nav items above. */}
+      <SidebarTimezone />
     </div>
   )
 }

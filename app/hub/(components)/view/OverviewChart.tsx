@@ -452,7 +452,11 @@ export function OverviewChart({
           <XAxis
             dataKey="label"
             tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
-            axisLine={false}
+            // Thin baseline that matches the dashed gridlines above. The
+            // pre-existing `axisLine={false}` left the chart visually
+            // hanging — bars looked like they were floating above the
+            // labels with no anchor.
+            axisLine={{ stroke: '#E1E1E1', strokeWidth: 1 }}
             tickLine={false}
             interval="preserveStartEnd"
           />

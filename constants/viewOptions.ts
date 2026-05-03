@@ -14,6 +14,10 @@ export type ViewKind = 'value' | 'chart' | 'list'
 export const STRIPE_VIEW_OPTIONS = [
   { type: 'stripe_gross' as const, name: 'Gross Volume', desc: 'Total succeeded charge amount for the selected period', kind: 'chart' as const },
   { type: 'stripe_revenue_today' as const, name: 'Total Gross Revenue', desc: 'All revenue collected for the selected period', kind: 'value' as const },
+  { type: 'stripe_mrr' as const, name: 'MRR', desc: 'Monthly recurring revenue across active and trialing subscriptions', kind: 'value' as const },
+  { type: 'stripe_active_subs' as const, name: 'Active Subscriptions', desc: 'Count of subscriptions in active or trialing status', kind: 'value' as const },
+  { type: 'stripe_top_customers' as const, name: 'Top Customers', desc: 'Top 10 customers by revenue over the selected period', kind: 'list' as const },
+  { type: 'stripe_churn_rate' as const, name: 'Churn Rate', desc: 'Approximate 30-day customer churn (canceled / active+canceled)', kind: 'value' as const },
 ]
 
 export const CALENDLY_VIEW_OPTIONS = [
@@ -44,6 +48,31 @@ export const COMPOSITE_VIEW_OPTIONS = [
     type: 'project_overview_sources' as const,
     name: 'Sources',
     desc: 'Traffic sources breakdown sorted by volume',
+    kind: 'list' as const,
+  },
+]
+
+// PostHog view types — funnel/retention/users join the existing dynamic
+// "Track events" daily_counter flow. Each opens a sub-page in the picker
+// (or in the case of users, creates immediately). All three render as
+// wide cards (kind: 'list' or 'chart').
+export const POSTHOG_VIEW_OPTIONS = [
+  {
+    type: 'posthog_funnel' as const,
+    name: 'Funnel',
+    desc: '2–5 ordered events with drop-off at each step',
+    kind: 'chart' as const,
+  },
+  {
+    type: 'posthog_retention' as const,
+    name: 'Retention',
+    desc: 'Cohort heatmap — % of users who return day-over-day',
+    kind: 'chart' as const,
+  },
+  {
+    type: 'posthog_users' as const,
+    name: 'Recent users',
+    desc: 'List of users seen in the period with source and last-seen',
     kind: 'list' as const,
   },
 ]

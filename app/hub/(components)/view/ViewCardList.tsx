@@ -1,10 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import { ArrowsClockwise, ArrowSquareOut } from '@phosphor-icons/react'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
-import type { CalendlyMeeting } from '@/lib/api'
+import { ReassignConnectionDialog } from './ReassignConnectionDialog'
+import { ConnectionMissingError, type CalendlyMeeting } from '@/lib/api'
+import type { ViewResourceError } from '@/lib/hooks/useViewResource'
 import type { View } from '@/types/view'
 
 function formatTimeRange(startTime: string, endTime: string): string {
@@ -50,13 +53,27 @@ interface ViewCardListProps {
   onUntrack?: (id: string) => void
   meetings: CalendlyMeeting[] | null
   loading: boolean
-  error: string | null
+  /**
+   * Generic list-fetch error string, or a `ConnectionMissingError` when
+   * the underlying connection row is gone (HTTP 410). Same treatment as
+   * `ViewCard`: swap the badge for a click-to-reattach affordance and
+   * let the dropdown's Reconnect item open `ReassignConnectionDialog`.
+   */
+  error: ViewResourceError | null
   historical?: boolean
   projectName?: string
   onRefresh?: () => void
   refreshing?: boolean
   onPin?: () => void
   isPinned?: boolean
+  /**
+   * Same role as on `ViewCard` — fires when the user picks a fresh
+   * connection from the reassignment dialog. Lets the parent swap the
+   * view in local state so the list re-fetches with the new connection.
+   * Optional; without it the dialog still works but the parent won't
+   * know to update.
+   */
+  onConnectionAssigned?: (updated: View) => void
 }
 
 export function ViewCardList({
@@ -71,13 +88,23 @@ export function ViewCardList({
   refreshing,
   onPin,
   isPinned,
+  onConnectionAssigned,
 }: ViewCardListProps) {
+  const [reassignOpen, setReassignOpen] = useState(false)
+  const isDisconnected = !view.connectionId
+  const isConnectionMissing = error instanceof ConnectionMissingError
+  const needsReattach = isDisconnected || isConnectionMissing
+
   return (
+    <>
     <ViewWrapper className="col-span-2 row-span-2">
       <ViewHeader
         name={view.name}
         connectionType={view.connectionType}
         connectionLabel="Calendly"
+        isDisconnected={isDisconnected}
+        isConnectionMissing={isConnectionMissing}
+        onReconnect={() => setReassignOpen(true)}
         onUntrack={onUntrack}
         viewId={view.id}
         projectName={projectName}
@@ -97,10 +124,24 @@ export function ViewCardList({
             <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
             <span className="text-xs text-muted-foreground">Loading meetings…</span>
           </div>
-        ) : !view.connectionId ? (
-          <div className="py-2"><FetchErrorBadge message="No connection" /></div>
+        ) : needsReattach ? (
+          // Strict orphan or dangling FK — both open the reassignment
+          // dialog. Mirrors the badge-flow in `ViewCard` / `ViewCardChart`.
+          <div className="py-2">
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                setReassignOpen(true)
+              }}
+              className="self-start rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              aria-label="Attach a connection to this view"
+            >
+              <FetchErrorBadge message="Connection missing — click to reattach" />
+            </button>
+          </div>
         ) : error ? (
-          <div className="py-2"><FetchErrorBadge message="Fetch failed" /></div>
+          <div className="py-2"><FetchErrorBadge message="Couldn't load meetings" /></div>
         ) : meetings && meetings.length === 0 ? (
           <p className="text-xs text-muted-foreground py-2">No meetings scheduled for today.</p>
         ) : meetings ? (
@@ -110,5 +151,18 @@ export function ViewCardList({
         ) : null}
       </div>
     </ViewWrapper>
+
+    {/*
+      Mounted unconditionally so the dropdown's Reconnect item can open
+      the dialog even when the list is healthy. Renders nothing while
+      `open` is false.
+    */}
+    <ReassignConnectionDialog
+      view={view}
+      open={reassignOpen}
+      onOpenChange={setReassignOpen}
+      onAssigned={onConnectionAssigned}
+    />
+    </>
   )
 }

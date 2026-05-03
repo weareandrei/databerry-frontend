@@ -31,7 +31,11 @@ export {
 } from './CenterDialog'
 
 export { BottomDialog } from './BottomDialog'
-export type { BottomDialogProps, BottomDialogPageProps } from './BottomDialog'
+export type {
+  BottomDialogProps,
+  BottomDialogPageProps,
+  BottomDialogPageSlotContext,
+} from './BottomDialog'
 
 // Legacy name aliases — kept so existing callers don't need a sweeping
 // rename in the same diff that introduced the folder split. Migrate these

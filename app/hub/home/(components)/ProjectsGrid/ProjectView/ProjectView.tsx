@@ -1,18 +1,49 @@
 'use client'
 
+/**
+ * Project page: header (project name, create-view button, collapse) +
+ * folder breadcrumb + a body that renders the project's pinned and
+ * untracked views.
+ *
+ * Per-view fetching lives in `app/hub/(components)/view/data/` —
+ * each view-type has its own hook there. The wide PostHog cards
+ * (funnel/retention/users) come from
+ * `app/hub/(components)/view/renderers/WidePosthogViewRenderer.tsx`.
+ *
+ * What stays in this file:
+ *   - The project-level state hook (`useProjectView`) — folder
+ *     navigation, optimistic untrack/pin, ProjectBody data.
+ *   - The dispatch component (`ViewCardRenderer`) that picks the right
+ *     card for a given view-type.
+ *   - The body component that lays out folders + composite lane +
+ *     wide-PostHog lane + the regular tile grid.
+ */
+
 import { useState, useEffect, useCallback } from 'react'
 import { useSelector } from 'react-redux'
 import { CaretLeft, CaretDown, ArrowsClockwise, Cube, Plus } from '@phosphor-icons/react'
 import { ProjectViewBreadCrumbs } from './ProjectViewBreadCrumbs'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardChart, type ChartPoint } from '@/app/hub/(components)/view/ViewCardChart'
+import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
+import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
 import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
 import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
+import {
+  WidePosthogViewRenderer,
+  isWidePosthogView,
+} from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
+import {
+  isStripeChartView,
+  useCalendlyMeetings,
+  useStripeChart,
+  useStripeTopCustomers,
+  useViewLiveValue,
+} from '@/app/hub/(components)/view/data'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
+import { useStripeSyncOnMount } from '@/lib/hooks/useStripeSyncOnMount'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ALGORITHM, IntegrationReauthError, type CalendlyMeeting } from '@/lib/api'
-import { periodBoundaries, today } from '@/utils/dateHelpers'
+import { formatIsoDateRange, periodBoundariesInTz, todayInTz } from '@/utils/dateHelpers'
 import type { RootState } from '@/store'
 import type { Project } from '@/types/project'
 import type { Folder } from '@/types/folder'
@@ -20,142 +51,24 @@ import type { View } from '@/types/view'
 import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { Button } from '@/components/ui/button'
 
-// ── View type helpers ──────────────────────────────────────────────────────
+// ── View-type dispatch helpers ─────────────────────────────────────────────
 
-const CHART_VIEW_TYPES = new Set(['stripe_gross_today', 'stripe_gross_week', 'stripe_gross'])
-const LIST_VIEW_TYPES = new Set(['calendly_meetings_list'])
-const STRIPE_MANUAL_LIVE_TYPES = ['stripe_revenue_today']
-const CALENDLY_LIVE_TYPES = ['calendly_meetings_today']
-const GA_LIVE_TYPES = [
-  'ga_active_users',
-  'ga_users_today',
-  'ga_sessions_today',
-  'ga_pageviews_today',
-]
-
-function isChartView(view: View) {
-  return view.connectionType === 'stripe_manual' && CHART_VIEW_TYPES.has(view.type)
-}
-function isListView(view: View) {
-  return view.connectionType === 'calendly' && LIST_VIEW_TYPES.has(view.type)
+function isCalendlyMeetingsListView(view: View): boolean {
+  return view.connectionType === 'calendly' && view.type === 'calendly_meetings_list'
 }
 
-// ── Per-view-card data hooks ───────────────────────────────────────────────
-
-function fetchLiveValue(
-  view: View,
-  isStripeManualLive: boolean,
-  isCalendlyLive: boolean,
-  isPosthogLive: boolean,
-  dateFrom: string,
-  dateTo: string,
-): Promise<{ value: string | null; unavailable?: boolean }> {
-  if (isStripeManualLive) return ALGORITHM.getStripeManualLiveValue(view.connectionId!, view.type, dateFrom, dateTo)
-  if (isCalendlyLive) return ALGORITHM.getCalendlyLiveValue(view.connectionId!, view.type, dateFrom, dateTo)
-  if (isPosthogLive) return ALGORITHM.getPosthogLiveValue(view.connectionId!, view.id, dateFrom, dateTo)
-  return ALGORITHM.getGoogleAnalyticsLiveValue(view.connectionId!, view.type, dateFrom, dateTo)
+function isStripeTopCustomersView(view: View): boolean {
+  return (
+    (view.connectionType === 'stripe_manual' || view.connectionType === 'stripe') &&
+    view.type === 'stripe_top_customers'
+  )
 }
 
-function useLiveValue(view: View, dateFrom: string, dateTo: string) {
-  const isStripeManualLive =
-    view.connectionType === 'stripe_manual' && STRIPE_MANUAL_LIVE_TYPES.includes(view.type)
-  const isCalendlyLive =
-    view.connectionType === 'calendly' && CALENDLY_LIVE_TYPES.includes(view.type)
-  const isGALive =
-    view.connectionType === 'google_analytics' && GA_LIVE_TYPES.includes(view.type)
-  const isPosthogLive = view.connectionType === 'posthog'
-  const isLive = isStripeManualLive || isCalendlyLive || isGALive || isPosthogLive
-
-  const [liveValue, setLiveValue] = useState<string | null>(null)
-  const [liveLoading, setLiveLoading] = useState(false)
-  // Typed-error preserved here (vs string-only) so ViewCard can route a
-  // dead-refresh-token failure to the inline reconnect prompt.
-  const [liveError, setLiveError] = useState<string | IntegrationReauthError | null>(null)
-  const [refreshTick, setRefreshTick] = useState(0)
-
-  useEffect(() => {
-    if (!isLive || !view.connectionId) return
-    setLiveLoading(true)
-    setLiveError(null)
-    fetchLiveValue(view, isStripeManualLive, isCalendlyLive, isPosthogLive, dateFrom, dateTo)
-      .then(res => setLiveValue(res.unavailable ? null : res.value))
-      .catch(err => {
-        if (err instanceof IntegrationReauthError) setLiveError(err)
-        else setLiveError(err instanceof Error ? err.message : 'Failed to fetch')
-      })
-      .finally(() => setLiveLoading(false))
-  }, [view.connectionId, view.type, isLive, dateFrom, dateTo, refreshTick]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const refresh = useCallback(() => {
-    if (isLive && view.connectionId) setRefreshTick(t => t + 1)
-  }, [isLive, view.connectionId])
-
-  return {
-    liveValue: isLive ? liveValue : null,
-    liveLoading,
-    liveError,
-    refresh: isLive ? refresh : undefined,
-  }
-}
-
-function useChartData(
-  view: View,
-  dateFrom: string,
-  dateTo: string,
-  mode: 'daily' | 'weekly' | 'monthly',
-) {
-  const isChart = isChartView(view)
-  const [points, setPoints] = useState<ChartPoint[]>([])
-  const [loading, setLoading] = useState(isChart)
-  const [error, setError] = useState<string | null>(null)
-  const [total, setTotal] = useState<number | null>(null)
-  const [refreshTick, setRefreshTick] = useState(0)
-
-  useEffect(() => {
-    if (!isChart) return
-    if (!view.connectionId) return
-    setLoading(true)
-    setError(null)
-    Promise.all([
-      ALGORITHM.getStripeManualChartData(view.connectionId, view.type, dateFrom, dateTo, mode),
-      ALGORITHM.getStripeManualLiveValue(view.connectionId, view.type, dateFrom, dateTo),
-    ])
-      .then(([chartRes, liveRes]) => {
-        setPoints(chartRes.points)
-        setTotal(liveRes.value != null && !liveRes.unavailable ? parseInt(liveRes.value, 10) : null)
-      })
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to load'))
-      .finally(() => setLoading(false))
-  }, [view.connectionId, view.type, dateFrom, dateTo, mode, isChart, refreshTick])
-
-  const refresh = useCallback(() => {
-    if (isChart && view.connectionId) setRefreshTick(t => t + 1)
-  }, [isChart, view.connectionId])
-
-  return { points, loading, error, total, refresh: isChart ? refresh : undefined }
-}
-
-function useCalendlyMeetings(view: View, dateFrom: string, dateTo: string) {
-  const [meetings, setMeetings] = useState<CalendlyMeeting[] | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshTick, setRefreshTick] = useState(0)
-
-  useEffect(() => {
-    if (view.type !== 'calendly_meetings_list' || !view.connectionId) return
-    setLoading(true)
-    setError(null)
-    ALGORITHM.getCalendlyMeetingsList(view.connectionId, dateFrom, dateTo)
-      .then(res => setMeetings(res.meetings))
-      .catch(err => setError(err instanceof Error ? err.message : 'Failed to fetch'))
-      .finally(() => setLoading(false))
-  }, [view.connectionId, view.type, dateFrom, dateTo, refreshTick])
-
-  const refresh = useCallback(() => {
-    if (view.connectionId) setRefreshTick(t => t + 1)
-  }, [view.connectionId])
-
-  return { meetings, loading, error, refresh }
+function isListView(view: View): boolean {
+  // Calendly meetings + Stripe top customers both go through the wide list
+  // lane — each has its own card component (different row shape) but they
+  // share this dispatch helper so `ViewCardRenderer` only branches once.
+  return isCalendlyMeetingsListView(view) || isStripeTopCustomersView(view)
 }
 
 // ── Project-level state hook ───────────────────────────────────────────────
@@ -165,6 +78,7 @@ function useProjectView(project: Project) {
   const globalDateMode = useSelector((s: RootState) => s.ui.globalDateMode)
   const globalDateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const globalDateTo = useSelector((s: RootState) => s.ui.globalDateTo)
+  const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
   const [views, setViews] = useState<View[]>([])
@@ -180,9 +94,16 @@ function useProjectView(project: Project) {
   // (and we'd kick off the wrong fetches on first render). Pre-mount we treat
   // the period as "current" (isRange=false), which matches the most common
   // case and never triggers historical-only branches inadvertently.
+  //
+  // tz-aware: "current period" uses the user's wall-clock day, not UTC.
+  // While tz is null (settings still loading) we fall back to UTC so the
+  // computation has *some* answer; once it lands, the boundaries re-compute.
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
-  const currentBoundaries = mounted ? periodBoundaries(globalDateMode, today()) : null
+  const effectiveTz = tz ?? 'UTC'
+  const currentBoundaries = mounted
+    ? periodBoundariesInTz(globalDateMode, todayInTz(effectiveTz), effectiveTz)
+    : null
   const isRange = currentBoundaries
     ? globalDateFrom !== currentBoundaries.from || globalDateTo !== currentBoundaries.to
     : false
@@ -208,9 +129,22 @@ function useProjectView(project: Project) {
     loadViews()
   }, [loadViews])
 
+  // Live-on-mount: as soon as views land, fire a quick "did anything happen
+  // since last sync" hit per Stripe connection so the tiles re-render
+  // against fresh data within ~2s of opening the project. Backend throttle
+  // (60s) + in-memory inflight Map mean repeat opens are cheap.
+  useStripeSyncOnMount(views)
+
   const handleUntrack = async (viewId: string) => {
     setViews(prev => prev.filter(v => v.id !== viewId))
     await viewsCtx.untrackView(viewId)
+  }
+
+  // Swap a view's `connectionId` in place after the user attaches a fresh
+  // connection through the reassignment dialog. The data hooks depend on
+  // `view.connectionId`, so this triggers a refetch automatically.
+  const handleConnectionAssigned = (updated: View) => {
+    setViews(prev => prev.map(v => (v.id === updated.id ? updated : v)))
   }
 
   const handlePin = async (viewId: string) => {
@@ -252,9 +186,14 @@ function useProjectView(project: Project) {
     dateFrom: globalDateFrom,
     dateTo: globalDateTo,
     mode: globalDateMode,
+    // `tz` is exposed by the hook (rather than read directly inside
+    // `ViewCardRenderer`) so the renderer stays a pure prop-drilling
+    // component — no `useSelector` inside the rendering tree.
+    tz,
     isEmpty,
     handleUntrack,
     handlePin,
+    handleConnectionAssigned,
     handleFolderClick,
     handleBack,
     openCreateViewModal,
@@ -264,45 +203,119 @@ function useProjectView(project: Project) {
 
 // ── View card renderer ─────────────────────────────────────────────────────
 
-function ViewCardRenderer({ view, isRange, dateFrom, dateTo, mode, onUntrack, onPin }: {
+/**
+ * View types that get a date-range caption rendered below their value.
+ * Currently just MRR — the caption answers "for which period was this
+ * computed?", which is more meaningful for snapshot-style metrics than
+ * for "today" tiles (e.g. `stripe_revenue_today` already says "today"
+ * in its name; a redundant caption would just take vertical space).
+ *
+ * Lives here (not inside `ViewCard`) because the decision "should this
+ * tile show a date caption?" is a CALLER concern: the page knows about
+ * the global date range, ViewCard does not. Moving the predicate here
+ * lets ViewCard stay provider-free.
+ */
+const DATE_RANGE_CAPTION_TYPES = new Set(['stripe_mrr'])
+
+interface ViewCardRendererProps {
   view: View
   isRange: boolean
   dateFrom: string
   dateTo: string
   mode: 'daily' | 'weekly' | 'monthly'
+  /** User's currently-selected timezone, threaded into per-view data
+   *  hooks so day-bucketing math runs in wall-clock time. Read once at
+   *  the top of `useProjectView` from `state.ui.globalTimeZone`. */
+  tz: string | null
   onUntrack: (id: string) => void
   onPin: (viewId: string) => void
-}) {
-  const { liveValue, liveLoading, liveError, refresh: liveRefresh } = useLiveValue(view, dateFrom, dateTo)
-  const { points, loading: chartLoading, error: chartError, total, refresh: chartRefresh } = useChartData(view, dateFrom, dateTo, mode)
-  const { meetings, loading: listLoading, error: listError, refresh: listRefresh } = useCalendlyMeetings(view, dateFrom, dateTo)
+  onConnectionAssigned: (updated: View) => void
+}
+
+function ViewCardRenderer({
+  view,
+  isRange,
+  dateFrom,
+  dateTo,
+  mode,
+  tz,
+  onUntrack,
+  onPin,
+  onConnectionAssigned,
+}: ViewCardRendererProps) {
+  const live = useViewLiveValue(view, { dateFrom, dateTo, tz })
+  const chart = useStripeChart(view, { dateFrom, dateTo, mode, tz })
+  const meetings = useCalendlyMeetings(view, { dateFrom, dateTo, tz })
+  const customers = useStripeTopCustomers(view, { dateFrom, dateTo, tz })
+
+  // Compute the optional caption string for view types that benefit
+  // from one (currently MRR). `formatIsoDateRange` returns null on
+  // missing/invalid input, which `<ViewCard>` interprets as "no
+  // caption" — keeps the dispatcher branchless.
+  const dateRangeLabel = DATE_RANGE_CAPTION_TYPES.has(view.type)
+    ? formatIsoDateRange(dateFrom, dateTo) ?? undefined
+    : undefined
 
   const handlePin = () => onPin(view.id)
+  const sharedCardProps = {
+    view,
+    onUntrack,
+    onConnectionAssigned,
+    onPin: handlePin,
+    isPinned: view.isPinned,
+    historical: isRange,
+  }
 
-  if (isChartView(view))
+  if (isStripeChartView(view)) {
     return (
       <ViewCardChart
-        view={view} onUntrack={onUntrack} historical={isRange}
-        points={points} loading={chartLoading} error={chartError} total={total}
-        onRefresh={chartRefresh} refreshing={chartLoading}
-        onPin={handlePin} isPinned={view.isPinned}
+        {...sharedCardProps}
+        points={chart.points}
+        loading={chart.loading}
+        error={chart.error}
+        total={chart.total}
+        onRefresh={chart.refresh}
+        refreshing={chart.loading}
       />
     )
-  if (isListView(view))
+  }
+  if (isStripeTopCustomersView(view)) {
+    return (
+      <ViewCardCustomerList
+        {...sharedCardProps}
+        customers={customers.customers}
+        loading={customers.loading}
+        error={customers.error}
+        onRefresh={customers.refresh}
+        refreshing={customers.loading}
+      />
+    )
+  }
+  if (isListView(view)) {
     return (
       <ViewCardList
-        view={view} onUntrack={onUntrack} historical={isRange}
-        meetings={meetings} loading={listLoading} error={listError}
-        onRefresh={listRefresh} refreshing={listLoading}
-        onPin={handlePin} isPinned={view.isPinned}
+        {...sharedCardProps}
+        meetings={meetings.meetings}
+        loading={meetings.loading}
+        error={meetings.error}
+        onRefresh={meetings.refresh}
+        refreshing={meetings.loading}
       />
     )
+  }
   return (
     <ViewCard
-      view={view} onUntrack={onUntrack}
-      liveValue={liveValue} liveLoading={liveLoading} liveError={liveError}
-      onRefresh={liveRefresh} refreshing={liveLoading}
-      onPin={handlePin} isPinned={view.isPinned}
+      view={view}
+      onUntrack={onUntrack}
+      liveValue={live.liveValue}
+      liveLoading={live.liveLoading}
+      liveError={live.liveError}
+      onRefresh={live.refresh}
+      refreshing={live.liveLoading}
+      onPin={handlePin}
+      isPinned={view.isPinned}
+      onConnectionAssigned={onConnectionAssigned}
+      dateRangeLabel={dateRangeLabel}
     />
   )
 }
@@ -325,9 +338,11 @@ export function ProjectView({ project }: ProjectViewProps) {
     dateFrom,
     dateTo,
     mode,
+    tz,
     isEmpty,
     handleUntrack,
     handlePin,
+    handleConnectionAssigned,
     handleFolderClick,
     handleBack,
     openCreateViewModal,
@@ -338,17 +353,17 @@ export function ProjectView({ project }: ProjectViewProps) {
     <div className="relative flex flex-col">
       <SectionHeader
         icon={
-          <span
-            className="flex items-center justify-center rounded-full bg-white border border-stroke p-2"
-            style={{ boxShadow: '2px 2px 5px rgba(0,0,0,0.05)' }}
-          >
+          <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
             <Cube size={14} weight="bold" className="text-grey-darkest" />
           </span>
         }
         title={<ProjectViewBreadCrumbs project={project} folder={currentFolder} />}
         rightSlot={
           <div className="flex items-center gap-2">
-            <Button onClick={openCreateViewModal} className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white">
+            <Button
+              onClick={openCreateViewModal}
+              className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
+            >
               <Plus size={14} weight="bold" />
               Create view
             </Button>
@@ -385,8 +400,10 @@ export function ProjectView({ project }: ProjectViewProps) {
           dateFrom={dateFrom}
           dateTo={dateTo}
           mode={mode}
+          tz={tz}
           handleUntrack={handleUntrack}
           handlePin={handlePin}
+          handleConnectionAssigned={handleConnectionAssigned}
           isEmpty={isEmpty}
         />
       )}
@@ -413,8 +430,10 @@ interface ProjectBodyProps {
   dateFrom: string
   dateTo: string
   mode: 'daily' | 'weekly' | 'monthly'
+  tz: string | null
   handleUntrack: (viewId: string) => void
   handlePin: (viewId: string) => void
+  handleConnectionAssigned: (updated: View) => void
   isEmpty: boolean
 }
 
@@ -431,20 +450,24 @@ function ProjectBody({
   dateFrom,
   dateTo,
   mode,
+  tz,
   handleUntrack,
   handlePin,
+  handleConnectionAssigned,
   isEmpty,
 }: ProjectBodyProps) {
   return (
     <div className="p-5 pb-16 min-h-[420px]">
       {currentFolder && (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={handleBack}
-          className="flex items-center gap-1 mb-4 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="-ml-2 mb-4 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
         >
           <CaretLeft size={11} weight="bold" />
           Back
-        </button>
+        </Button>
       )}
 
       <div className="mb-5">
@@ -461,72 +484,144 @@ function ProjectBody({
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <ArrowsClockwise size={16} weight="bold" className="text-muted-foreground animate-spin" />
-        </div>
+        <ProjectBodyLoadingState />
       ) : views.length > 0 ? (
-        (() => {
-          const chartView = views.find(v => v.type === 'project_overview')
-          const sourcesView = views.find(v => v.type === 'project_overview_sources')
-          const regularViews = views.filter(
-            v => v.type !== 'project_overview' && v.type !== 'project_overview_sources',
-          )
-          return (
-            <div className="flex flex-col gap-6">
-              {(chartView || sourcesView) && (
-                <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
-                  {chartView && (
-                    <ViewCardOverviewChart
-                      key={chartView.id}
-                      view={chartView}
-                      dateFrom={dateFrom}
-                      dateTo={dateTo}
-                      mode={mode}
-                      onUntrack={handleUntrack}
-                      onPin={handlePin}
-                    />
-                  )}
-                  {sourcesView && (
-                    <ViewCardOverviewSources
-                      key={sourcesView.id}
-                      view={sourcesView}
-                      dateFrom={dateFrom}
-                      dateTo={dateTo}
-                      onUntrack={handleUntrack}
-                      onPin={handlePin}
-                    />
-                  )}
-                </div>
-              )}
-              {regularViews.length > 0 && (
-                <div
-                  className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
-                  style={{ gridAutoRows: '140px' }}
-                >
-                  {regularViews.map(view => (
-                    <ViewCardRenderer
-                      key={view.id}
-                      view={view}
-                      isRange={isRange}
-                      dateFrom={dateFrom}
-                      dateTo={dateTo}
-                      mode={mode}
-                      onUntrack={handleUntrack}
-                      onPin={handlePin}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        })()
+        <ProjectBodyViews
+          views={views}
+          isRange={isRange}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          mode={mode}
+          tz={tz}
+          handleUntrack={handleUntrack}
+          handlePin={handlePin}
+          handleConnectionAssigned={handleConnectionAssigned}
+        />
       ) : isEmpty ? (
-        <p className="text-xs text-muted-foreground py-10">
-          {isRange
-            ? 'No data recorded for this date range.'
-            : 'No views yet. Use the + button to add one.'}
-        </p>
+        <ProjectBodyEmptyState isRange={isRange} />
       ) : null}
+    </div>
+  )
+}
+
+function ProjectBodyLoadingState() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <ArrowsClockwise size={16} weight="bold" className="text-muted-foreground animate-spin" />
+    </div>
+  )
+}
+
+function ProjectBodyEmptyState({ isRange }: { isRange: boolean }) {
+  return (
+    <p className="text-xs text-muted-foreground py-10">
+      {isRange
+        ? 'No data recorded for this date range.'
+        : 'No views yet. Use the + button to add one.'}
+    </p>
+  )
+}
+
+interface ProjectBodyViewsProps {
+  views: View[]
+  isRange: boolean
+  dateFrom: string
+  dateTo: string
+  mode: 'daily' | 'weekly' | 'monthly'
+  /** Forwarded to `ViewCardRenderer` → per-view data hooks. Read once
+   *  in `useProjectView` from `state.ui.globalTimeZone`. */
+  tz: string | null
+  handleUntrack: (viewId: string) => void
+  handlePin: (viewId: string) => void
+  handleConnectionAssigned: (updated: View) => void
+}
+
+function ProjectBodyViews({
+  views,
+  isRange,
+  dateFrom,
+  dateTo,
+  mode,
+  tz,
+  handleUntrack,
+  handlePin,
+  handleConnectionAssigned,
+}: ProjectBodyViewsProps) {
+  const chartView = views.find(v => v.type === 'project_overview')
+  const sourcesView = views.find(v => v.type === 'project_overview_sources')
+  // Wide PostHog views (funnel/retention/users) ride alongside the
+  // overview composite lane — full-width, stacked vertically.
+  const widePosthogViews = views.filter(isWidePosthogView)
+  const regularViews = views.filter(
+    v =>
+      v.type !== 'project_overview' &&
+      v.type !== 'project_overview_sources' &&
+      !isWidePosthogView(v),
+  )
+  return (
+    <div className="flex flex-col gap-6">
+      {(chartView || sourcesView) && (
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
+          {chartView && (
+            <ViewCardOverviewChart
+              key={chartView.id}
+              view={chartView}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              mode={mode}
+              onUntrack={handleUntrack}
+              onPin={handlePin}
+            />
+          )}
+          {sourcesView && (
+            <ViewCardOverviewSources
+              key={sourcesView.id}
+              view={sourcesView}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onUntrack={handleUntrack}
+              onPin={handlePin}
+            />
+          )}
+        </div>
+      )}
+      {widePosthogViews.length > 0 && (
+        <div className="flex flex-col gap-4">
+          {widePosthogViews.map(v => (
+            <WidePosthogViewRenderer
+              key={v.id}
+              view={v}
+              historical={isRange}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onUntrack={handleUntrack}
+              onPin={handlePin}
+              onConnectionAssigned={handleConnectionAssigned}
+            />
+          ))}
+        </div>
+      )}
+      {regularViews.length > 0 && (
+        <div
+          className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
+          style={{ gridAutoRows: '140px' }}
+        >
+          {regularViews.map(view => (
+            <ViewCardRenderer
+              key={view.id}
+              view={view}
+              isRange={isRange}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              mode={mode}
+              tz={tz}
+              onUntrack={handleUntrack}
+              onPin={handlePin}
+              onConnectionAssigned={handleConnectionAssigned}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

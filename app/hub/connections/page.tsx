@@ -6,9 +6,10 @@ import {
   Trash,
   Plus,
   ArrowsClockwise,
-  ArrowsLeftRight,
+  CaretDown,
   Check,
   Cube,
+  DotsThreeVertical,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -171,6 +172,11 @@ function GoogleAnalyticsPropertyPicker() {
             })}
           </div>
         )}
+        {/* Primary CTA uses bg-brand to match the rest of the dashboard
+            (Add connection pill, Create view, etc.). The default Button
+            variant's `bg-primary` doesn't render reliably through the
+            base-ui Button primitive in this Dialog — the rest of the app
+            sidesteps it the same way. */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
             {hasProperties ? 'Skip' : 'Cancel'}
@@ -179,6 +185,7 @@ function GoogleAnalyticsPropertyPicker() {
             size="sm"
             onClick={handleSave}
             disabled={saving || !selectedPropertyId}
+            className="bg-brand hover:bg-brand/90 text-white"
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>
@@ -188,19 +195,24 @@ function GoogleAnalyticsPropertyPicker() {
   )
 }
 
-// ── Reassign-project button ─────────────────────────────────────────────────
+// ── Project-scope pill ──────────────────────────────────────────────────────
 //
-// Always-visible (not hover-gated) — the user asked for this explicitly, on the
-// grounds that seeing/changing which project a connection belongs to is a
-// first-class action, not a hidden one. Clicking anywhere on this trigger
-// stops propagation so the row's own onClick (detail modal) doesn't fire.
+// Renders the "Common" / project-name badge AS the dropdown trigger so users
+// can change the project assignment by clicking the pill itself — the
+// affordance the badge already implies. Previously the trigger was a separate
+// 14px ⇄ icon next to the row's trash button: too discreet, users couldn't
+// find it. We keep the existing visual style (border-stroke pill) and add a
+// caret hint to signal "this opens a menu". Clicks stopPropagation so the
+// row's onClick (detail modal) doesn't also fire.
 
-function ReassignProjectMenu({
+function ProjectScopePill({
   connection,
+  projectName,
   projects,
   onReassign,
 }: {
   connection: Connection
+  projectName: string
   projects: Project[]
   onReassign: (projectId: string | null) => void
 }) {
@@ -208,13 +220,15 @@ function ReassignProjectMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         onClick={e => e.stopPropagation()}
-        className="flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-grey-darkest transition-colors"
-        title="Reassign to project"
+        className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0 hover:bg-main hover:text-grey-darkest transition-colors cursor-pointer aria-expanded:bg-main aria-expanded:text-grey-darkest"
+        title="Click to reassign to a different project"
       >
-        <ArrowsLeftRight size={14} weight="bold" />
+        <Cube size={9} weight="bold" />
+        <span>{projectName}</span>
+        <CaretDown size={9} weight="bold" className="opacity-60" />
       </DropdownMenuTrigger>
       <DropdownMenuContent
-        align="end"
+        align="start"
         onClick={e => e.stopPropagation()}
         className="min-w-[220px]"
       >
@@ -256,7 +270,11 @@ export default function ConnectionsPage() {
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null)
 
   return (
-    <div className="p-8 flex flex-col">
+    // `max-w-2xl` matches the Settings page's outer wrapper so the
+    // connections list doesn't stretch the full viewport on 27"/32"
+    // monitors. On a 13"/16" laptop the cap (~672px) is wider than
+    // typical content so the layout is unchanged there.
+    <div className="p-8 flex flex-col max-w-2xl">
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />
@@ -274,10 +292,7 @@ export default function ConnectionsPage() {
       <div className="flex flex-col rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
         <SectionHeader
           icon={
-            <span
-              className="flex items-center justify-center rounded-full bg-white border border-stroke p-2"
-              style={{ boxShadow: '2px 2px 5px rgba(0,0,0,0.05)' }}
-            >
+            <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
               <PlugsConnected size={14} weight="bold" className="text-grey-darkest" />
             </span>
           }
@@ -324,13 +339,12 @@ export default function ConnectionsPage() {
                         <p className="text-sm font-medium text-grey-dark truncate">
                           {connection.name}
                         </p>
-                        <span
-                          className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0"
-                          title={connection.projectId ? 'Project scope' : 'Shared across all projects'}
-                        >
-                          <Cube size={9} weight="bold" />
-                          {projectName}
-                        </span>
+                        <ProjectScopePill
+                          connection={connection}
+                          projectName={projectName}
+                          projects={projectsCtx.projects}
+                          onReassign={id => connections.reassignProject(connection.id, id)}
+                        />
                       </div>
                       <p className="text-xs text-grey-light">
                         {CONNECTION_DISPLAY_NAMES[connection.type] ?? connection.type} · Connected{' '}
@@ -339,11 +353,32 @@ export default function ConnectionsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    <ReassignProjectMenu
-                      connection={connection}
-                      projects={projectsCtx.projects}
-                      onReassign={id => connections.reassignProject(connection.id, id)}
-                    />
+                    {(connection.type === 'stripe' || connection.type === 'stripe_manual') && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          onClick={e => e.stopPropagation()}
+                          className="opacity-0 group-hover:opacity-100 aria-expanded:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-grey-darkest transition-colors cursor-pointer"
+                          title="More actions"
+                        >
+                          <DotsThreeVertical size={16} weight="bold" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem
+                            onClick={e => {
+                              e.stopPropagation()
+                              connections.reloadStripe(connection.id)
+                            }}
+                            className="gap-2 text-sm"
+                          >
+                            <ArrowsClockwise size={12} weight="bold" />
+                            <span>Refresh data from Stripe</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                     <button
                       onClick={e => { e.stopPropagation(); connections.deleteConnection(connection.id) }}
                       className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-destructive transition-colors"

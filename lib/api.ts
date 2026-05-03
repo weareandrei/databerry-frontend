@@ -21,6 +21,22 @@ export interface CalendlyMeeting {
   description: string | null
 }
 
+/** Top-customer row for the `stripe_top_customers` list tile. */
+export interface StripeTopCustomer {
+  customerId: string
+  /** Stripe customer name; null when the customer was created without one. */
+  name: string | null
+  /** Email; null when missing. List view falls back to this when name is null. */
+  email: string | null
+  /** ISO 3166-1 alpha-2 (e.g. `'RO'`). Null when Stripe doesn't have an
+   *  address on file for this customer. */
+  addressCountry: string | null
+  /** Free-form city string from Stripe's customer address. Null when missing. */
+  addressCity: string | null
+  /** Cents; matches the same convention as `stripe_charges.amount`. */
+  amountCents: number
+}
+
 export interface GAProperty {
   id: string
   name: string
@@ -34,6 +50,57 @@ export interface PosthogEventDefinition {
   computed_volume: number
   last_seen_at: string | null
   last_url: string | null
+}
+
+/** One step of a `posthog_funnel` view's result. */
+export interface PosthogFunnelStep {
+  name: string
+  /** Cumulative — users who reached at least this step. */
+  count: number
+  /** 0..1; conversion from step 1. Always 1.0 for step 1. */
+  conversionFromStart: number
+  /** 0..1; conversion from the immediately previous step. */
+  conversionFromPrev: number
+}
+
+export interface PosthogFunnelResult {
+  steps: PosthogFunnelStep[]
+  unavailable?: boolean
+}
+
+/** One row of a `posthog_retention` cohort heatmap. */
+export interface PosthogRetentionRow {
+  /** ISO date for the cohort's start day/week (UTC). */
+  startDate: string
+  /** Distinct users who first triggered `startEvent` in this period. */
+  size: number
+  /** Returned-user counts indexed by period offset. `null` = future cell. */
+  returns: (number | null)[]
+}
+
+export interface PosthogRetentionResult {
+  cohorts: PosthogRetentionRow[]
+  /** Echoes the view's `period` config so the card labels columns correctly. */
+  periodLabel: 'day' | 'week'
+  unavailable?: boolean
+}
+
+/** One row of a `posthog_users` recent-users list. Mirrors backend
+ *  `PosthogUserRow` 1:1 — the names match. */
+export interface PosthogUserRow {
+  /** PostHog `distinct_id` — opaque pseudo-identifier. */
+  pseudoId: string
+  /** Initial referring domain (`""` when direct/missing). */
+  source: string
+  /** Active-time span across pageviews in the date range. */
+  sessionSec: number
+  /** ISO timestamp of the last pageview in the range. */
+  lastSeen: string
+}
+
+export interface PosthogUsersResult {
+  users: PosthogUserRow[]
+  unavailable?: boolean
 }
 
 // ── Stripe products ──────────────────────────────────────────────────────────
@@ -122,6 +189,64 @@ function isReauthBody(body: unknown): body is IntegrationReauthBody {
   )
 }
 
+/**
+ * Thrown when a request references a `connectionId` that no longer exists
+ * for the current user — the underlying connection row has been deleted
+ * (or ownership transferred) while the view tile was still alive.
+ *
+ * Distinct from `IntegrationReauthError` (the *credentials* are stale but
+ * the connection row exists). Routed by `ViewCard` to the centred
+ * `ReassignConnectionDialog` instead of the OAuth-restart banner —
+ * reconnecting the integration would be a wrong fix here, since the
+ * connection itself is gone; the user needs to point this view at a
+ * different connection of the same type.
+ *
+ * `integration` is a plain string (not the narrower `IntegrationKey`)
+ * because this case can fire for stripe / stripe_manual / posthog too —
+ * not just OAuth-refreshable providers.
+ */
+export class ConnectionMissingError extends Error {
+  readonly integration: string
+  readonly connectionId: string
+  constructor(integration: string, connectionId: string, detail?: string) {
+    super(detail ?? `Connection missing for ${integration}`)
+    this.name = 'ConnectionMissingError'
+    this.integration = integration
+    this.connectionId = connectionId
+  }
+}
+
+interface ConnectionMissingBody {
+  error: 'CONNECTION_MISSING'
+  integration: string
+  connectionId: string
+  detail?: string
+}
+
+function isConnectionMissingBody(body: unknown): body is ConnectionMissingBody {
+  if (!body || typeof body !== 'object') return false
+  const b = body as Record<string, unknown>
+  return (
+    b.error === 'CONNECTION_MISSING' &&
+    typeof b.integration === 'string' &&
+    typeof b.connectionId === 'string'
+  )
+}
+
+/**
+ * URL fragment for the per-request timezone. Returns `&tz=Europe/Bucharest`
+ * (URL-encoded) when called with a non-empty value, empty string otherwise.
+ *
+ * Caller is expected to pass the user's tz (sourced from
+ * `UserSettingsContext`/redux). When undefined we omit the param entirely so
+ * the backend default (`'UTC'`) kicks in — bit-identical to the pre-tz
+ * behaviour for users who haven't set one yet.
+ */
+function tzParam(tz?: string | null): string {
+  if (!tz) return ''
+  return `&tz=${encodeURIComponent(tz)}`
+}
+
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const auth = await getAuthHeader()
   const res = await fetch(`${BASE}${path}`, {
@@ -136,9 +261,16 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
     const body = await res.json().catch(() => ({}))
     // Structured reauth signal from backend `IntegrationReauthRequiredException`.
     // Surfaced as a typed error so view tiles can render the inline reconnect
-    // prompt instead of a generic "Fetch failed" badge.
+    // prompt instead of a generic error badge.
     if (res.status === 401 && isReauthBody(body)) {
       throw new IntegrationReauthError(body.integration, body.connectionId, body.detail)
+    }
+    // Structured "your connection FK is dangling" signal from backend
+    // `ConnectionMissingException`. Routed by `ViewCard` to the
+    // reassign-connection dialog so the user can pick a fresh connection
+    // for this view without nuking + recreating it.
+    if (res.status === 410 && isConnectionMissingBody(body)) {
+      throw new ConnectionMissingError(body.integration, body.connectionId, body.detail)
     }
     throw new Error((body as { message?: string })?.message ?? `API error ${res.status}`)
   }
@@ -222,14 +354,20 @@ export const ALGORITHM = {
     viewType: string,
     dateFrom?: string,
     dateTo?: string,
+    tz?: string | null,
   ) =>
     apiFetch<{ value: string | null; unavailable?: boolean }>(
-      `/calendly/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
+      `/calendly/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
-  getCalendlyMeetingsList: (connectionId: string, dateFrom?: string, dateTo?: string) =>
+  getCalendlyMeetingsList: (
+    connectionId: string,
+    dateFrom?: string,
+    dateTo?: string,
+    tz?: string | null,
+  ) =>
     apiFetch<{ meetings: CalendlyMeeting[] }>(
-      `/calendly/views/meetings-list?connectionId=${connectionId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
+      `/calendly/views/meetings-list?connectionId=${connectionId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
   // ── Google Analytics ─────────────────────────────────────────────────────
@@ -251,9 +389,10 @@ export const ALGORITHM = {
     viewType: string,
     dateFrom?: string,
     dateTo?: string,
+    tz?: string | null,
   ) =>
     apiFetch<{ value: string | null; unavailable?: boolean }>(
-      `/google-analytics/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
+      `/google-analytics/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
   // ── Vercel ───────────────────────────────────────────────────────────────
@@ -272,9 +411,10 @@ export const ALGORITHM = {
     viewType: string,
     dateFrom?: string,
     dateTo?: string,
+    tz?: string | null,
   ) =>
     apiFetch<{ value: string | null; unavailable?: boolean }>(
-      `/stripe/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
+      `/stripe/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
   getStripeManualChartData: (
@@ -283,9 +423,26 @@ export const ALGORITHM = {
     dateFrom?: string,
     dateTo?: string,
     mode?: 'daily' | 'weekly' | 'monthly',
+    tz?: string | null,
   ) =>
     apiFetch<{ points: { label: string; value: number }[] }>(
-      `/stripe/views/chart-data?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${mode ? `&mode=${mode}` : ''}`,
+      `/stripe/views/chart-data?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${mode ? `&mode=${mode}` : ''}${tzParam(tz)}`,
+    ),
+
+  /**
+   * Top customers for a Stripe connection, ordered by gross revenue over
+   * [dateFrom, dateTo]. Mirrors `getCalendlyMeetingsList` in shape — list
+   * tile, separate route from `live-value`. `unavailable: true` means the
+   * connection isn't a Stripe one (or hasn't been linked yet).
+   */
+  getStripeTopCustomers: (
+    connectionId: string,
+    dateFrom?: string,
+    dateTo?: string,
+    tz?: string | null,
+  ) =>
+    apiFetch<{ customers: StripeTopCustomer[]; unavailable?: boolean }>(
+      `/stripe/views/top-customers?connectionId=${connectionId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
   /** List products available on a connection's Stripe account + current filter. */
@@ -302,6 +459,42 @@ export const ALGORITHM = {
   /** Backfill status for a Stripe account (modal polls this every few seconds). */
   getStripeAccountStatus: (stripeAccountId: string) =>
     apiFetch<StripeAccountStatus>(`/stripe/accounts/${stripeAccountId}/status`),
+
+  /**
+   * Quick "did anything happen" sync triggered when the dashboard mounts.
+   * Server-side throttle (60s) means rapid repeats are cheap. The server
+   * also caps the work at 2s — past that the response indicates `timeout`
+   * and the sync continues in the background.
+   *
+   * Charges-only on the server side (no products/customers/subs sweep).
+   * Use `reloadStripeConnection` for a full refresh.
+   */
+  syncStripeConnectionNow: (connectionId: string) =>
+    apiFetch<
+      | { skipped: 'recent'; lastSyncedAt: string | null }
+      | { skipped: 'inflight' }
+      | { synced: true; chargeCount: number; lastSyncedAt: string }
+      | { timeout: true }
+    >(`/stripe/connections/${connectionId}/sync-now`, { method: 'POST' }),
+
+  /**
+   * User-initiated full reload of the last `days` (default 30) of Stripe
+   * data. Pulls everything: charges, products, customers, subscriptions.
+   * No throttle — the user clicked.
+   */
+  reloadStripeConnection: (connectionId: string, days: number = 30) =>
+    apiFetch<{
+      ok: true
+      syncedFrom: string
+      syncedTo: string
+      chargeCount: number
+      productCount?: number
+      customerCount?: number
+      subCount?: number
+    }>(`/stripe/connections/${connectionId}/reload`, {
+      method: 'POST',
+      body: JSON.stringify({ days }),
+    }),
 
   // ── Webhook Keys ──────────────────────────────────────────────────────────
 
@@ -336,9 +529,46 @@ export const ALGORITHM = {
     viewId: string,
     dateFrom?: string,
     dateTo?: string,
+    tz?: string | null,
   ) =>
     apiFetch<{ value: string | null; unavailable?: boolean }>(
-      `/posthog/views/live-value?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
+      `/posthog/views/live-value?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
+    ),
+
+  /** Cumulative-count funnel for a `posthog_funnel` view. */
+  getPosthogFunnel: (
+    connectionId: string,
+    viewId: string,
+    dateFrom?: string,
+    dateTo?: string,
+    tz?: string | null,
+  ) =>
+    apiFetch<PosthogFunnelResult>(
+      `/posthog/views/funnel?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
+    ),
+
+  /** Cohort retention heatmap for a `posthog_retention` view. */
+  getPosthogRetention: (
+    connectionId: string,
+    viewId: string,
+    dateFrom?: string,
+    dateTo?: string,
+    tz?: string | null,
+  ) =>
+    apiFetch<PosthogRetentionResult>(
+      `/posthog/views/retention?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
+    ),
+
+  /** Recent-users list for a `posthog_users` view. */
+  getPosthogUsers: (
+    connectionId: string,
+    viewId: string,
+    dateFrom?: string,
+    dateTo?: string,
+    tz?: string | null,
+  ) =>
+    apiFetch<PosthogUsersResult>(
+      `/posthog/views/users?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
   createView: (body: Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>) =>
@@ -346,7 +576,7 @@ export const ALGORITHM = {
 
   updateView: (
     viewId: string,
-    body: { config?: Record<string, unknown>; name?: string },
+    body: { config?: Record<string, unknown>; name?: string; connectionId?: string | null },
   ) =>
     apiFetch<View>(`/views/${viewId}`, {
       method: 'PATCH',
@@ -369,12 +599,23 @@ export const ALGORITHM = {
 export interface UserSettings {
   userId: string
   preferredTrafficConnectionId: string | null
+  /**
+   * IANA timezone (e.g. `Europe/Bucharest`). `null` = "not set yet" — the
+   * `UserSettingsProvider` auto-detects via
+   * `Intl.DateTimeFormat()...timeZone` on first load and writes it back.
+   */
+  timezone: string | null
 }
 
 export const USER_SETTINGS = {
   get: () => apiFetch<UserSettings>('/user-settings'),
 
-  update: (patch: { preferredTrafficConnectionId?: string | null }) =>
+  update: (patch: {
+    preferredTrafficConnectionId?: string | null
+    /** Pass an IANA name (or `null` to clear). Server sanitizes / falls back
+     *  to `'UTC'` if the input doesn't match the IANA shape. */
+    timezone?: string | null
+  }) =>
     apiFetch<UserSettings>('/user-settings', {
       method: 'PUT',
       body: JSON.stringify(patch),
@@ -460,12 +701,21 @@ export const PROJECT_OVERVIEW = {
       | 'avg_session_sec'
       | 'revenue'
       | null,
-  ) =>
-    apiFetch<OverviewChartResponse>(
-      `/project-overview/chart?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&mode=${mode}&primaryMetric=${primaryMetric}&secondaryMetric=${secondaryMetric ?? 'none'}`,
-    ),
+  ) => {
+    // Resolve tz at call-time, not module-load time, so a user who changes
+    // their OS timezone mid-session sees the next refetch reflect the new
+    // tz without a hard reload. Falls back to 'UTC' on the (rare) browser
+    // that doesn't expose a resolved timeZone.
+    const tz =
+      Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    return apiFetch<OverviewChartResponse>(
+      `/project-overview/chart?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&mode=${mode}&primaryMetric=${primaryMetric}&secondaryMetric=${secondaryMetric ?? 'none'}&tz=${encodeURIComponent(tz)}`,
+    )
+  },
 
-  getSources: (projectId: string, dateFrom: string, dateTo: string, limit = 10) =>
+  // Default 100 — the panel paginates client-side, so we fetch a generous
+  // batch and flip pages locally rather than round-tripping per page.
+  getSources: (projectId: string, dateFrom: string, dateTo: string, limit = 100) =>
     apiFetch<{ sources: OverviewSource[] }>(
       `/project-overview/sources?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
     ),

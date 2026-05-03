@@ -75,6 +75,45 @@ export function useConnections() {
     }
   }
 
+  /**
+   * User-initiated full reload of a Stripe connection's last 30 days of data.
+   * Triggered from the kebab menu next to the delete icon. Long-running
+   * (1-15 seconds depending on account size) — uses `toast.promise` to give
+   * persistent feedback while the request is in flight.
+   *
+   * Uses an event-driven approach for completion: we don't refresh the
+   * connections list itself (the list shape doesn't change), but components
+   * showing Stripe view values can listen for `stripe-data-refreshed` to
+   * re-fetch.
+   */
+  const reloadStripe = (connectionId: string) => {
+    const promise = ALGORITHM.reloadStripeConnection(connectionId, 30)
+    toast.promise(promise, {
+      loading: 'Refreshing data from Stripe…',
+      success: result => {
+        // Tell any mounted Stripe view tiles to re-fetch from the DB now
+        // that fresh data has landed. Lighter than a full route refresh.
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('stripe-data-refreshed', { detail: { connectionId } }),
+          )
+        }
+        const parts = [
+          `${result.chargeCount} charge${result.chargeCount === 1 ? '' : 's'}`,
+        ]
+        if (result.customerCount !== undefined && result.customerCount > 0) {
+          parts.push(`${result.customerCount} customer${result.customerCount === 1 ? '' : 's'}`)
+        }
+        if (result.subCount !== undefined && result.subCount > 0) {
+          parts.push(`${result.subCount} subscription${result.subCount === 1 ? '' : 's'}`)
+        }
+        return `Refreshed (${parts.join(', ')})`
+      },
+      error: "Couldn't refresh — try again later",
+    })
+    return promise
+  }
+
   return {
     connections,
     loading,
@@ -85,6 +124,7 @@ export function useConnections() {
     createConnection,
     reassignProject,
     deleteConnection,
+    reloadStripe,
     openModal: (folderId: string | null = null) => dispatch(openCreateConnectionModal(folderId)),
     closeModal: () => dispatch(closeCreateConnectionModal()),
   }

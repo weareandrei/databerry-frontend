@@ -55,9 +55,25 @@ export function Footer() {
             </div>
           </div>
         </RevealOnScroll>
+
+        {/* Legal — own column, same visual weight as the other column
+            heads. Surfacing Terms + Privacy here (rather than burying
+            them in the tiny copyright row) is what Google's OAuth
+            verification reviewers expect to see when they crawl the
+            landing for required policy links. */}
+        <RevealOnScroll delay={0.3}>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-white/40 uppercase tracking-wider">Legal</span>
+            <div className="flex flex-col gap-1 text-sm text-white/70">
+              <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
+            </div>
+          </div>
+        </RevealOnScroll>
       </div>
 
-      {/* Copyright */}
+      {/* Copyright. Terms / Privacy live in the "Legal" column above
+          where they're actually visible. */}
       <RevealOnScroll delay={0.05} y={12}>
         <div className="pb-4 text-xs text-white/40">
           © {new Date().getFullYear()} Databerry. All rights reserved.

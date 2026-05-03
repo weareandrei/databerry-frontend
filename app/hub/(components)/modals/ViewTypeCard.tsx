@@ -64,10 +64,11 @@ export function ViewTypeCard({
         disabled && 'cursor-not-allowed opacity-55 hover:translate-y-0',
       )}
     >
-      {/* Illustration frame (~5:2). Background lives on the wrapper here
-          (not on the inner SVG) so the badge can sit on top with crisp
-          edges. */}
-      <div className="relative aspect-[5/2] w-full">
+      {/* Illustration frame (~5:1.6 — flatter than the original 5:2 so the
+          card stays compact when there are many cards in a row).
+          Background lives on the wrapper here (not on the inner SVG) so
+          the badge can sit on top with crisp edges. */}
+      <div className="relative aspect-[5/1.6] w-full">
         <ViewIllustration kind={kind} />
         {badge && (
           <span className="absolute right-1.5 top-1.5 rounded-full bg-background/95 px-1.5 py-0.5 text-[9px] font-medium text-amber-600 shadow-sm">
@@ -76,18 +77,21 @@ export function ViewTypeCard({
         )}
       </div>
 
-      {/* Title row: logo-left, name + desc stacked right. */}
-      <div className="flex items-center gap-2.5 px-2.5 py-2">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60">
+      {/* Title row: logo-left, name + desc stacked right. Padding is
+          deliberately light (`px-2 py-1.5`) so the card body stays small
+          relative to the illustration; the picker shows a lot of cards at
+          once and trim padding helps the eye scan. */}
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <div className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted/60">
           <ConnectionIcon
             type={iconType}
-            size={16}
+            size={14}
             className="text-muted-foreground/85"
           />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[12.5px] font-medium leading-tight">{name}</p>
-          <p className="truncate text-[11px] leading-snug text-muted-foreground">
+          <p className="truncate text-[12px] font-medium leading-tight">{name}</p>
+          <p className="truncate text-[10.5px] leading-snug text-muted-foreground">
             {description}
           </p>
         </div>

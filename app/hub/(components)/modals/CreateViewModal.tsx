@@ -3,8 +3,12 @@
 import { useState } from 'react'
 import { Plus } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { BottomDialog } from '@/components/ui/Dialog'
+import {
+  BottomDialog,
+  type BottomDialogPageSlotContext,
+} from '@/components/ui/Dialog'
 import { Button } from '@/components/ui/button'
+import { HeaderSaveCancel } from './HeaderSaveCancel'
 import { cn } from '@/lib/utils'
 import { ALGORITHM, type PosthogEventDefinition } from '@/lib/api'
 import {
@@ -13,6 +17,7 @@ import {
   GA_VIEW_OPTIONS,
   WEBHOOK_VIEW_OPTIONS,
   COMPOSITE_VIEW_OPTIONS,
+  POSTHOG_VIEW_OPTIONS,
   type ViewKind,
 } from '@/constants/viewOptions'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
@@ -39,11 +44,55 @@ type WebhookStep = {
   field: string
 }
 
+// Funnel sub-page: between 2 and 5 ordered events plus a conversion-window
+// pick. We load the connection's event definitions once and reuse the same
+// list as the events step (PostHog-typed source of truth for event names).
+type FunnelStep = {
+  connectionId: string
+  connectionName: string
+  events: PosthogEventDefinition[] | null
+  loading: boolean
+  error: string | null
+  // Each row is the event name (or '' before the user picks). We keep an
+  // empty string in the array so a row renders even if the user hasn't
+  // chosen yet — visually clearer than juggling row count + values.
+  steps: string[]
+  conversionWindowSeconds: number
+}
+
+// Retention sub-page: a start event, a return event (default same), and the
+// matrix shape (period × cohortCount × retentionPeriods).
+type RetentionStep = {
+  connectionId: string
+  connectionName: string
+  events: PosthogEventDefinition[] | null
+  loading: boolean
+  error: string | null
+  startEvent: string
+  returnEvent: string
+  period: 'day' | 'week'
+  cohortCount: number
+  retentionPeriods: number
+}
+
+// Conversion-window options for the funnel sub-page. Numbers in seconds —
+// matches the backend default (7 days) and offers the most-common buckets.
+const CONVERSION_WINDOW_OPTIONS: { label: string; seconds: number }[] = [
+  { label: '1 hour', seconds: 60 * 60 },
+  { label: '24 hours', seconds: 60 * 60 * 24 },
+  { label: '7 days', seconds: 60 * 60 * 24 * 7 },
+  { label: '30 days', seconds: 60 * 60 * 24 * 30 },
+]
+
 // View-type display-name maps. The flat picker creates inline so it
 // needs the human-readable name to write into `views_values.name`.
 const STRIPE_NAME_MAP: Record<string, string> = {
   stripe_gross: 'Gross Volume',
   stripe_revenue_today: 'Total Gross Revenue',
+  stripe_mrr: 'MRR',
+  stripe_active_subs: 'Active Subscriptions',
+  stripe_top_customers: 'Top Customers',
+  stripe_churn_rate: 'Churn Rate',
 }
 const CALENDLY_NAME_MAP: Record<string, string> = {
   calendly_meetings_today: 'Meetings',
@@ -60,11 +109,18 @@ const WEBHOOK_NAME_MAP: Record<string, string> = {
   webhook_gauge: 'Gauge',
   webhook_append: 'Timeline',
 }
+const POSTHOG_NAME_MAP: Record<string, string> = {
+  posthog_funnel: 'Funnel',
+  posthog_retention: 'Retention',
+  posthog_users: 'Recent users',
+}
 
 export function CreateViewModal() {
   const { views, connections } = useDashboard()
   const [eventsStep, setEventsStep] = useState<EventsStep | null>(null)
   const [webhookStep, setWebhookStep] = useState<WebhookStep | null>(null)
+  const [funnelStep, setFunnelStep] = useState<FunnelStep | null>(null)
+  const [retentionStep, setRetentionStep] = useState<RetentionStep | null>(null)
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set())
   const [tracking, setTracking] = useState(false)
 
@@ -73,6 +129,8 @@ export function CreateViewModal() {
       views.closeModal()
       setEventsStep(null)
       setWebhookStep(null)
+      setFunnelStep(null)
+      setRetentionStep(null)
       setSelectedEvents(new Set())
     }
   }
@@ -128,6 +186,160 @@ export function CreateViewModal() {
     }
   }
 
+  // ── Funnel sub-page ──────────────────────────────────────────────────────
+
+  const openPosthogFunnelPicker = async (connectionId: string, connectionName: string) => {
+    setFunnelStep({
+      connectionId,
+      connectionName,
+      events: null,
+      loading: true,
+      error: null,
+      // Two empty rows up front — the picker is useless with fewer than 2.
+      steps: ['', ''],
+      conversionWindowSeconds: 60 * 60 * 24 * 7,
+    })
+    try {
+      const events = await ALGORITHM.getPosthogEventDefinitions(connectionId)
+      setFunnelStep(prev => (prev ? { ...prev, events, loading: false } : prev))
+    } catch (err) {
+      setFunnelStep(prev =>
+        prev
+          ? {
+              ...prev,
+              events: null,
+              loading: false,
+              error: err instanceof Error ? err.message : 'Failed to fetch events',
+            }
+          : prev,
+      )
+    }
+  }
+
+  const updateFunnelStep = (idx: number, eventName: string) => {
+    setFunnelStep(prev => {
+      if (!prev) return prev
+      const next = [...prev.steps]
+      next[idx] = eventName
+      return { ...prev, steps: next }
+    })
+  }
+
+  const addFunnelStep = () => {
+    setFunnelStep(prev => {
+      if (!prev || prev.steps.length >= 5) return prev
+      return { ...prev, steps: [...prev.steps, ''] }
+    })
+  }
+
+  const removeFunnelStep = (idx: number) => {
+    setFunnelStep(prev => {
+      if (!prev || prev.steps.length <= 2) return prev
+      return { ...prev, steps: prev.steps.filter((_, i) => i !== idx) }
+    })
+  }
+
+  const handleCreateFunnel = async () => {
+    if (!funnelStep || !views.createViewProjectId) return
+    const filled = funnelStep.steps.map(s => s.trim()).filter(s => s.length > 0)
+    if (filled.length < 2) return
+    setTracking(true)
+    try {
+      await views.createViews([
+        {
+          projectId: views.createViewProjectId,
+          folderId: views.createViewFolderId,
+          connectionId: funnelStep.connectionId,
+          connectionType: 'posthog',
+          type: 'posthog_funnel',
+          name: POSTHOG_NAME_MAP.posthog_funnel,
+          config: {
+            steps: filled.map(eventName => ({ eventName })),
+            conversionWindowSeconds: funnelStep.conversionWindowSeconds,
+          },
+          value: null,
+        },
+      ])
+      views.closeModal()
+      setFunnelStep(null)
+    } finally {
+      setTracking(false)
+    }
+  }
+
+  // ── Retention sub-page ───────────────────────────────────────────────────
+
+  const openPosthogRetentionPicker = async (connectionId: string, connectionName: string) => {
+    setRetentionStep({
+      connectionId,
+      connectionName,
+      events: null,
+      loading: true,
+      error: null,
+      startEvent: '$pageview',
+      returnEvent: '$pageview',
+      period: 'day',
+      cohortCount: 7,
+      retentionPeriods: 7,
+    })
+    try {
+      const events = await ALGORITHM.getPosthogEventDefinitions(connectionId)
+      setRetentionStep(prev => (prev ? { ...prev, events, loading: false } : prev))
+    } catch (err) {
+      setRetentionStep(prev =>
+        prev
+          ? {
+              ...prev,
+              events: null,
+              loading: false,
+              error: err instanceof Error ? err.message : 'Failed to fetch events',
+            }
+          : prev,
+      )
+    }
+  }
+
+  const handleCreateRetention = async () => {
+    if (!retentionStep || !views.createViewProjectId) return
+    if (!retentionStep.startEvent || !retentionStep.returnEvent) return
+    setTracking(true)
+    try {
+      await views.createViews([
+        {
+          projectId: views.createViewProjectId,
+          folderId: views.createViewFolderId,
+          connectionId: retentionStep.connectionId,
+          connectionType: 'posthog',
+          type: 'posthog_retention',
+          name: POSTHOG_NAME_MAP.posthog_retention,
+          config: {
+            startEvent: retentionStep.startEvent,
+            returnEvent: retentionStep.returnEvent,
+            period: retentionStep.period,
+            cohortCount: retentionStep.cohortCount,
+            retentionPeriods: retentionStep.retentionPeriods,
+          },
+          value: null,
+        },
+      ])
+      views.closeModal()
+      setRetentionStep(null)
+    } finally {
+      setTracking(false)
+    }
+  }
+
+  // ── Users (no sub-page — direct creation) ────────────────────────────────
+
+  const handleCreatePosthogUsers = (conn: Connection) =>
+    createView({
+      connectionId: conn.id,
+      connectionType: 'posthog',
+      type: 'posthog_users',
+      name: POSTHOG_NAME_MAP.posthog_users,
+      config: {},
+    })
+
   // ── Direct creators (no sub-page) ────────────────────────────────────────
 
   const createView = async (
@@ -173,7 +385,16 @@ export function CreateViewModal() {
       config: {},
     })
 
-  const handleCreateStripeManual = (conn: Connection, type: 'stripe_gross' | 'stripe_revenue_today') =>
+  const handleCreateStripeManual = (
+    conn: Connection,
+    type:
+      | 'stripe_gross'
+      | 'stripe_revenue_today'
+      | 'stripe_mrr'
+      | 'stripe_active_subs'
+      | 'stripe_top_customers'
+      | 'stripe_churn_rate',
+  ) =>
     createView({
       connectionId: conn.id,
       connectionType: 'stripe_manual',
@@ -340,8 +561,10 @@ export function CreateViewModal() {
           },
         }))
       case 'posthog':
-        // PostHog views are user-supplied event names — surface a single
-        // entrypoint card that opens the events sub-page.
+        // Four cards under one PostHog connection: the existing event-counter
+        // entrypoint plus three richer view types (funnel, retention, users).
+        // Funnel + retention push their own sub-page for config; users
+        // creates immediately (no per-view config in v1).
         return [
           {
             type: 'posthog_track_events',
@@ -352,6 +575,23 @@ export function CreateViewModal() {
             disabled: tracking,
             onSelect: () => openPosthogEventPicker(conn.id, conn.name),
           },
+          ...POSTHOG_VIEW_OPTIONS.map(opt => ({
+            type: opt.type,
+            name: opt.name,
+            description: opt.desc,
+            kind: opt.kind,
+            iconType: 'posthog',
+            disabled: tracking,
+            onSelect: () => {
+              if (opt.type === 'posthog_funnel') {
+                openPosthogFunnelPicker(conn.id, conn.name)
+              } else if (opt.type === 'posthog_retention') {
+                openPosthogRetentionPicker(conn.id, conn.name)
+              } else {
+                handleCreatePosthogUsers(conn)
+              }
+            },
+          })),
         ]
       // Vercel + the in-development integrations (sentry/github/x/reddit/gmail)
       // have no view-type implementations yet. Connections of those types
@@ -377,15 +617,43 @@ export function CreateViewModal() {
     },
   ]
 
+  // Only show connections that are eligible for *this* project: either
+  // scoped to it directly (`projectId === createViewProjectId`) or shared
+  // across all projects ("Common", `projectId == null`). Connections
+  // scoped to a different project are filtered out — surfacing them in
+  // the picker would let the user create a view that immediately fails
+  // the backend's project-scope checks. Mirrors the same predicate used
+  // in `ReassignConnectionDialog`.
+  const eligibleConnections = connections.connections.filter(
+    c => c.projectId == null || c.projectId === views.createViewProjectId,
+  )
+
   // One row per connection. Empty/unsupported types drop out.
   const connectionRows: { conn: Connection; cards: ViewTypeCardProps[] }[] = []
-  for (const conn of connections.connections) {
+  for (const conn of eligibleConnections) {
     const cards = buildCardsForConnection(conn)
     if (cards && cards.length > 0) connectionRows.push({ conn, cards })
   }
 
+  // `dirty` drives the bounce-on-dismiss behaviour for the BottomDialog —
+  // when the user has typed/picked something on a sub-page and tries to
+  // close the dialog by backdrop click / Esc, the close is intercepted
+  // and the save/cancel cluster bounces. Computed per active sub-page so
+  // we don't bounce on the picker grid where there's nothing to save.
+  const dirty =
+    (eventsStep != null && selectedEvents.size > 0) ||
+    (webhookStep != null && webhookStep.field.trim() !== '') ||
+    (funnelStep != null &&
+      funnelStep.steps.some(s => s.trim() !== '')) ||
+    (retentionStep != null &&
+      (retentionStep.startEvent !== '' || retentionStep.returnEvent !== ''))
+
   return (
-    <BottomDialog open={views.isModalOpen} onOpenChange={handleOpenChange}>
+    <BottomDialog
+      open={views.isModalOpen}
+      onOpenChange={handleOpenChange}
+      dirty={dirty}
+    >
       {/* Page priority: PostHog event picker > Webhook field form > root.
           Only one Page renders at a time (BottomDialog picks the first
           truthy child). */}
@@ -398,6 +666,24 @@ export function CreateViewModal() {
             setEventsStep(null)
             setSelectedEvents(new Set())
           }}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleTrackEvents}
+              onCancel={() => {
+                setEventsStep(null)
+                setSelectedEvents(new Set())
+              }}
+              saving={tracking}
+              disabled={selectedEvents.size === 0}
+              bounce={ctx.bounce}
+              saveLabel={
+                selectedEvents.size === 0
+                  ? 'Track events'
+                  : `Track ${selectedEvents.size} event${selectedEvents.size > 1 ? 's' : ''}`
+              }
+              savingLabel="Tracking…"
+            />
+          )}
         >
           <p className="-mt-1 mb-3 text-xs text-muted-foreground">
             All event types ever tracked in this project
@@ -413,7 +699,13 @@ export function CreateViewModal() {
           )}
           {eventsStep.events && eventsStep.events.length > 0 && (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              {/* Responsive density: 2 cols up to ~1280px (small laptops),
+                  3 cols on bigger laptops, 4 on 16"+ / external monitors.
+                  Each card's content (event name + 3 metadata rows) is
+                  compact and reads cleanly down to ~280px wide, so we'd
+                  rather show more cards at once than stretch fewer to the
+                  full width of a 27"/32" display. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
                 {eventsStep.events.map((def, i) => {
                   const isSelected = selectedEvents.has(def.name)
                   const volume = def.volume_30_day ?? def.computed_volume
@@ -458,19 +750,6 @@ export function CreateViewModal() {
                   )
                 })}
               </div>
-              <div className="sticky bottom-0 -mx-4 -mb-6 mt-3 border-t border-stroke bg-popover px-4 py-3">
-                <button
-                  disabled={selectedEvents.size === 0 || tracking}
-                  onClick={handleTrackEvents}
-                  className="w-full rounded-lg bg-brand text-white text-sm font-semibold py-3 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90"
-                >
-                  {tracking
-                    ? 'Tracking…'
-                    : selectedEvents.size === 0
-                      ? 'Select events to track'
-                      : `Track ${selectedEvents.size} event${selectedEvents.size > 1 ? 's' : ''}`}
-                </button>
-              </div>
             </>
           )}
         </BottomDialog.Page>
@@ -481,6 +760,17 @@ export function CreateViewModal() {
           title={`${webhookStep.connectionName} — ${WEBHOOK_NAME_MAP[webhookStep.viewType]}`}
           pageKey={`webhook:${webhookStep.connectionId}:${webhookStep.viewType}`}
           onBack={() => setWebhookStep(null)}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleCreateWebhookWithField}
+              onCancel={() => setWebhookStep(null)}
+              saving={tracking}
+              disabled={!webhookStep.field.trim()}
+              bounce={ctx.bounce}
+              saveLabel="Create view"
+              savingLabel="Creating…"
+            />
+          )}
         >
           <p className="-mt-1 mb-3 text-xs text-muted-foreground">
             Which key in the POST body should this view read?
@@ -499,18 +789,266 @@ export function CreateViewModal() {
                 <code className="bg-muted px-1 rounded">total_price</code>
               </p>
             </div>
-            <Button
-              className="w-full"
-              disabled={!webhookStep.field || tracking}
-              onClick={handleCreateWebhookWithField}
-            >
-              {tracking ? 'Creating…' : 'Create view'}
-            </Button>
           </div>
         </BottomDialog.Page>
       )}
 
-      {!eventsStep && !webhookStep && (
+      {!eventsStep && !webhookStep && funnelStep && (
+        <BottomDialog.Page
+          title={`${funnelStep.connectionName} — Funnel`}
+          pageKey={`funnel:${funnelStep.connectionId}`}
+          onBack={() => setFunnelStep(null)}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleCreateFunnel}
+              onCancel={() => setFunnelStep(null)}
+              saving={tracking}
+              disabled={
+                funnelStep.steps.filter(s => s.trim().length > 0).length < 2
+              }
+              bounce={ctx.bounce}
+              saveLabel="Create funnel"
+              savingLabel="Creating…"
+            />
+          )}
+        >
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Pick 2–5 ordered events. We'll show how many users complete each step
+            within the conversion window.
+          </p>
+          {funnelStep.loading && (
+            <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+          )}
+          {funnelStep.error && (
+            <p className="text-sm text-destructive py-4 text-center">{funnelStep.error}</p>
+          )}
+          {funnelStep.events && funnelStep.events.length === 0 && (
+            <p className="text-sm text-grey-light py-4 text-center">
+              No events found in this PostHog project.
+            </p>
+          )}
+          {funnelStep.events && funnelStep.events.length > 0 && (
+            <>
+              <div className="flex flex-col gap-2">
+                {funnelStep.steps.map((stepEvent, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <span className="w-6 shrink-0 text-xs text-muted-foreground tabular-nums text-right">
+                      {idx + 1}.
+                    </span>
+                    <select
+                      className="flex-1 text-sm border rounded-md px-2 py-2 bg-background outline-none focus:ring-1 focus:ring-ring"
+                      value={stepEvent}
+                      onChange={e => updateFunnelStep(idx, e.target.value)}
+                    >
+                      <option value="">Select an event…</option>
+                      {funnelStep.events!.map(def => (
+                        <option key={def.id ?? def.name} value={def.name}>
+                          {def.name}
+                        </option>
+                      ))}
+                    </select>
+                    {funnelStep.steps.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => removeFunnelStep(idx)}
+                        className="shrink-0 text-xs text-muted-foreground hover:text-destructive px-1"
+                        aria-label={`Remove step ${idx + 1}`}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {funnelStep.steps.length < 5 && (
+                <button
+                  type="button"
+                  onClick={addFunnelStep}
+                  className="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <Plus size={11} weight="bold" />
+                  Add step
+                </button>
+              )}
+
+              <div className="mt-4 space-y-1.5">
+                <label className="text-sm font-medium">Conversion window</label>
+                <select
+                  className="w-full text-sm border rounded-md px-2 py-2 bg-background outline-none focus:ring-1 focus:ring-ring"
+                  value={funnelStep.conversionWindowSeconds}
+                  onChange={e =>
+                    setFunnelStep(prev =>
+                      prev ? { ...prev, conversionWindowSeconds: Number(e.target.value) } : prev,
+                    )
+                  }
+                >
+                  {CONVERSION_WINDOW_OPTIONS.map(opt => (
+                    <option key={opt.seconds} value={opt.seconds}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Max time between step 1 and the final step to still count as a conversion.
+                </p>
+              </div>
+
+            </>
+          )}
+        </BottomDialog.Page>
+      )}
+
+      {!eventsStep && !webhookStep && !funnelStep && retentionStep && (
+        <BottomDialog.Page
+          title={`${retentionStep.connectionName} — Retention`}
+          pageKey={`retention:${retentionStep.connectionId}`}
+          onBack={() => setRetentionStep(null)}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            <HeaderSaveCancel
+              onSave={handleCreateRetention}
+              onCancel={() => setRetentionStep(null)}
+              saving={tracking}
+              disabled={
+                !retentionStep.startEvent || !retentionStep.returnEvent
+              }
+              bounce={ctx.bounce}
+              saveLabel="Create retention view"
+              savingLabel="Creating…"
+            />
+          )}
+        >
+          <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+            Cohort users by their first <em>start event</em>, then count how many
+            return for the <em>return event</em> in each subsequent period.
+          </p>
+          {retentionStep.loading && (
+            <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+          )}
+          {retentionStep.error && (
+            <p className="text-sm text-destructive py-4 text-center">{retentionStep.error}</p>
+          )}
+          {retentionStep.events && retentionStep.events.length === 0 && (
+            <p className="text-sm text-grey-light py-4 text-center">
+              No events found in this PostHog project.
+            </p>
+          )}
+          {retentionStep.events && retentionStep.events.length > 0 && (
+            <>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Start event</label>
+                  <select
+                    className="w-full text-sm border rounded-md px-2 py-2 bg-background outline-none focus:ring-1 focus:ring-ring"
+                    value={retentionStep.startEvent}
+                    onChange={e =>
+                      setRetentionStep(prev =>
+                        prev ? { ...prev, startEvent: e.target.value } : prev,
+                      )
+                    }
+                  >
+                    <option value="">Select an event…</option>
+                    {retentionStep.events!.map(def => (
+                      <option key={def.id ?? def.name} value={def.name}>
+                        {def.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Return event</label>
+                  <select
+                    className="w-full text-sm border rounded-md px-2 py-2 bg-background outline-none focus:ring-1 focus:ring-ring"
+                    value={retentionStep.returnEvent}
+                    onChange={e =>
+                      setRetentionStep(prev =>
+                        prev ? { ...prev, returnEvent: e.target.value } : prev,
+                      )
+                    }
+                  >
+                    <option value="">Select an event…</option>
+                    {retentionStep.events!.map(def => (
+                      <option key={def.id ?? def.name} value={def.name}>
+                        {def.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Period</label>
+                  <div className="flex gap-2">
+                    {(['day', 'week'] as const).map(p => (
+                      <label
+                        key={p}
+                        className={cn(
+                          'flex-1 cursor-pointer rounded-md border px-3 py-2 text-center text-sm capitalize transition-colors',
+                          retentionStep.period === p
+                            ? 'border-brand bg-brand/5 text-foreground'
+                            : 'border-stroke bg-background text-muted-foreground hover:bg-hover-fill',
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="retention-period"
+                          value={p}
+                          checked={retentionStep.period === p}
+                          onChange={() =>
+                            setRetentionStep(prev => (prev ? { ...prev, period: p } : prev))
+                          }
+                          className="hidden"
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Cohort rows</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      className="w-full text-sm border rounded-md px-3 py-2 bg-background outline-none focus:ring-1 focus:ring-ring"
+                      value={retentionStep.cohortCount}
+                      onChange={e =>
+                        setRetentionStep(prev =>
+                          prev
+                            ? { ...prev, cohortCount: Math.max(1, Math.min(30, Number(e.target.value) || 1)) }
+                            : prev,
+                        )
+                      }
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Periods (cols)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={30}
+                      className="w-full text-sm border rounded-md px-3 py-2 bg-background outline-none focus:ring-1 focus:ring-ring"
+                      value={retentionStep.retentionPeriods}
+                      onChange={e =>
+                        setRetentionStep(prev =>
+                          prev
+                            ? { ...prev, retentionPeriods: Math.max(1, Math.min(30, Number(e.target.value) || 1)) }
+                            : prev,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+
+            </>
+          )}
+        </BottomDialog.Page>
+      )}
+
+      {!eventsStep && !webhookStep && !funnelStep && !retentionStep && (
         <BottomDialog.Page title="Add a view">
           <p className="-mt-1 mb-3 text-xs text-muted-foreground">
             Pick what to track. Each row groups views you can create from one of your connections.

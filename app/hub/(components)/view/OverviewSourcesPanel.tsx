@@ -4,6 +4,8 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  CaretLeft,
+  CaretRight,
   FacebookLogo,
   GithubLogo,
   Globe,
@@ -11,17 +13,42 @@ import {
   LinkedinLogo,
   LinkSimple,
   NewspaperClipping,
+  Question,
   TiktokLogo,
   YoutubeLogo,
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react'
 import type { OverviewSource } from '@/lib/api'
 import { sourceStyle } from '@/constants/trafficSources'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+
+// Sentinel key for the "Other" bucket — set by `source-normalization.ts` on
+// "(not set)" / "Not set" / "not_set" referrer values. Centralised here so
+// the panel can detect the row and attach the help tooltip without
+// hardcoding the magic string in two places.
+const OTHER_SOURCE_KEY = 'unset'
+
+const OTHER_TOOLTIP =
+  "Visits where we couldn't tell where the visitor came from — usually " +
+  "because the link was clicked from a private browser, an app, or another " +
+  "place that doesn't share that information."
 
 interface OverviewSourcesPanelProps {
   sources: OverviewSource[]
   loading?: boolean
   unavailable?: boolean
+  /**
+   * Number of source rows per page. Defaults to 10. Backend always sends a
+   * generous batch (up to 100); pagination here is purely client-side so
+   * flipping pages is instant. When `sources.length <= pageSize`, no pager
+   * is rendered.
+   */
+  pageSize?: number
 }
 
 // ---- Bar-geometry constants (kept in one place so math stays in sync) ---------
@@ -107,9 +134,15 @@ interface SourceRowProps {
   outlined?: boolean
   logo?: string
   label: string
+  /**
+   * Optional explanatory tooltip — rendered as a `?` icon after the label
+   * with on-hover content. Used today for the "Other" row to explain that
+   * those are visits whose source couldn't be identified.
+   */
+  tooltip?: string
 }
 
-function SourceRow({ source, barCount, color, outlined, logo, label }: SourceRowProps) {
+function SourceRow({ source, barCount, color, outlined, logo, label, tooltip }: SourceRowProps) {
   const FallbackIcon = fallbackIcon(source.source)
   const [isHovered, setIsHovered] = useState(false)
   return (
@@ -118,7 +151,10 @@ function SourceRow({ source, barCount, color, outlined, logo, label }: SourceRow
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Left: icon + label — can shrink so long labels truncate gracefully */}
+      {/* Left: icon + label — can shrink so long labels truncate gracefully.
+          The optional `?` help icon sits flush next to the label so the
+          tooltip target is visually anchored to "Other" rather than
+          floating elsewhere on the row. */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
         {logo ? (
           <Image
@@ -132,6 +168,23 @@ function SourceRow({ source, barCount, color, outlined, logo, label }: SourceRow
           <FallbackIcon size={16} weight="regular" className="text-grey-darkest shrink-0" />
         )}
         <span className="truncate text-sm text-grey-darkest min-w-0">{label}</span>
+        {tooltip && (
+          <TooltipProvider delay={150}>
+            <Tooltip>
+              <TooltipTrigger
+                // `cursor-default` so the cursor doesn't suggest the icon
+                // is clickable — it's a passive hover affordance.
+                className="shrink-0 cursor-default rounded-full p-0.5 text-grey-light hover:text-grey-dark transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-foreground/30"
+                aria-label="What does this mean?"
+              >
+                <Question size={12} weight="bold" />
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-64">
+                <p className="text-xs leading-snug">{tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
       </div>
 
       {/* Right group: bars + count, pushed to the right edge. `shrink-0` so
@@ -171,7 +224,12 @@ function SourceRow({ source, barCount, color, outlined, logo, label }: SourceRow
   )
 }
 
-export function OverviewSourcesPanel({ sources, loading, unavailable }: OverviewSourcesPanelProps) {
+export function OverviewSourcesPanel({
+  sources,
+  loading,
+  unavailable,
+  pageSize = 10,
+}: OverviewSourcesPanelProps) {
   // The ref lives on the <ul>; every row shares the same available bars width,
   // so one observer is enough. Rows are laid out as `[label] [bars] [count]`
   // with `[bars]` right-aligned — we subtract label + count widths by using the
@@ -184,10 +242,24 @@ export function OverviewSourcesPanel({ sources, loading, unavailable }: Overview
   const RESERVED_FOR_LABEL_AND_COUNT = 150 // px; approx. "google.com … 44"
   const barsSlotWidth = Math.max(0, listWidth - RESERVED_FOR_LABEL_AND_COUNT)
 
+  // Bar counts are scaled relative to the *global* leader across every page —
+  // not the page-local leader. Otherwise page 2's #1 row would visually match
+  // page 1's #1 row, falsely suggesting equal traffic. Computing once over
+  // `sources` and looking up by `source` key during render keeps the visual
+  // hierarchy consistent as the user pages.
   const barCounts = useMemo(
     () => computeBarCounts(sources, barsSlotWidth),
     [sources, barsSlotWidth],
   )
+
+  // Pagination state. Reset to page 1 whenever `sources` changes (date-range
+  // refetch, refresh tick) so the user never lands on an empty page after
+  // the dataset shrinks. Identity comparison via the array reference is fine
+  // because `ViewCardOverviewSources` always replaces it on a new fetch.
+  const [page, setPage] = useState(1)
+  useEffect(() => {
+    setPage(1)
+  }, [sources])
 
   if (loading) {
     return (
@@ -211,23 +283,97 @@ export function OverviewSourcesPanel({ sources, loading, unavailable }: Overview
     return <p className="text-xs text-grey-light">No sources recorded for this range.</p>
   }
 
+  const safePageSize = Math.max(1, Math.floor(pageSize))
+  const totalPages = Math.max(1, Math.ceil(sources.length / safePageSize))
+  // Clamp `page` defensively. State *should* track `sources` via the effect
+  // above, but a parent that mutates the array in place (rather than
+  // replacing the reference) could leave us with a stale page index — clamp
+  // here so the slice never returns an empty array on a non-empty list.
+  const currentPage = Math.min(Math.max(1, page), totalPages)
+  const pageStart = (currentPage - 1) * safePageSize
+  const pageRows = sources.slice(pageStart, pageStart + safePageSize)
+  const showPager = sources.length > safePageSize
+
   return (
-    <ul ref={listRef} className="flex flex-col gap-1.5">
-      {sources.map(s => {
-        const style = sourceStyle(s.source, s.label)
-        const barCount = barCounts.get(s.source) ?? BAR_MIN
-        return (
-          <SourceRow
-            key={s.source}
-            source={s}
-            barCount={barCount}
-            color={style.color}
-            outlined={style.outlined}
-            logo={style.logo}
-            label={style.label}
-          />
-        )
-      })}
-    </ul>
+    <div className="flex flex-col gap-2">
+      {/* `max-h-[360px] + overflow-y-auto` is a safety net: when paging is
+          active each page is small (≤ pageSize rows), but if the parent
+          opts for a large `pageSize` (e.g. 25) the list scrolls inside the
+          card rather than expanding the card vertically. */}
+      <ul
+        ref={listRef}
+        className="flex max-h-[360px] flex-col gap-1.5 overflow-y-auto pr-0.5"
+      >
+        {pageRows.map(s => {
+          const style = sourceStyle(s.source, s.label)
+          const barCount = barCounts.get(s.source) ?? BAR_MIN
+          // Only the "Other" bucket gets a help tooltip — other rows are
+          // self-explanatory (a domain or a recognised brand). Detected
+          // via the backend's `unset` key, set by the source-normalisation
+          // rule that catches "(not set)" / "Not set" / "not_set" sources.
+          const tooltip = s.source === OTHER_SOURCE_KEY ? OTHER_TOOLTIP : undefined
+          return (
+            <SourceRow
+              key={s.source}
+              source={s}
+              barCount={barCount}
+              color={style.color}
+              outlined={style.outlined}
+              logo={style.logo}
+              label={style.label}
+              tooltip={tooltip}
+            />
+          )
+        })}
+      </ul>
+
+      {showPager && (
+        <Pager
+          page={currentPage}
+          totalPages={totalPages}
+          onPrev={() => setPage(p => Math.max(1, p - 1))}
+          onNext={() => setPage(p => Math.min(totalPages, p + 1))}
+        />
+      )}
+    </div>
+  )
+}
+
+// ---- Pager --------------------------------------------------------------------
+
+interface PagerProps {
+  page: number
+  totalPages: number
+  onPrev: () => void
+  onNext: () => void
+}
+
+function Pager({ page, totalPages, onPrev, onNext }: PagerProps) {
+  const atStart = page <= 1
+  const atEnd = page >= totalPages
+  return (
+    <div className="flex items-center justify-end gap-2 pt-1 text-xs text-grey-darkest">
+      <button
+        type="button"
+        onClick={onPrev}
+        disabled={atStart}
+        aria-label="Previous page"
+        className="inline-flex size-6 items-center justify-center rounded-md border border-stroke bg-white text-grey-darkest transition-colors hover:bg-hover-fill disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+      >
+        <CaretLeft size={11} weight="bold" />
+      </button>
+      <span className="tabular-nums select-none text-grey-dark">
+        Page {page} of {totalPages}
+      </span>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={atEnd}
+        aria-label="Next page"
+        className="inline-flex size-6 items-center justify-center rounded-md border border-stroke bg-white text-grey-darkest transition-colors hover:bg-hover-fill disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white"
+      >
+        <CaretRight size={11} weight="bold" />
+      </button>
+    </div>
   )
 }

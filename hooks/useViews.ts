@@ -1,7 +1,7 @@
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import type { RootState, AppDispatch } from '@/store'
-import { setViews, addViews, removeView } from '@/store/slices/viewsSlice'
+import { setViews, addViews, removeView, replaceView } from '@/store/slices/viewsSlice'
 import { openCreateViewModal, closeCreateViewModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
 import type { View } from '@/types/view'
@@ -58,6 +58,16 @@ export function useViews() {
     }
   }
 
+  /**
+   * Swap a single view in redux state with the updated copy. Used after the
+   * reassignment dialog attaches a fresh connection — `view.connectionId`
+   * changes, which the live-value `useEffect`s in this file's consumers
+   * watch as a dep, so the tile re-fetches without a full folder reload.
+   */
+  const replaceViewInState = (updated: View) => {
+    dispatch(replaceView(updated))
+  }
+
   const untrackView = async (viewId: string) => {
     const existing = views.find(v => v.id === viewId)
     dispatch(removeView(viewId))
@@ -83,6 +93,7 @@ export function useViews() {
     getViewsByFolder,
     createViews,
     untrackView,
+    replaceView: replaceViewInState,
     openModal: (folderId: string | null, projectId: string) =>
       dispatch(openCreateViewModal({ folderId, projectId })),
     closeModal: () => dispatch(closeCreateViewModal()),

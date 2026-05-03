@@ -14,7 +14,12 @@ import { CaretUpDown, SignOut } from '@phosphor-icons/react'
 export function SidebarUserProfile() {
   const { user, signOut } = useAuth()
 
-  const email = user?.email ?? ''
+  // Temporary: hardcoded sidebar label so screenshots / demos show a
+  // consistent team identity instead of whoever is currently logged in.
+  // Restore by uncommenting the real line below and removing the literal.
+  // const email = user?.email ?? ''
+  const email = 'team@heavenmade.org'
+  void user // keep the hook wired even though we ignore its email for now
 
   return (
     <DropdownMenu>

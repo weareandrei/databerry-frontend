@@ -229,9 +229,9 @@ export function StripeProductPicker() {
     <Dialog open onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base font-medium">Track which products?</DialogTitle>
+          <DialogTitle className="text-base font-medium">Choose products to track</DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Pick the Stripe products that should count toward this connection's revenue tiles. You
+            Pick the Stripe products that should count toward this connection&rsquo;s revenue tiles. You
             can change this later from the connection settings.
           </DialogDescription>
         </DialogHeader>
@@ -366,11 +366,24 @@ export function StripeProductPicker() {
           </div>
         )}
 
+        {/* Primary CTA — uses `variant="ghost"` so the default variant's
+            `bg-primary text-primary-foreground` doesn't compete with our
+            `bg-brand text-white` and lose on CSS source order (which left
+            the button rendering near-invisibly in the modal). The disabled
+            override mirrors `ReassignConnectionDialog` — without it the
+            default `disabled:opacity-50` ghosts the brand-coloured CTA out
+            entirely. */}
         <div className="flex justify-end gap-2 pt-2">
           <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
             {hasNoProducts ? 'Cancel' : 'Skip'}
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={saving}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSave}
+            disabled={saving}
+            className="bg-brand hover:bg-brand/90 text-white disabled:bg-grey-light disabled:text-white disabled:opacity-100"
+          >
             {saving ? 'Saving…' : hasNoProducts ? 'Save & track all charges' : 'Save'}
           </Button>
         </div>

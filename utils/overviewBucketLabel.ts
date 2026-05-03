@@ -1,9 +1,15 @@
 /**
- * Mirrors the backend's UTC-based bucket label formatters so the frontend
- * can resolve "now" to the same string the backend uses on the chart's
- * categorical x-axis. Keeping these in sync (daily=fmtHourLabel, weekly=DAY_LABELS,
+ * Mirrors the backend's bucket label formatters so the frontend can resolve
+ * "now" to the same string the backend uses on the chart's categorical
+ * x-axis. Keeping these in sync (daily=fmtHourLabel, weekly=DAY_LABELS,
  * monthly=`${MONTH_LABELS} ${date}`) is a soft contract — if the backend
  * changes its formatter, this file must change too.
+ *
+ * Timezone: the chart now renders in the *viewer's* local timezone — the
+ * frontend sends `tz=Intl....resolvedOptions().timeZone` to
+ * `/project-overview/chart`, the backend buckets/labels in that tz, and
+ * here we read "now" via the local-time `getHours/getDay/getMonth/getDate`
+ * getters so the orange "Now" line lands on the bucket the user expects.
  *
  * Source of truth lives at:
  *   backend/src/project-overview/project-overview.service.ts (fmtHourLabel,
@@ -28,9 +34,12 @@ const MONTH_LABELS = [
  * Returns the x-axis label for the bucket that contains "right now" in the
  * currently-viewed range, or `null` if "now" is outside [dateFrom, dateTo].
  *
- * `dateFrom`/`dateTo` are expected in `YYYY-MM-DD` form (backend convention).
- * Date math is done in UTC so the returned label matches the backend's
- * bucket labels regardless of the viewer's local timezone.
+ * `dateFrom`/`dateTo` are expected in `YYYY-MM-DD` form (backend convention,
+ * UTC-anchored). The in-range check stays UTC-anchored: "now" falls inside
+ * today's UTC window for any reasonable user, so the comparison is sound.
+ *
+ * The label itself is built from local-time getters so it matches the
+ * backend's tz-aware bucket labels (see file docstring).
  */
 export function bucketLabelForNow(
   mode: OverviewMode,
@@ -46,7 +55,7 @@ export function bucketLabelForNow(
   const nowMs = now.getTime()
   if (nowMs < fromUtc || nowMs >= toUtc) return null
 
-  if (mode === 'daily') return fmtHourLabel(now.getUTCHours())
-  if (mode === 'weekly') return DAY_LABELS[now.getUTCDay()]
-  return `${MONTH_LABELS[now.getUTCMonth()]} ${now.getUTCDate()}`
+  if (mode === 'daily') return fmtHourLabel(now.getHours())
+  if (mode === 'weekly') return DAY_LABELS[now.getDay()]
+  return `${MONTH_LABELS[now.getMonth()]} ${now.getDate()}`
 }

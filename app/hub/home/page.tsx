@@ -36,7 +36,13 @@ export default function HomePage() {
       </div>
 
       <div className="space-y-5">
-        <PinnedViews pins={pinsCtx.pinnedViews} unpinView={pinsCtx.unpinView} loading={pinsCtx.loading} projects={projectsCtx.projects} />
+        <PinnedViews
+          pins={pinsCtx.pinnedViews}
+          unpinView={pinsCtx.unpinView}
+          onConnectionAssigned={pinsCtx.replacePin}
+          loading={pinsCtx.loading}
+          projects={projectsCtx.projects}
+        />
 
         <ProjectsGrid projects={projectsCtx.projects} loading={projectsCtx.loading} />
       </div>

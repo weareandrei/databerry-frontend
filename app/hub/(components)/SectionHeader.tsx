@@ -20,8 +20,7 @@ function RoundButton({ onClick, children }: { onClick: () => void; children: Rea
       size="icon"
       variant="outline"
       onClick={onClick}
-      className="rounded-full bg-white border-stroke shrink-0"
-      style={{ boxShadow: '2px 2px 5px rgba(0,0,0,0.05)' }}
+      className="rounded-full bg-white border-stroke shrink-0 shadow-pill"
     >
       {children}
     </Button>

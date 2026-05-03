@@ -38,5 +38,15 @@ export function usePins() {
     }
   }
 
-  return { pinnedViews, loading, loadPinnedViews, pinView, unpinView }
+  /**
+   * Replace a single pin in local state. Used by `ReassignConnectionDialog`
+   * to swap an orphan view's `connectionId` after the user attaches a fresh
+   * connection — the tile then re-fetches its live value because the
+   * `view.connectionId` dependency on the live-value `useEffect` changes.
+   */
+  const replacePin = (updated: View) => {
+    setPinnedViews(prev => prev.map(v => (v.id === updated.id ? updated : v)))
+  }
+
+  return { pinnedViews, loading, loadPinnedViews, pinView, unpinView, replacePin }
 }

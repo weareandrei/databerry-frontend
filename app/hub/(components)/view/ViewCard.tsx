@@ -1,13 +1,24 @@
 'use client'
 
+import { useState } from 'react'
 import { ArrowsClockwise, Warning } from '@phosphor-icons/react'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { IntegrationReauthBanner } from './IntegrationReauthBanner'
+import { ReassignConnectionDialog } from './ReassignConnectionDialog'
 import type { View } from '@/types/view'
 import { formatViewValue } from '@/utils/formatters'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
-import { IntegrationReauthError } from '@/lib/api'
+import { ConnectionMissingError, IntegrationReauthError } from '@/lib/api'
+
+// Note: `ViewCard` is a low-level reusable component — it intentionally
+// reaches for NEITHER Redux nor Context. Anything that lives in app
+// state (the global date range, the user's tz, the currently selected
+// project, etc.) is supplied by the caller via props. Keeps the card
+// renderable on the marketing landing page (which has no Redux Provider)
+// and in any future unit-test or Storybook surface. The previous version
+// of this file did `useSelector(s => s.ui.globalDateFrom)` for the MRR
+// caption, which crashed every render of the demo cards on `/`.
 
 export function FetchErrorBadge({ message }: { message: string }) {
   return (
@@ -24,18 +35,43 @@ interface ViewCardProps {
   liveValue?: string | null
   liveLoading?: boolean
   /**
-   * `string` for legacy/generic fetch errors (rendered as "Fetch failed" badge),
-   * or an `IntegrationReauthError` instance when the OAuth refresh token is
-   * dead — the latter triggers an inline "Reconnect <Integration>" prompt
-   * that links into the existing OAuth start flow. See
-   * `lib/api.ts#IntegrationReauthError` and `IntegrationReauthBanner`.
+   * `string` for legacy/generic fetch errors (rendered as a generic
+   * "Couldn't load value" badge); an `IntegrationReauthError` when the
+   * OAuth refresh token is dead — triggers the inline "Reconnect
+   * <Integration>" banner that links into the existing OAuth start flow;
+   * or a `ConnectionMissingError` when the underlying connection row no
+   * longer exists — surfaces the same "click to reattach" badge as the
+   * strict-orphan path (`!view.connectionId`) and opens
+   * `ReassignConnectionDialog`. See `lib/api.ts#ConnectionMissingError`
+   * and `lib/api.ts#IntegrationReauthError`.
    */
-  liveError?: string | IntegrationReauthError | null
+  liveError?: string | IntegrationReauthError | ConnectionMissingError | null
   projectName?: string
   onRefresh?: () => void
   refreshing?: boolean
   onPin?: () => void
   isPinned?: boolean
+  /**
+   * Called when the user picks a fresh connection from the reassignment
+   * dialog (only fires for orphan views — `view.connectionId == null`).
+   * Consumers should swap the matching view in their local state so the
+   * tile re-fetches with the new connection without a hard refresh.
+   * If omitted, the dialog still works but the parent won't know to update.
+   */
+  onConnectionAssigned?: (updated: View) => void
+  /**
+   * Optional grey caption rendered immediately below the value
+   * (e.g. `"Apr 27 – May 3"`). The caller decides whether the view
+   * type benefits from a caption (currently only `stripe_mrr` does
+   * — the date range answers "for which period was MRR computed?")
+   * and computes the string from its own date-range source. Omitted
+   * → no caption, no extra vertical space.
+   *
+   * `ViewCard` doesn't read the global date range itself because it
+   * must remain renderable outside Redux/Context (marketing landing
+   * demos, Storybook, etc.).
+   */
+  dateRangeLabel?: string
 }
 
 export function ViewCard({
@@ -49,46 +85,111 @@ export function ViewCard({
   refreshing,
   onPin,
   isPinned,
+  onConnectionAssigned,
+  dateRangeLabel,
 }: ViewCardProps) {
   const isDisconnected = !view.connectionId
+  // Connection FK still set on the row, but the row it points at is gone.
+  // Treated as disconnected for UX purposes — same badge, same dialog.
+  const isConnectionMissing = liveError instanceof ConnectionMissingError
+  const needsReattach = isDisconnected || isConnectionMissing
   const displayValue = liveValue ?? view.value
-  const isUnknown = !liveLoading && !isDisconnected && !liveError && (displayValue == null || displayValue === '')
+  const isUnknown = !liveLoading && !needsReattach && !liveError && (displayValue == null || displayValue === '')
   const connectionLabel = CONNECTION_DISPLAY_NAMES[view.connectionType] ?? view.connectionType
   const isReauthError = liveError instanceof IntegrationReauthError
+  const [reassignOpen, setReassignOpen] = useState(false)
+
+  // Caller-supplied caption shown under the healthy value. The caller
+  // (e.g. ProjectView's view-card dispatcher) decides which view types
+  // get one and computes the string from the global date range. ViewCard
+  // doesn't read Redux/Context for this — see component-level comment.
+  const dateRangeCaption = dateRangeLabel ?? null
 
   return (
-    <ViewWrapper className="col-span-1 row-span-1">
-      <ViewHeader
-        name={view.name}
-        connectionType={view.connectionType}
-        connectionLabel={connectionLabel}
-        isDisconnected={isDisconnected}
-        onUntrack={onUntrack}
-        viewId={view.id}
-        projectName={projectName}
-        onRefresh={onRefresh}
-        refreshing={refreshing}
-        onPin={onPin}
-        isPinned={isPinned}
-      />
+    <>
+      <ViewWrapper className="col-span-1 row-span-1">
+        <ViewHeader
+          name={view.name}
+          connectionType={view.connectionType}
+          connectionLabel={connectionLabel}
+          isDisconnected={isDisconnected}
+          isConnectionMissing={isConnectionMissing}
+          onReconnect={() => setReassignOpen(true)}
+          onUntrack={onUntrack}
+          viewId={view.id}
+          projectName={projectName}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+          onPin={onPin}
+          isPinned={isPinned}
+        />
 
-      <div className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">
-        {liveLoading ? (
-          <ArrowsClockwise size={14} weight="bold" className="text-muted-foreground animate-spin" />
-        ) : isDisconnected ? (
-          <FetchErrorBadge message="No connection" />
-        ) : isReauthError ? (
-          <IntegrationReauthBanner error={liveError as IntegrationReauthError} />
-        ) : liveError ? (
-          <FetchErrorBadge message="Fetch failed" />
-        ) : isUnknown ? (
-          <span className="text-2xl font-semibold leading-none text-grey-light">Unknown</span>
-        ) : (
-          <span className="text-2xl font-semibold tabular-nums leading-none">
-            {formatViewValue(displayValue, view.type)}
-          </span>
-        )}
-      </div>
-    </ViewWrapper>
+        <div className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">
+          {liveLoading ? (
+            <ArrowsClockwise size={14} weight="bold" className="text-muted-foreground animate-spin" />
+          ) : needsReattach ? (
+            // Two flavours of "this view has no usable connection" share
+            // one path:
+            //   - `isDisconnected`     → `view.connectionId` is null
+            //   - `isConnectionMissing` → FK still set but the connection
+            //     row is gone (backend `ConnectionMissingException`, 410)
+            // Both open the centred reassignment dialog. Stop event
+            // propagation so the click doesn't bubble to any future
+            // card-level handler.
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                setReassignOpen(true)
+              }}
+              className="self-start rounded-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              aria-label="Attach a connection to this view"
+            >
+              <FetchErrorBadge message="Connection missing — click to reattach" />
+            </button>
+          ) : isReauthError ? (
+            <IntegrationReauthBanner error={liveError as IntegrationReauthError} />
+          ) : liveError ? (
+            // Generic transient fetch failure — distinct from "no
+            // connection" (which has its own click-to-reattach badge
+            // above) and from "credentials expired" (which has the
+            // OAuth-restart banner). "Couldn't load value" describes
+            // what didn't happen from the user's perspective.
+            <FetchErrorBadge message="Couldn't load value" />
+          ) : isUnknown ? (
+            <span className="text-2xl font-semibold leading-none text-grey-light">Unknown</span>
+          ) : (
+            <>
+              <span className="text-2xl font-semibold tabular-nums leading-none">
+                {formatViewValue(displayValue, view.type)}
+              </span>
+              {/*
+                Caption sits 4px below the value in muted grey. `truncate`
+                guards against pathological long ranges (e.g. "Dec 30, 2025
+                – Jan 2, 2026" worst-case, ~24 chars) overflowing the
+                ~240-px tile width.
+              */}
+              {dateRangeCaption && (
+                <span className="text-xs text-muted-foreground mt-1 truncate">
+                  {dateRangeCaption}
+                </span>
+              )}
+            </>
+          )}
+        </div>
+      </ViewWrapper>
+
+      {/*
+        Mounted unconditionally so the dropdown's "Change connection" item
+        can open it even when the view is in a healthy state. The dialog
+        renders nothing while `open` is false, so this is cheap.
+      */}
+      <ReassignConnectionDialog
+        view={view}
+        open={reassignOpen}
+        onOpenChange={setReassignOpen}
+        onAssigned={onConnectionAssigned}
+      />
+    </>
   )
 }

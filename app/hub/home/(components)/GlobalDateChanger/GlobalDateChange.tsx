@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { CaretLeft, CaretRight, ArrowRight } from '@phosphor-icons/react'
+import { Button } from '@/components/ui/button'
 import type { RootState } from '@/store'
 import { resetGlobalToCurrent, shiftGlobalPeriod } from '@/store/slices/uiSlice'
 import {
@@ -67,38 +68,42 @@ export function GlobalDateChange() {
 
   return (
     <div className="flex items-center gap-1 rounded-lg border border-black/[0.08] bg-white px-2 py-2.5 shadow-sm text-sm">
-      {/* Left arrow */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => dispatch(shiftGlobalPeriod(-1))}
-        className="flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        aria-label="Previous period"
+        className="size-5 text-muted-foreground hover:text-foreground"
       >
         <CaretLeft size={12} weight="bold" />
-      </button>
+      </Button>
 
-      {/* Label */}
       <div className="flex items-center gap-1.5 tabular-nums px-1.5 text-[13px] font-medium text-grey-darkest">
         {renderMain()}
         <span className="font-normal text-grey-light">{year}</span>
       </div>
 
-      {/* Reset pill */}
       {!onCurrentPeriod && (
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => dispatch(resetGlobalToCurrent())}
-          className="ml-1 text-xs text-muted-foreground hover:text-foreground border border-black/[0.08] rounded px-1.5 py-0.5 transition-colors cursor-pointer whitespace-nowrap"
+          className="ml-1 h-auto rounded border-black/[0.08] px-1.5 py-0.5 text-xs font-normal text-muted-foreground hover:text-foreground"
         >
           {resetLabel}
-        </button>
+        </Button>
       )}
 
-      {/* Right arrow */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon-sm"
         onClick={() => { if (!atTodayEnd) dispatch(shiftGlobalPeriod(1)) }}
         disabled={atTodayEnd}
-        className="flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+        aria-label="Next period"
+        className="size-5 text-muted-foreground hover:text-foreground disabled:opacity-30"
       >
         <CaretRight size={12} weight="bold" />
-      </button>
+      </Button>
     </div>
   )
 }

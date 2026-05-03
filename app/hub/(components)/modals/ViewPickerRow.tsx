@@ -35,7 +35,7 @@ export function ViewPickerRow({ title, subtitle, cards, rightSlot }: ViewPickerR
   if (cards.length === 0) return null
 
   return (
-    <section className="space-y-2">
+    <section className="space-y-3">
       <div className="flex items-baseline justify-between gap-2 px-0.5">
         <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
           {title}
@@ -47,10 +47,13 @@ export function ViewPickerRow({ title, subtitle, cards, rightSlot }: ViewPickerR
         </h3>
         {rightSlot}
       </div>
-      {/* Two-up on phones, scaling up on wider viewports. The row never
-          becomes a horizontal scroller — column count grows so the
-          dialog's vertical scroll handles overflow instead. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+      {/* Two-up on phones, scaling up on wider viewports. Column count
+          grows aggressively past `md` so cards stay compact on a desktop
+          dialog (which is wide) — bigger gap (`gap-4`) lets each card
+          breathe instead of stacking shoulder-to-shoulder. The row never
+          becomes a horizontal scroller; vertical scroll on the dialog
+          body handles overflow. */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {cards.map(card => (
           <ViewTypeCard key={card.type} {...card} />
         ))}
