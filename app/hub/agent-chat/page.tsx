@@ -1,151 +1,256 @@
 'use client'
 
-import { useState, useEffect, useRef, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { ArrowUp } from '@phosphor-icons/react'
-import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+/**
+ * Ask AI — chat page.
+ *
+ * Architecture:
+ *   - Single source of truth for the chat log lives in this
+ *     component's `messages` state.
+ *   - On mount we hydrate from localStorage (per user id) — so a
+ *     refresh keeps the conversation. No DB schema, no backend
+ *     persistence; this is deliberately a v1 "stupid MCP".
+ *   - Each send: append user message → POST /api/chat with the full
+ *     log + the user's tz → append the assistant reply (with
+ *     tool-call trace) when it lands.
+ *
+ * Layout mirrors the home page: `h-screen flex flex-col`, header
+ * doesn't scroll, the message stream is the only scroll container,
+ * the input is pinned to the bottom of the column. Keeps the chat
+ * page visually consistent with the rest of the dashboard.
+ */
 
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
+import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { useSelector } from 'react-redux'
+import { v4 as uuidv4 } from 'uuid'
+import { Warning } from '@phosphor-icons/react'
+import { ChatHeader } from './(components)/ChatHeader'
+import { ChatEmpty } from './(components)/ChatEmpty'
+import { ChatMessage } from './(components)/ChatMessage'
+import { ChatTypingIndicator } from './(components)/ChatTypingIndicator'
+import { ChatInput } from './(components)/ChatInput'
+import type { ChatMessage as Msg, ToolCallTrace } from './(components)/types'
+import { createClient } from '@/lib/supabase/client'
+import type { RootState } from '@/store'
+
+// localStorage key prefix. Per-user so two accounts on the same
+// browser don't bleed into each other. Bumped if the message shape
+// ever changes (today: v1).
+const STORAGE_PREFIX = 'databerry:chat:v1:'
+
+function loadHistory(userId: string): Msg[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(STORAGE_PREFIX + userId)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function saveHistory(userId: string, messages: Msg[]): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(STORAGE_PREFIX + userId, JSON.stringify(messages))
+  } catch {
+    /* quota exceeded — fall back to in-memory only */
+  }
 }
 
 function AgentChat() {
+  // Initial-query hand-off from `?q=` (used by other pages that want
+  // to send the user straight into a chat with a pre-typed prompt).
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') ?? ''
 
-  const [messages, setMessages] = useState<Message[]>([])
+  const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
+
+  const [userId, setUserId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const [sending, setSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement | null>(null)
   const didSendInitial = useRef(false)
 
-  async function sendMessage(content: string) {
-    if (!content.trim() || loading) return
-
-    const userMsg: Message = { role: 'user', content: content.trim() }
-    const next = [...messages, userMsg]
-    setMessages(next)
-    setInput('')
-    setLoading(true)
-
-    try {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      const authToken = session?.access_token ? `Bearer ${session.access_token}` : ''
-
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: authToken },
-        body: JSON.stringify({ messages: next }),
-      })
-      const data = await res.json()
-      setMessages(prev => [...prev, { role: 'assistant', content: data.reply }])
-    } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Something went wrong. Please try again.' }])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Send initial query from home page redirect
+  // Resolve the auth user once on mount, then hydrate the chat log
+  // for that user. We can't read localStorage during render because
+  // the user id is async; the empty-state flashes briefly but that's
+  // acceptable for a chat page.
   useEffect(() => {
-    if (initialQuery && !didSendInitial.current) {
-      didSendInitial.current = true
-      sendMessage(initialQuery)
-    }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    let cancelled = false
+    ;(async () => {
+      const supabase = createClient()
+      const { data } = await supabase.auth.getSession()
+      const uid = data.session?.user.id ?? null
+      if (cancelled) return
+      setUserId(uid)
+      if (uid) setMessages(loadHistory(uid))
+    })()
+    return () => { cancelled = true }
+  }, [])
 
-  // Scroll to bottom on new messages
+  // Persist on every message change.
+  useEffect(() => {
+    if (userId) saveHistory(userId, messages)
+  }, [messages, userId])
+
+  // Keep the latest message visible.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  }, [messages, sending])
 
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage(input)
+  const send = useCallback(
+    async (rawContent: string) => {
+      const content = rawContent.trim()
+      if (!content || sending) return
+
+      const userMsg: Msg = { id: uuidv4(), role: 'user', content }
+      // Snapshot the next log so we can both render optimistically
+      // AND ship the same shape to the API in one go.
+      const next = [...messages, userMsg]
+      setMessages(next)
+      setInput('')
+      setSending(true)
+
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const authToken = session?.access_token
+          ? `Bearer ${session.access_token}`
+          : ''
+
+        // Hit the NestJS backend (`POST /chat`) — Anthropic key + tool
+        // execution live there now, alongside every other third-party
+        // integration. Frontend just forwards the message log.
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: authToken },
+          body: JSON.stringify({
+            // Backend only needs role + content. Strip our local
+            // `id` and `toolCalls` fields — the model ignores them
+            // and they make the payload bigger.
+            messages: next.map(m => ({ role: m.role, content: m.content })),
+            tz,
+          }),
+        })
+
+        // Read the body as text first so we can still surface
+        // *something* if the server returned an empty 500 (e.g. a
+        // platform-level crash). Without this we'd just get the
+        // misleading "Unexpected end of JSON input" from `.json()`
+        // on an empty body.
+        const rawText = await res.text()
+        let data: {
+          reply?: string
+          toolCalls?: ToolCallTrace[]
+          // Backend shapes:
+          //  NestJS HttpException → `{ statusCode, message }`
+          //  legacy frontend route → `{ error }`
+          // Handle both.
+          error?: string
+          message?: string
+        }
+        try {
+          data = rawText ? JSON.parse(rawText) : {}
+        } catch {
+          data = {
+            error: `Server returned non-JSON response (HTTP ${res.status}). Body: ${
+              rawText.slice(0, 200) || '(empty)'
+            }`,
+          }
+        }
+
+        const reply =
+          data.reply ?? data.message ?? data.error ?? 'Something went wrong.'
+        setMessages(prev => [
+          ...prev,
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: reply,
+            toolCalls: data.toolCalls,
+          },
+        ])
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Something went wrong.'
+        setMessages(prev => [
+          ...prev,
+          { id: uuidv4(), role: 'assistant', content: `Error: ${message}` },
+        ])
+      } finally {
+        setSending(false)
+      }
+    },
+    [messages, sending, tz],
+  )
+
+  // Send the initial `?q=` prompt once, after we've hydrated the user
+  // (so the first message lands AFTER any restored history, not
+  // mid-hydration).
+  useEffect(() => {
+    if (initialQuery && !didSendInitial.current && userId) {
+      didSendInitial.current = true
+      send(initialQuery)
     }
+  }, [initialQuery, userId, send])
+
+  const clear = () => {
+    setMessages([])
+    if (userId) saveHistory(userId, [])
   }
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="h-screen flex flex-col">
+      <ChatHeader hasMessages={messages.length > 0} onClear={clear} />
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6">
-        {messages.length === 0 && !loading && (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            Ask anything about your business...
-          </div>
-        )}
-
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={cn(
-              'flex',
-              msg.role === 'user' ? 'justify-end' : 'justify-start',
-            )}
-          >
-            <div
-              className={cn(
-                'max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
-                msg.role === 'user'
-                  ? 'bg-black text-white rounded-br-sm'
-                  : 'bg-accent text-accent-foreground rounded-bl-sm',
-              )}
-            >
-              {msg.content}
-            </div>
-          </div>
-        ))}
-
-        {loading && (
-          <div className="flex justify-start">
-            <div className="bg-accent rounded-2xl rounded-bl-sm px-4 py-3">
-              <span className="flex gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground animate-bounce [animation-delay:300ms]" />
-              </span>
-            </div>
-          </div>
-        )}
-
-        <div ref={bottomRef} />
+      {/*
+        Beta warning — Ask AI is still under active development.
+        Persistent (no dismiss) and sits between the header and the
+        scrolling message stream so it's always visible regardless of
+        scroll position. Amber tone matches the warning treatment used
+        for view-tile reattach prompts elsewhere in the app.
+      */}
+      <div className="shrink-0 mx-4 mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <Warning size={14} weight="bold" className="shrink-0" />
+        <span>
+          Ask AI is still in early development — answers may be inaccurate,
+          slow, or fail entirely. Don&rsquo;t rely on it for critical decisions.
+        </span>
       </div>
 
-      {/* Fixed input */}
-      <div className="shrink-0 border-t bg-background px-4 md:px-8 py-4">
-        <div className="max-w-3xl mx-auto flex items-end gap-3 rounded-2xl border bg-background px-4 py-3 shadow-sm focus-within:ring-2 focus-within:ring-ring transition-shadow">
-          <textarea
-            ref={inputRef}
-            rows={1}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Ask a follow-up..."
-            className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground max-h-32"
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || loading}
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-black text-white disabled:opacity-30 hover:opacity-75 transition-opacity shrink-0 mb-0.5"
-          >
-            <ArrowUp size={15} weight="bold" />
-          </button>
+      {/* Scrollable message stream. `min-h-0` is the flex-child
+          shrink trick — same as on home/page.tsx. */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4">
+        <div className="max-w-4xl mx-auto py-6 space-y-4">
+          {messages.length === 0 && !sending ? (
+            <ChatEmpty />
+          ) : (
+            messages.map(m => <ChatMessage key={m.id} message={m} />)
+          )}
+          {sending && <ChatTypingIndicator />}
+          <div ref={bottomRef} />
         </div>
-        <p className="text-center text-xs text-muted-foreground mt-2">
-          Press Enter to send · Shift+Enter for new line
-        </p>
       </div>
+
+      <ChatInput
+        value={input}
+        onChange={setInput}
+        onSubmit={() => send(input)}
+        sending={sending}
+        // Suggestions always visible — even mid-conversation. Users
+        // can re-pull a starter prompt at any time, and the row also
+        // fills the white wrapper visually.
+        showSuggestions
+      />
     </div>
   )
 }
 
 export default function AgentChatPage() {
+  // `useSearchParams` requires a Suspense boundary in the App
+  // Router. Same wrapper the previous version used.
   return (
     <Suspense>
       <AgentChat />

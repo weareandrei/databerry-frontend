@@ -1,13 +1,18 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useDispatch } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
-import { House, PlugsConnected, List, X, Robot, CaretDown, Plus, Cube, Gear } from '@phosphor-icons/react'
+import { House, PlugsConnected, List, X, Robot, CaretDown, Plus, Gear } from '@phosphor-icons/react'
+import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
 import { SidebarFolderItem } from './SidebarFolderItem'
 import { SidebarTimezone } from './SidebarTimezone'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { setProjectNavIntent } from '@/store/slices/uiSlice'
+import type { AppDispatch } from '@/store'
 
 function SectionHeader({
   label,
@@ -45,6 +50,8 @@ function SectionHeader({
 
 function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
   const { folders: foldersCtx, projects: projectsCtx } = useDashboard()
+  const router = useRouter()
+  const dispatch = useDispatch<AppDispatch>()
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false)
   const [projectsCollapsed, setProjectsCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
@@ -54,6 +61,16 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
     next.has(id) ? next.delete(id) : next.add(id)
     return next
   })
+
+  // Jump to a project on the home page. The dispatch lands first
+  // (synchronous Redux), then router.push navigates to /hub/home — so
+  // the home page mounts (or re-renders) with the intent already in
+  // state. The intent's nonce bumps every call, so re-clicking the
+  // same project re-fires the consumer's effect.
+  const goToProject = (projectId: string, folderId?: string) => {
+    dispatch(setProjectNavIntent({ projectId, folderId }))
+    router.push('/hub/home')
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden font-semibold tracking-[0.05em]" onClick={onNavigate}>
@@ -129,23 +146,46 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
 
                   return (
                     <div key={project.id}>
-                      {/* Project row — styled like a nav item */}
-                      <button
-                        onClick={() => toggleProject(project.id)}
-                        className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors cursor-pointer text-grey-dark hover:bg-hover-fill hover:text-grey-darkest"
-                      >
-                        <Cube size={16} weight="bold" className="shrink-0" />
-                        <span className="flex-1 text-left truncate">{project.name}</span>
+                      {/*
+                        Project row — split into two siblings inside
+                        a flex container (no nested buttons): the left
+                        button navigates to home + scrolls; the right
+                        icon-button toggles the inline folder list.
+                        Hover treatment on the caret matches the
+                        view-tile 3-dots (`ViewHeader.tsx`) so it reads
+                        as a real interactive control.
+                      */}
+                      <div className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-grey-dark hover:bg-hover-fill hover:text-grey-darkest">
+                        <button
+                          onClick={() => goToProject(project.id)}
+                          className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
+                        >
+                          <ProjectIcon
+                            websiteUrl={project.websiteUrl}
+                            size={16}
+                            pill={false}
+                          />
+                          <span className="flex-1 text-left truncate">{project.name}</span>
+                        </button>
                         {hasFolders && (
-                          <motion.span
-                            animate={{ rotate: isExpanded ? 0 : -90 }}
-                            transition={{ duration: 0.15 }}
-                            className="flex shrink-0 text-grey-dark"
+                          <button
+                            onClick={e => {
+                              e.stopPropagation()
+                              toggleProject(project.id)
+                            }}
+                            aria-label={isExpanded ? 'Collapse folders' : 'Expand folders'}
+                            className="flex items-center justify-center w-6 h-6 rounded cursor-pointer text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors -mr-1"
                           >
-                            <CaretDown size={11} weight="bold" />
-                          </motion.span>
+                            <motion.span
+                              animate={{ rotate: isExpanded ? 0 : -90 }}
+                              transition={{ duration: 0.15 }}
+                              className="flex"
+                            >
+                              <CaretDown size={11} weight="bold" />
+                            </motion.span>
+                          </button>
                         )}
-                      </button>
+                      </div>
 
                       {/* Expanded folders with vertical guide bar */}
                       <AnimatePresence initial={false}>
@@ -160,7 +200,11 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
                             <div className="absolute top-0 bottom-0 w-px bg-stroke" style={{ left: '22px' }} />
                             <div className="pl-2">
                               {projectFolders.map(folder => (
-                                <SidebarFolderItem key={folder.id} folder={folder} />
+                                <SidebarFolderItem
+                                  key={folder.id}
+                                  folder={folder}
+                                  onNavigate={goToProject}
+                                />
                               ))}
                               <button
                                 onClick={() => foldersCtx.openModal(null, project.id)}

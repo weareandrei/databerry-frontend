@@ -62,8 +62,15 @@ export function SectionHeader({
   return (
     <div
       className={cn(
-        'shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-stroke bg-main text-grey-darkest',
-        className)}
+        // No background by default — caller decides via `className`. Lets a
+        // single SectionHeader component back both the cream-on-cream
+        // "section card" look (callers pass `bg-main`) and the white
+        // sticky-on-white look used by the home dashboard's project
+        // cards (callers pass `bg-white`). Avoids a `variant` prop or
+        // forking the component.
+        'shrink-0 flex items-center gap-3 px-4 py-2.5 border-b border-stroke text-grey-darkest',
+        className,
+      )}
     >
       {leftContent}
       <div className="flex-1 min-w-0">

@@ -62,12 +62,24 @@ const Navbar = () => {
             </span>
           </Link>
 
-          <Link
-            href="/signup"
-            className="hidden md:block rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
-          >
-            Join wishlist
-          </Link>
+          {/* Auth CTAs — login as a small text link, signup as the
+              primary pill. Two-button setup keeps the navbar pill
+              compact while giving returning users a one-click path
+              to the dashboard. */}
+          <div className="hidden md:flex items-center gap-4">
+            <Link
+              href="/login"
+              className="text-sm font-medium text-gray-700 hover:text-black transition-colors"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/signup"
+              className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
+            >
+              Sign up
+            </Link>
+          </div>
         </div>
 
         <svg className="-scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]" viewBox="0 0 50 50" fill="none" aria-hidden="true">
@@ -93,7 +105,15 @@ const Navbar = () => {
                 className="text-3xl font-semibold text-gray-900 hover:text-orange-500 transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
-                Join wishlist
+                Sign up
+              </Link>
+              <Link
+                href="/login"
+                onClick={() => setMenuOpen(false)}
+                className="text-2xl font-medium text-gray-600 hover:text-orange-500 transition-colors"
+                style={{ fontFamily: 'var(--font-bricolage)' }}
+              >
+                Log in
               </Link>
             </div>
 

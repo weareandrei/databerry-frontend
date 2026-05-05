@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwise, CaretDown, Check, Cube, DotsThreeVertical, Gear, PushPin, PushPinSlash, Target, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, CaretDown, Check, Cube, DotsThreeVertical, Gear, Plugs, PushPin, PushPinSlash, Target, Warning } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -308,13 +308,16 @@ export function ViewCardOverviewChart({
             </div>
           ) : primaryUnavailable ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center px-6">
-              <p className="text-sm text-grey-dark">No traffic source connected.</p>
+              <p className="text-sm text-grey-dark">No analytics tool connected yet.</p>
+              <p className="text-xs text-grey-light max-w-[320px]">
+                Connect Google Analytics or PostHog to see traffic for this project.
+              </p>
               <Link
-                href="/hub/settings"
-                className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors"
+                href="/hub/connections"
+                className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1"
               >
-                <Gear size={12} weight="bold" />
-                Set up in Settings
+                <Plugs size={12} weight="bold" />
+                Connect analytics
               </Link>
             </div>
           ) : chart ? (

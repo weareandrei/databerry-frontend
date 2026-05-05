@@ -21,8 +21,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSelector } from 'react-redux'
-import { CaretLeft, CaretDown, ArrowsClockwise, Cube, Plus } from '@phosphor-icons/react'
+import { CaretLeft, CaretDown, ArrowsClockwise, Plus } from '@phosphor-icons/react'
+import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { ProjectViewBreadCrumbs } from './ProjectViewBreadCrumbs'
+import { ProjectMenu } from './ProjectMenu'
+import { EditProjectDialog } from './EditProjectDialog'
+import { DeleteProjectDialog } from './DeleteProjectDialog'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
@@ -73,14 +77,34 @@ function isListView(view: View): boolean {
 
 // ── Project-level state hook ───────────────────────────────────────────────
 
-function useProjectView(project: Project) {
+function useProjectView(
+  project: Project,
+  initialFolderId: string | null,
+  navNonce: number,
+) {
   const { folders: foldersCtx, views: viewsCtx, pins: pinsCtx } = useDashboard()
   const globalDateMode = useSelector((s: RootState) => s.ui.globalDateMode)
   const globalDateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const globalDateTo = useSelector((s: RootState) => s.ui.globalDateTo)
   const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
 
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(
+    initialFolderId,
+  )
+
+  // Re-sync `currentFolderId` whenever the sidebar dispatches a fresh
+  // nav intent. Keyed off `navNonce` so a re-click of the *same*
+  // folder still fires (e.g. user navigated away inside the project,
+  // wants to come back via the sidebar). When `initialFolderId` is
+  // `null`, leave the user's in-page folder navigation alone — the
+  // null intent means "the user clicked a different project, this
+  // one's folder state isn't theirs to reset".
+  useEffect(() => {
+    if (initialFolderId !== null) {
+      setCurrentFolderId(initialFolderId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navNonce, initialFolderId])
   const [views, setViews] = useState<View[]>([])
   const [loading, setLoading] = useState(true)
   const [collapsed, setCollapsed] = useState(false)
@@ -324,9 +348,27 @@ function ViewCardRenderer({
 
 interface ProjectViewProps {
   project: Project
+  /**
+   * Pre-open this folder when the project mounts (or when a fresh
+   * sidebar nav intent fires). `null` means "no folder intent for
+   * this project — leave its folder state alone". The matching is
+   * done one level up in `ProjectsGrid`; this component just receives
+   * its own slice.
+   */
+  initialFolderId?: string | null
+  /**
+   * Bumped each time the sidebar fires a nav intent. Threaded through
+   * so the folder-state effect can re-fire even when the same folder
+   * is re-clicked.
+   */
+  navNonce?: number
 }
 
-export function ProjectView({ project }: ProjectViewProps) {
+export function ProjectView({
+  project,
+  initialFolderId = null,
+  navNonce = 0,
+}: ProjectViewProps) {
   const {
     views,
     loading,
@@ -347,15 +389,52 @@ export function ProjectView({ project }: ProjectViewProps) {
     handleBack,
     openCreateViewModal,
     foldersCtx,
-  } = useProjectView(project)
+  } = useProjectView(project, initialFolderId, navNonce)
+
+  // Per-project mutation surface — we read from the same dashboard
+  // context the rest of this component already uses (see
+  // `useProjectView` above). Drives the edit + delete dialogs.
+  const { projects: projectsCtx } = useDashboard()
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   return (
-    <div className="relative flex flex-col">
+    /*
+      Each project card has NO `bg-white` of its own. The white fill
+      belongs to the SectionHeader (top) and the ProjectBody wrapper
+      (bottom) instead. Why: when the SectionHeader is sticky and the
+      card has scrolled past, the card's bg would otherwise paint
+      behind the header — its `rounded-t-xl` curves would be
+      invisible (white-on-white). Moving the white to the children
+      means the area "above" the sticky header (still inside the
+      card's bounding box, but visually beneath the curves) shows
+      dashboard cream, making the rounded corners actually read as
+      rounded.
+
+      No `overflow:hidden|clip` here either: that would establish a
+      containing block for the sticky header, breaking the "stick at
+      scroll-container top" behaviour.
+    */
+    <article
+      // `data-project-id` is the hook the home page uses to find a
+      // specific project for smooth-scroll-on-nav (see
+      // `home/page.tsx`'s navIntent effect).
+      data-project-id={project.id}
+      // `scrollMarginTop` matches the 32-px sticky "Projects" label
+      // that lives above the project list, so when we scrollIntoView
+      // the project's top edge lands cleanly under the label rather
+      // than being clipped by it.
+      style={{ scrollMarginTop: 32 }}
+      className="relative flex flex-col rounded-xl border border-stroke shadow-card"
+    >
       <SectionHeader
         icon={
-          <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-            <Cube size={14} weight="bold" className="text-grey-darkest" />
-          </span>
+          // `<ProjectIcon pill>` owns its own chrome now — the Cube
+          // fallback gets the rounded-white pill (matching the old
+          // outer `<span>`); a real favicon renders bare at 30 px so
+          // the site's own identity shows through cleanly. Total
+          // visual footprint stays 30 × 30 either way.
+          <ProjectIcon websiteUrl={project.websiteUrl} size={30} pill />
         }
         title={<ProjectViewBreadCrumbs project={project} folder={currentFolder} />}
         rightSlot={
@@ -367,6 +446,10 @@ export function ProjectView({ project }: ProjectViewProps) {
               <Plus size={14} weight="bold" />
               Create view
             </Button>
+            <ProjectMenu
+              onEdit={() => setEditOpen(true)}
+              onDelete={() => setDeleteOpen(true)}
+            />
             <Button
               size="icon"
               variant="outline"
@@ -381,10 +464,21 @@ export function ProjectView({ project }: ProjectViewProps) {
             </Button>
           </div>
         }
-        // Flush against the bottom of the global top bar (which has its own
-        // `border-b` acting as the divider between the two sticky rows).
-        // Matches PinnedViews' sticky header for consistent stacking.
-        className="sticky top-[74px] left-0 z-[10]"
+        // `bg-white` replaces the previous cream-on-cream look — each
+        // project header now reads as part of its own card. The
+        // sticky reference frame is the home page's scrollable
+        // content area (not the viewport), so the offset is just
+        // 32px — the height of the sticky "Projects" label sitting
+        // at `top-0` of the same scroll container.
+        //
+        // Rounded corners: `rounded-xl` (full) when collapsed so the
+        // header alone fills the card; `rounded-t-xl` (top only) when
+        // expanded so the body's `rounded-b-xl` covers the bottom.
+        // Critical at the sticky position — without this the curves
+        // would be invisible against the card's bg-white.
+        className={`sticky top-8 left-0 z-20 bg-white ${
+          collapsed ? 'rounded-xl' : 'rounded-t-xl'
+        }`}
       />
       {!collapsed && (
         <ProjectBody
@@ -407,7 +501,25 @@ export function ProjectView({ project }: ProjectViewProps) {
           isEmpty={isEmpty}
         />
       )}
-    </div>
+
+      {/* Edit + delete are mounted unconditionally so their close
+          animations can play even after the project disappears from
+          the list (delete) or its values change (edit) — the dialog
+          state lives here, the underlying mutation is fire-and-forget
+          via the dashboard context. */}
+      <EditProjectDialog
+        project={project}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSave={patch => projectsCtx.editProject(project.id, patch)}
+      />
+      <DeleteProjectDialog
+        project={project}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        onDelete={() => projectsCtx.deleteProject(project.id)}
+      />
+    </article>
   )
 }
 
@@ -421,6 +533,7 @@ interface ProjectBodyProps {
   foldersCtx: {
     folders: Folder[]
     deleteFolder: (id: string) => void
+    renameFolder: (folderId: string, name: string) => void | Promise<void>
     openModal: (parentId: string | null, projectId: string) => void
   }
   loading: boolean
@@ -457,7 +570,12 @@ function ProjectBody({
   isEmpty,
 }: ProjectBodyProps) {
   return (
-    <div className="p-5 pb-16 min-h-[420px]">
+    // `bg-white rounded-b-xl` here (instead of on the parent
+    // `<article>`) lets the sticky SectionHeader's rounded-top curves
+    // show against dashboard cream when scrolled — see the comment on
+    // the article wrapper above. `rounded-b-xl` matches the card's
+    // outer rounding so the bottom looks continuous.
+    <div className="p-5 pb-16 min-h-[420px] bg-white rounded-b-xl">
       {currentFolder && (
         <Button
           variant="ghost"
@@ -474,6 +592,7 @@ function ProjectBody({
         <FolderGrid
           folders={subFolders}
           onDeleteFolder={foldersCtx.deleteFolder}
+          onRenameFolder={foldersCtx.renameFolder}
           onCreateSubfolder={foldersCtx.openModal}
           onCreateFolder={() => foldersCtx.openModal(currentFolder?.id ?? null, projectId)}
           onFolderClick={id => {

@@ -68,6 +68,12 @@ interface ViewCardFunnelProps {
   steps: PosthogFunnelStep[] | null
   loading: boolean
   error: ViewResourceError | null
+  /**
+   * @deprecated Card always renders the funnel results now (the
+   * PostHog backend serves any date range). Kept on the props for
+   * backward compatibility with existing call sites; remove when
+   * those have stopped passing it.
+   */
   historical?: boolean
   projectName?: string
   onRefresh?: () => void
@@ -83,7 +89,6 @@ export function ViewCardFunnel({
   steps,
   loading,
   error,
-  historical = false,
   projectName,
   onRefresh,
   refreshing,
@@ -99,7 +104,7 @@ export function ViewCardFunnel({
 
   return (
     <>
-      <ViewWrapper className="w-full">
+      <ViewWrapper className="w-full max-w-2xl">
         <ViewHeader
           name={view.name}
           connectionType={view.connectionType}
@@ -117,11 +122,7 @@ export function ViewCardFunnel({
         />
 
         <div className="px-4 pb-4 mt-2 flex flex-col gap-3">
-          {historical ? (
-            <p className="text-xs text-muted-foreground py-2">
-              Live data only — unavailable for past dates.
-            </p>
-          ) : loading ? (
+          {loading ? (
             <div className="flex items-center gap-1.5 py-3">
               <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
               <span className="text-xs text-muted-foreground">Loading funnel…</span>

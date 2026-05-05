@@ -7,11 +7,23 @@ interface FolderGridProps {
   folders: Folder[]
   onDeleteFolder: (id: string) => void
   onCreateSubfolder: (parentId: string, projectId: string) => void
+  /**
+   * Optional rename handler — passes through to each `FolderCard`.
+   * When omitted, cards drop the Rename menu item.
+   */
+  onRenameFolder?: (folderId: string, newName: string) => void | Promise<void>
   onFolderClick?: (id: string) => void
   onCreateFolder?: () => void
 }
 
-export function FolderGrid({ folders, onDeleteFolder, onCreateSubfolder, onFolderClick, onCreateFolder }: FolderGridProps) {
+export function FolderGrid({
+  folders,
+  onDeleteFolder,
+  onCreateSubfolder,
+  onRenameFolder,
+  onFolderClick,
+  onCreateFolder,
+}: FolderGridProps) {
   if (folders.length === 0 && !onCreateFolder) return null
 
   return (
@@ -22,6 +34,7 @@ export function FolderGrid({ folders, onDeleteFolder, onCreateSubfolder, onFolde
           folder={folder}
           onDelete={onDeleteFolder}
           onCreateSubfolder={onCreateSubfolder}
+          onRename={onRenameFolder}
           onClick={onFolderClick}
         />
       ))}

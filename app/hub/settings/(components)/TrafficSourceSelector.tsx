@@ -48,7 +48,10 @@ export function TrafficSourceSelector() {
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={saving}
-        className="flex w-full items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2.5 text-left text-[13px] font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer disabled:opacity-60"
+        // `max-w-sm` (384 px) caps the trigger so it doesn't stretch
+        // edge-to-edge on the now-wider Settings page. Still grows
+        // with `w-full` on narrow viewports.
+        className="flex w-full max-w-sm items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2.5 text-left text-[13px] font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer disabled:opacity-60"
       >
         {selected ? (
           <ConnectionIcon type={selected.type} size={16} className="shrink-0 text-grey-dark" />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Folder, DotsThreeVertical } from '@phosphor-icons/react'
+import { Folder, DotsThreeVertical, PencilSimple } from '@phosphor-icons/react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,17 +19,32 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { ViewWrapper } from '@/app/hub/(components)/view/ViewWrapper'
+import { RenameFolderDialog } from './RenameFolderDialog'
 import type { Folder as FolderType } from '@/types/folder'
 
 interface FolderCardProps {
   folder: FolderType
   onDelete: (id: string) => void
   onCreateSubfolder: (parentId: string, projectId: string) => void
+  /**
+   * Optional rename handler. When provided, the dropdown shows a
+   * Rename item that opens the inline rename dialog. Optional so
+   * read-only consumers (none today) can drop the affordance without
+   * a forked component.
+   */
+  onRename?: (folderId: string, newName: string) => void | Promise<void>
   onClick?: (id: string) => void
 }
 
-export function FolderCard({ folder, onDelete, onCreateSubfolder, onClick }: FolderCardProps) {
+export function FolderCard({
+  folder,
+  onDelete,
+  onCreateSubfolder,
+  onRename,
+  onClick,
+}: FolderCardProps) {
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [renameOpen, setRenameOpen] = useState(false)
 
   return (
     <>
@@ -48,6 +63,15 @@ export function FolderCard({ folder, onDelete, onCreateSubfolder, onClick }: Fol
               <DotsThreeVertical size={18} weight="bold" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-40">
+              {onRename && (
+                <DropdownMenuItem
+                  onClick={() => setRenameOpen(true)}
+                  className="text-sm gap-2"
+                >
+                  <PencilSimple size={13} weight="bold" />
+                  Rename
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => onCreateSubfolder(folder.id, folder.projectId)}
                 className="text-sm"
@@ -85,6 +109,18 @@ export function FolderCard({ folder, onDelete, onCreateSubfolder, onClick }: Fol
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Mounted unconditionally even when `onRename` is undefined so
+          the Suspense boundaries don't churn — the dialog just stays
+          closed and contributes nothing to the rendered tree. */}
+      {onRename && (
+        <RenameFolderDialog
+          folder={folder}
+          open={renameOpen}
+          onOpenChange={setRenameOpen}
+          onRename={newName => onRename(folder.id, newName)}
+        />
+      )}
     </>
   )
 }

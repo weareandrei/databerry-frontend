@@ -284,10 +284,17 @@ export const ALGORITHM = {
 
   getProjects: () => apiFetch<Project[]>('/projects'),
 
-  createProject: (body: { name: string }) =>
+  createProject: (body: { name: string; websiteUrl?: string | null }) =>
     apiFetch<Project>('/projects', { method: 'POST', body: JSON.stringify(body) }),
 
-  updateProject: (projectId: string, body: Partial<Pick<Project, 'name' | 'color'>>) =>
+  // PATCH accepts a partial slice — `name`, `color`, and `websiteUrl`
+  // can each be sent independently. Sending `websiteUrl: null`
+  // explicitly clears the favicon back to the generic Cube; omitting
+  // the key leaves the existing value untouched.
+  updateProject: (
+    projectId: string,
+    body: Partial<Pick<Project, 'name' | 'color' | 'websiteUrl'>>,
+  ) =>
     apiFetch<Project>(`/projects/${projectId}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
@@ -401,6 +408,22 @@ export const ALGORITHM = {
     apiFetch<{ projects: { id: string; name: string }[] }>(
       `/vercel/connection/projects?token=${encodeURIComponent(token)}`,
     ),
+
+  // ── PostHog ─────────────────────────────────────────────────────────────
+  //
+  // Lists projects accessible to a personal API key (used by the
+  // create-connection picker so the user doesn't have to copy/paste a
+  // numeric project ID out of the PostHog UI). POST + body — the API
+  // key is sensitive and we'd rather not have it in URL access logs
+  // (Vercel uses GET, but Vercel's API token surface area is smaller).
+
+  getPosthogProjects: (apiKey: string, host: string) =>
+    apiFetch<{
+      projects: { id: string; name: string; organization: string | null }[]
+    }>(`/posthog/connection/projects`, {
+      method: 'POST',
+      body: JSON.stringify({ apiKey, host }),
+    }),
 
   // ── Stripe ────────────────────────────────────────────────────────────────
 

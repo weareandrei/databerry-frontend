@@ -15,7 +15,17 @@ export default function SettingsPage() {
   const timezoneSectionRef = useScrollToTimezoneAnchor()
 
   return (
-    <div className="p-8 flex flex-col gap-6 max-w-2xl">
+    // Padding policy mirrors the home page (`/hub/home`): `pt-6
+    // pr-6 pb-8`, no left padding. Content sits flush against the
+    // sidebar — `p-8` here used to add 32 px of left padding, which
+    // visually misaligned this page with the home dashboard.
+    //
+    // Width policy: fill the available content area on every laptop
+    // (a 16-inch MBP gives ≈1472 px after the sidebar; the old
+    // `max-w-2xl` capped this at 672 px and left ~800 px of empty
+    // space). Cap at 1600 px on very wide displays so the content
+    // doesn't stretch into unreadable territory on 4K monitors.
+    <div className="pt-6 pr-6 pb-8 flex flex-col gap-6 max-w-[1600px]">
       <div className="flex flex-col rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
         <SectionHeader
           icon={
@@ -25,6 +35,9 @@ export default function SettingsPage() {
           }
           title={<span className="text-base font-bold text-grey-darkest">Settings</span>}
           subtitle="Global preferences shared across every project."
+          // `bg-main` was previously the SectionHeader default; pass it
+          // explicitly now that the component no longer hardcodes a bg.
+          className="bg-main"
         />
 
         <div className="p-5 space-y-8">

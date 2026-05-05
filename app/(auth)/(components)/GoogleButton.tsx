@@ -1,11 +1,21 @@
 'use client'
 
+/**
+ * Google OAuth button shared between login and signup. Styled to
+ * match the wishlist-derived auth card look (rounded-lg, gray-200
+ * border, white bg, gray-50 hover) — same shape as the email/password
+ * inputs and submit button so the form reads as one coherent stack.
+ */
+
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
-export function GoogleButton({ label = 'Continue with Google' }: { label?: string }) {
+interface GoogleButtonProps {
+  label?: string
+}
+
+export function GoogleButton({ label = 'Continue with Google' }: GoogleButtonProps) {
   const [loading, setLoading] = useState(false)
 
   const handleGoogle = async () => {
@@ -21,18 +31,16 @@ export function GoogleButton({ label = 'Continue with Google' }: { label?: strin
       toast.error(error.message)
       setLoading(false)
     }
-    // on success Supabase redirects the browser — no need to setLoading(false)
+    // Success path: Supabase redirects the browser; no need to setLoading(false).
   }
 
   return (
-    <Button
+    <button
       type="button"
-      variant="outline"
-      className="w-full flex items-center gap-2"
       disabled={loading}
       onClick={handleGoogle}
+      className="w-full rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
     >
-      {/* Google "G" logo */}
       <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
         <path
           fill="#EA4335"
@@ -52,6 +60,6 @@ export function GoogleButton({ label = 'Continue with Google' }: { label?: strin
         />
       </svg>
       {loading ? 'Redirecting…' : label}
-    </Button>
+    </button>
   )
 }

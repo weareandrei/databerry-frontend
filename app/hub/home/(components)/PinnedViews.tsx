@@ -17,7 +17,6 @@
  */
 
 import { useSelector } from 'react-redux'
-import { PushPin, ArrowsClockwise } from '@phosphor-icons/react'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
 import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
@@ -27,7 +26,6 @@ import {
 } from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
 import { useViewLiveValue } from '@/app/hub/(components)/view/data'
 import { useStripeSyncOnMount } from '@/lib/hooks/useStripeSyncOnMount'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { formatIsoDateRange } from '@/utils/dateHelpers'
 import type { RootState } from '@/store'
 import type { View } from '@/types/view'
@@ -229,15 +227,21 @@ interface PinnedViewsProps {
    * refetches without requiring a full reload of the pinned section.
    */
   onConnectionAssigned?: (updated: View) => void
-  loading?: boolean
   projects?: Project[]
 }
 
+/**
+ * Pinned views section — emits the lanes directly with no wrapper
+ * card or sticky header. The parent (`/hub/home/page.tsx`) owns the
+ * "Pinned views" label, the gating on `pins.length > 0`, and the
+ * vertical spacing around this section. Keeps the empty / loading
+ * branches at the page level so an empty section doesn't render an
+ * orphaned label.
+ */
 const PinnedViews = ({
   pins,
   unpinView,
   onConnectionAssigned,
-  loading = false,
   projects = [],
 }: PinnedViewsProps) => {
   const dateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
@@ -256,101 +260,63 @@ const PinnedViews = ({
   // showing data fresher than 24h on first paint.
   useStripeSyncOnMount(pins)
 
-  // NOTE: no `overflow-hidden` on the wrapper. `overflow: hidden` on an
-  // ancestor establishes a containing block for `position: sticky` children —
-  // the sticky header would then try to stick relative to this wrapper
-  // instead of the viewport, breaking the "pin under the top bar" behaviour.
-  // Rounded corners are preserved by giving the sticky header its own
-  // `rounded-t-xl` so its `bg-main` doesn't paint past the wrapper's border.
   return (
-    <div className="shrink-0 rounded-xl border border-stroke bg-white shadow-card">
-      <SectionHeader
-        icon={
-          <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-            <PushPin size={14} weight="bold" className="text-grey-darkest" />
-          </span>
-        }
-        title={<span className="text-base font-bold text-grey-darkest">Pinned</span>}
-        // Flush against the bottom of the global top bar (which has its own
-        // `border-b` acting as the divider between the two sticky rows).
-        // `rounded-t-xl` replaces the removed wrapper clip so the header's
-        // top corners stay rounded when the section is at rest in its
-        // wrapper.
-        className="sticky top-[74px] left-0 z-[10] rounded-t-xl"
-      />
-      {loading ? (
-        <PinnedLoadingState />
-      ) : pins.length === 0 ? (
-        <PinnedEmptyState />
-      ) : (
-        <div className="p-5 flex flex-col gap-6">
-          {composites.length > 0 && (
-            <PinnedCompositesLane
-              composites={composites}
-              projects={projects}
+    <div className="flex flex-col gap-6">
+      {composites.length > 0 && (
+        <PinnedCompositesLane
+          composites={composites}
+          projects={projects}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          mode={mode}
+          onUnpin={unpinView}
+        />
+      )}
+
+      {widePosthog.length > 0 && (
+        <div className="flex flex-col gap-4">
+          {widePosthog.map(pin => (
+            <WidePosthogViewRenderer
+              key={pin.id}
+              view={pin}
+              projectName={projectNameOf(pin)}
               dateFrom={dateFrom}
               dateTo={dateTo}
-              mode={mode}
-              onUnpin={unpinView}
+              pinned
+              onPin={unpinView}
+              onConnectionAssigned={onConnectionAssigned}
             />
-          )}
+          ))}
+        </div>
+      )}
 
-          {widePosthog.length > 0 && (
-            <div className="flex flex-col gap-4">
-              {widePosthog.map(pin => (
-                <WidePosthogViewRenderer
-                  key={pin.id}
-                  view={pin}
-                  projectName={projectNameOf(pin)}
-                  dateFrom={dateFrom}
-                  dateTo={dateTo}
-                  pinned
-                  onPin={unpinView}
-                  onConnectionAssigned={onConnectionAssigned}
-                />
-              ))}
-            </div>
-          )}
-
-          {regular.length > 0 && (
-            <div
-              className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
-              style={{ gridAutoRows: '140px' }}
-            >
-              {regular.map(pin => (
-                <PinnedViewCard
-                  key={pin.id}
-                  view={pin}
-                  projectName={projectNameOf(pin)}
-                  dateFrom={dateFrom}
-                  dateTo={dateTo}
-                  tz={tz}
-                  onUnpin={unpinView}
-                  onConnectionAssigned={onConnectionAssigned}
-                />
-              ))}
-            </div>
-          )}
+      {regular.length > 0 && (
+        <div
+          className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
+          style={{ gridAutoRows: '140px' }}
+        >
+          {regular.map(pin => (
+            <PinnedViewCard
+              key={pin.id}
+              view={pin}
+              projectName={projectNameOf(pin)}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              tz={tz}
+              onUnpin={unpinView}
+              onConnectionAssigned={onConnectionAssigned}
+            />
+          ))}
         </div>
       )}
     </div>
   )
 }
 
-function PinnedLoadingState() {
-  return (
-    <div className="flex items-center justify-center py-8">
-      <ArrowsClockwise size={16} weight="bold" className="text-muted-foreground animate-spin" />
-    </div>
-  )
-}
-
-function PinnedEmptyState() {
-  return (
-    <p className="text-sm text-muted-foreground px-4 py-5">
-      Pin a view to keep it here for quick access.
-    </p>
-  )
-}
+// Empty + loading states intentionally removed — the parent
+// (`/hub/home/page.tsx`) gates rendering on `pins.length > 0` and
+// `!loading`, so we never reach this component without something to
+// show. Keeps PinnedViews free of orphan-label / spinner UI that
+// would otherwise show under the new "Pinned views" label.
 
 export default PinnedViews

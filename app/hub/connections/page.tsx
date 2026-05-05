@@ -63,7 +63,12 @@ function GoogleAnalyticsPropertyPicker() {
     const status = searchParams.get('google_analytics')
     const cid = searchParams.get('connectionId')
     if (status === 'no-properties') {
-      toast.error('No Google Analytics 4 properties found in your account.')
+      // Connection succeeded but the user's Google account has no
+      // GA4 properties accessible. Spell out what to do next so this
+      // doesn't dead-end as a vague "no properties" toast.
+      toast.error(
+        "We connected to Google Analytics, but your account doesn't have any GA4 properties. Create one in analytics.google.com, then come back and reconnect.",
+      )
       window.history.replaceState({}, '', '/hub/connections')
     } else if (status === 'select-property' && cid) {
       setConnectionId(cid)
@@ -76,7 +81,9 @@ function GoogleAnalyticsPropertyPicker() {
           if (res.properties.length > 0) setSelectedPropertyId(res.properties[0].id)
         })
         .catch(() => {
-          toast.error('Failed to load Google Analytics properties')
+          toast.error(
+            "Couldn't load your Google Analytics properties. Try refreshing the page, or reconnect Google Analytics from the Connections list.",
+          )
           window.history.replaceState({}, '', '/hub/connections')
         })
         .finally(() => setLoading(false))
@@ -270,11 +277,13 @@ export default function ConnectionsPage() {
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null)
 
   return (
-    // `max-w-2xl` matches the Settings page's outer wrapper so the
-    // connections list doesn't stretch the full viewport on 27"/32"
-    // monitors. On a 13"/16" laptop the cap (~672px) is wider than
-    // typical content so the layout is unchanged there.
-    <div className="p-8 flex flex-col max-w-2xl">
+    // Padding + width policy mirrors the home page (`/hub/home`):
+    // `pt-6 pr-6 pb-8`, no left padding (content flush against the
+    // sidebar — `p-8` previously added 32 px of left offset that
+    // misaligned this page with the home dashboard). Cap at 1600 px
+    // on very wide displays; below that the content fills the full
+    // available area.
+    <div className="pt-6 pr-6 pb-8 flex flex-col max-w-[1600px]">
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />
@@ -306,6 +315,9 @@ export default function ConnectionsPage() {
               Add connection
             </Button>
           }
+          // `bg-main` was previously the SectionHeader default; pass it
+          // explicitly now that the component no longer hardcodes a bg.
+          className="bg-main"
         />
 
         {connections.loading ? (

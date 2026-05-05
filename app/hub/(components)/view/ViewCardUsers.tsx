@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowsClockwise } from '@phosphor-icons/react'
+import { ArrowsClockwise, User } from '@phosphor-icons/react'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
 import { ReassignConnectionDialog } from './ReassignConnectionDialog'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { ConnectionMissingError, type PosthogUserRow } from '@/lib/api'
 import type { ViewResourceError } from '@/lib/hooks/useViewResource'
 import type { View } from '@/types/view'
@@ -40,28 +41,100 @@ function formatRelative(iso: string): string {
   return `${Math.round(deltaSec / 86400)}d ago`
 }
 
-// Show the first 8 chars of the distinct_id — full ones are typically
-// 36-char UUIDs which would break the row layout. The full id is in the
-// `title` attribute for hover-inspect.
+// Show the first 8 chars of the distinct_id when it's not a human-
+// readable handle. Full ones are typically 36-char UUIDs which would
+// break the row layout. The full id always lives in the subline for
+// cross-referencing in PostHog.
 function shortPseudoId(id: string): string {
   if (!id) return 'anonymous'
-  if (id.length <= 12) return id
+  if (id.length <= 16) return id
   return `${id.slice(0, 8)}…`
 }
 
+function looksLikeEmail(s: string): boolean {
+  // Cheap email detector — good enough to decide between "show this
+  // verbatim as a name" and "show the short ID + generic icon".
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+}
+
+/**
+ * Compute initials for the avatar. PostHog gives us a `distinct_id`
+ * which is sometimes an email (when the app calls `posthog.identify`
+ * with the user's address), sometimes a UUID-like anonymous string.
+ *   - "alice@example.com" → "A"
+ *   - "Alice Smith"       → "AS"
+ *   - "01234abc-…"        → null (caller falls back to a generic icon)
+ */
+function initialsFor(pseudoId: string): string | null {
+  if (!pseudoId) return null
+  if (looksLikeEmail(pseudoId)) {
+    return pseudoId.charAt(0).toUpperCase()
+  }
+  // Two-token names ("Alice Smith") map to two initials. Single-token
+  // anonymous strings (UUIDs) don't yield meaningful initials — return
+  // null so the caller renders the generic User icon.
+  const tokens = pseudoId.trim().split(/\s+/).filter(Boolean)
+  if (tokens.length >= 2) {
+    const first = tokens[0]!.charAt(0).toUpperCase()
+    const last = tokens[tokens.length - 1]!.charAt(0).toUpperCase()
+    if (/[A-Z]/.test(first) && /[A-Z]/.test(last)) return `${first}${last}`
+  }
+  return null
+}
+
+// Mirror of `CustomerRow` in `ViewCardCustomerList.tsx`. Same shell
+// (avatar + primary line + breadcrumb subline + right-aligned scalar)
+// — different fields. Keeping the two files structurally identical
+// makes "users" and "customers" feel like sibling tiles in the
+// dashboard rather than two unrelated lists.
 function UserRow({ user }: { user: PosthogUserRow }) {
+  // Primary line: the email when it's a real one (most common case
+  // when the app identifies users), else the truncated pseudo-id.
+  // The full id always shows up on the subline for cross-referencing
+  // — same convention `CustomerRow` uses for `customerId`.
+  const primaryDisplay = looksLikeEmail(user.pseudoId)
+    ? user.pseudoId
+    : shortPseudoId(user.pseudoId)
+
+  // Subline pieces. Order: source → active time → full pseudo-id.
+  // Each separated by " · ", same separator + truncation behaviour
+  // as the Stripe customer subline.
   const sourceLabel = user.source ? user.source : 'direct'
+  const sublineSegments: string[] = [
+    `via ${sourceLabel}`,
+    `${formatSessionTime(user.sessionSec)} active`,
+  ]
+  // Always include the full distinct_id so the user can cross-
+  // reference in PostHog. When primary is an email, the id is
+  // distinct from the primary; when primary is a short id, this
+  // duplicates the same value in expanded form — fine, mirrors how
+  // the Stripe row always shows `customerId` even when name+email
+  // are both null.
+  sublineSegments.push(user.pseudoId)
+  const subline = sublineSegments.join(' · ')
+
+  // Avatar: initials when the id parses as an email or "First Last",
+  // generic person icon for opaque anonymous IDs. Same fallback
+  // pattern as `CustomerRow`.
+  const initials = initialsFor(user.pseudoId)
+
   return (
-    <div className="flex items-center justify-between gap-3 py-2 border-b last:border-b-0 border-black/[0.06]">
+    <div className="flex items-center gap-3 py-2 border-b last:border-b-0 border-black/[0.06]">
+      <Avatar size="sm" className="shrink-0">
+        <AvatarFallback>
+          {initials ? (
+            initials
+          ) : (
+            <User size={12} weight="bold" className="text-muted-foreground" />
+          )}
+        </AvatarFallback>
+      </Avatar>
       <div className="flex-1 min-w-0">
-        <p
-          className="text-sm font-medium truncate font-mono"
-          title={user.pseudoId}
-        >
-          {shortPseudoId(user.pseudoId)}
+        <p className="text-sm font-medium truncate" title={user.pseudoId}>
+          {primaryDisplay}
         </p>
         <p className="text-xs text-muted-foreground truncate mt-0.5">
-          via {sourceLabel} · {formatSessionTime(user.sessionSec)} active
+          {subline}
         </p>
       </div>
       <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
@@ -76,7 +149,18 @@ interface ViewCardUsersProps {
   onUntrack?: (id: string) => void
   users: PosthogUserRow[] | null
   loading: boolean
+  /**
+   * Same routing convention as `ViewCardCustomerList` /
+   * `ViewCardList`: a `ConnectionMissingError` triggers the click-to-
+   * reattach badge; everything else is a generic "Couldn't load"
+   * treatment.
+   */
   error: ViewResourceError | null
+  /**
+   * @deprecated Card always renders the users list now (PostHog
+   * backend serves any date range). Kept on the props for backward
+   * compatibility; remove once existing call sites stop passing it.
+   */
   historical?: boolean
   projectName?: string
   onRefresh?: () => void
@@ -92,7 +176,6 @@ export function ViewCardUsers({
   users,
   loading,
   error,
-  historical = false,
   projectName,
   onRefresh,
   refreshing,
@@ -125,11 +208,7 @@ export function ViewCardUsers({
         />
 
         <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">
-          {historical ? (
-            <p className="text-xs text-muted-foreground py-2">
-              Live data only — unavailable for past dates.
-            </p>
-          ) : loading ? (
+          {loading ? (
             <div className="flex items-center gap-1.5 py-2">
               <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
               <span className="text-xs text-muted-foreground">Loading users…</span>

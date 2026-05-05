@@ -1074,17 +1074,31 @@ export function CreateViewModal() {
 
             {/* "+ New connection" CTA. Always visible — even with zero
                 connections (the empty state) and as a way to add more
-                from this picker without leaving the flow. */}
-            <div className="pt-1">
+                from this picker without leaving the flow.
+
+                Wrapped in a dashed-border block with a one-liner that
+                explains *why* you'd add a connection from inside this
+                picker. Without copy, the bare button reads as orphan
+                chrome on a sparsely-populated picker (a fresh project
+                with no connections gets exactly one row above this).
+            */}
+            <div className="rounded-xl border border-dashed border-foreground/15 bg-card/40 px-4 py-4 text-center transition-colors hover:border-foreground/30 hover:bg-card">
+              <p className="text-[12.5px] font-medium text-foreground">
+                Don&apos;t see what you&apos;re looking for?
+              </p>
+              <p className="mt-1 text-[11.5px] text-muted-foreground">
+                Each integration unlocks its own set of views. Connect another
+                tool to expand the picker.
+              </p>
               <button
                 type="button"
                 onClick={() => {
                   views.closeModal()
                   connections.openModal(views.createViewFolderId)
                 }}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-foreground/15 bg-card/40 px-3 py-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-card hover:text-foreground"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-[12px] font-medium text-grey-darkest shadow-sm transition-colors hover:bg-hover-fill"
               >
-                <Plus size={13} weight="bold" />
+                <Plus size={12} weight="bold" />
                 New connection
               </button>
             </div>

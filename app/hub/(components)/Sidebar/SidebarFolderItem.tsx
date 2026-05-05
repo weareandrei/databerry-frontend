@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { CaretDown, Folder, DotsThree } from '@phosphor-icons/react'
+import { CaretDown, Folder, DotsThree, PencilSimple } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
 import {
   DropdownMenu,
@@ -11,15 +11,30 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+import { RenameFolderDialog } from '@/app/hub/(components)/folder/RenameFolderDialog'
 import type { Folder as FolderType } from '@/types/folder'
 
 interface SidebarFolderItemProps {
   folder: FolderType
   depth?: number
+  /**
+   * Navigate-to-project handler, threaded down from `Sidebar.tsx` so
+   * children of `SidebarFolderItem` (nested subfolders) can navigate
+   * without each one wiring its own dispatch + router. Clicking the
+   * folder name calls `onNavigate(projectId, folderId)` to land on
+   * `/hub/home` with that project + folder pre-opened. Clicking the
+   * caret keeps the existing local-only "expand my children"
+   * behaviour.
+   */
+  onNavigate?: (projectId: string, folderId: string) => void
 }
 
-export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps) {
+export function SidebarFolderItem({ folder, depth = 0, onNavigate }: SidebarFolderItemProps) {
   const [isOpen, setIsOpen] = useState(false)
+  // Rename dialog mounted at this level so each folder row owns its
+  // own dialog state — the dropdown trigger that opens it is also at
+  // this level. Same pattern `FolderCard` uses in the project body.
+  const [renameOpen, setRenameOpen] = useState(false)
   const { folders: foldersCtx } = useDashboard()
 
   const children = foldersCtx.getChildFolders(folder.id)
@@ -27,22 +42,30 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
 
   return (
     <div className="relative">
+      {/*
+        Outer is a `<div>` (not a button) to allow two sibling
+        interactive children — the name "navigate" button and the
+        caret "expand my subfolders" button. Same pattern the project
+        row uses one level up.
+      */}
       <div
-        onClick={() => hasChildren && setIsOpen(v => !v)}
         className={cn(
-          'group flex items-center gap-1 rounded-md pr-3 transition-colors',
-          hasChildren ? 'cursor-pointer' : 'cursor-default',
-          'hover:bg-hover-fill',
+          'group flex items-center gap-1 rounded-md pr-3 transition-colors hover:bg-hover-fill',
         )}
         style={{ paddingLeft: `${26 + depth * 14}px` }}
       >
-        <span className="shrink-0 text-grey-dark">
-          <Folder size={13} weight="bold" />
-        </span>
-
-        <span className="flex-1 py-1.5 text-sm min-w-0 truncate text-grey-dark">
-          {folder.name}
-        </span>
+        {/* Folder name — navigates */}
+        <button
+          onClick={() => onNavigate?.(folder.projectId, folder.id)}
+          className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer text-left"
+        >
+          <span className="shrink-0 text-grey-dark">
+            <Folder size={13} weight="bold" />
+          </span>
+          <span className="flex-1 py-1.5 text-sm min-w-0 truncate text-grey-dark">
+            {folder.name}
+          </span>
+        </button>
 
         {/* Context menu — shown on hover */}
         <DropdownMenu>
@@ -53,6 +76,13 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
             <DotsThree size={14} weight="bold" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-40">
+            <DropdownMenuItem
+              onClick={() => setRenameOpen(true)}
+              className="text-sm gap-2"
+            >
+              <PencilSimple size={13} weight="bold" />
+              Rename
+            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => foldersCtx.openModal(folder.id, folder.projectId)}
               className="text-sm"
@@ -68,16 +98,29 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Expand caret — only when has children */}
+        {/*
+          Expand caret — only when has children. Same hover treatment
+          as the project-row arrow + the view-tile 3-dots, so all
+          three interactive icon-buttons in the sidebar/view header
+          family read alike.
+        */}
         {hasChildren && (
-          <motion.span
-            animate={{ rotate: isOpen ? 0 : -90 }}
-            transition={{ duration: 0.15 }}
-            className="flex shrink-0 text-grey-dark"
-            onClick={e => { e.stopPropagation(); setIsOpen(v => !v) }}
+          <button
+            onClick={e => {
+              e.stopPropagation()
+              setIsOpen(v => !v)
+            }}
+            aria-label={isOpen ? 'Collapse subfolders' : 'Expand subfolders'}
+            className="flex items-center justify-center w-6 h-6 rounded cursor-pointer text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors -mr-1"
           >
-            <CaretDown size={11} weight="bold" />
-          </motion.span>
+            <motion.span
+              animate={{ rotate: isOpen ? 0 : -90 }}
+              transition={{ duration: 0.15 }}
+              className="flex"
+            >
+              <CaretDown size={11} weight="bold" />
+            </motion.span>
+          </button>
         )}
       </div>
 
@@ -96,11 +139,27 @@ export function SidebarFolderItem({ folder, depth = 0 }: SidebarFolderItemProps)
               style={{ left: `${24 + depth * 14}px` }}
             />
             {children.map(child => (
-              <SidebarFolderItem key={child.id} folder={child} depth={depth + 1} />
+              <SidebarFolderItem
+                key={child.id}
+                folder={child}
+                depth={depth + 1}
+                onNavigate={onNavigate}
+              />
             ))}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Rename dialog — same component the project-body folder
+          cards use. Mounted unconditionally so its close animation
+          plays cleanly even after the folder name updates in
+          state. */}
+      <RenameFolderDialog
+        folder={folder}
+        open={renameOpen}
+        onOpenChange={setRenameOpen}
+        onRename={newName => foldersCtx.renameFolder(folder.id, newName)}
+      />
     </div>
   )
 }

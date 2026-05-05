@@ -125,10 +125,16 @@ function ViewCardRouter({
   }
 
   if (isWidePosthogView(view)) {
+    // Pass `selectedDate` as a single-day window so funnels / retention /
+    // users render for the rewound day rather than the API's "today"
+    // default. The renderer no longer cares about `historical` — it
+    // always fetches against whatever range we hand it.
+    const dateStr = toDateStr(selectedDate)
     return (
       <WidePosthogViewRenderer
         view={view}
-        historical={historical}
+        dateFrom={dateStr}
+        dateTo={dateStr}
         onUntrack={onUntrack}
         onConnectionAssigned={onConnectionAssigned}
       />
@@ -298,6 +304,7 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
           <FolderGrid
             folders={subFolders}
             onDeleteFolder={foldersCtx.deleteFolder}
+            onRenameFolder={foldersCtx.renameFolder}
             onCreateSubfolder={foldersCtx.openModal}
           />
         )}

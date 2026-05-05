@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, Check, Info, Cube, CaretDown } from '@phosphor-icons/react'
+import { InlineErrorBanner } from './InlineErrorBanner'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ALGORITHM } from '@/lib/api'
@@ -46,7 +47,8 @@ const INTEGRATIONS: IntegrationCard[] = [
 
 type View =
   | 'list'
-  | 'posthog'
+  | 'posthog-form'
+  | 'posthog-project-select'
   | 'webhook-form'
   | 'webhook-created'
   | 'stripe-choose'
@@ -56,6 +58,18 @@ type View =
   | 'vercel-token'
   | 'vercel-project-select'
   | 'vercel-created'
+
+/**
+ * Default PostHog hosts. Most users are on US Cloud; EU is the second
+ * common case. Self-hosters can point at custom hosts post-hoc by
+ * editing `connections_posthog.host` directly — the UI doesn't expose
+ * that to keep the form simple. If we get demand for self-hosting,
+ * add a third "Custom" option that reveals a free-form input.
+ */
+const POSTHOG_HOSTS = [
+  { id: 'https://us.posthog.com', label: 'US Cloud' },
+  { id: 'https://eu.posthog.com', label: 'EU Cloud' },
+] as const
 
 type WebhookCreatedInfo = {
   connection: Connection
@@ -95,14 +109,21 @@ function CopyField({ label, value }: { label: string; value: string }) {
 // save/cancel cluster).
 function PostHogForm({
   apiKey,
-  projectId,
+  host,
+  error,
   onApiKeyChange,
-  onProjectIdChange,
+  onHostChange,
 }: {
   apiKey: string
-  projectId: string
+  host: string
+  /**
+   * Inline error from the most recent fetch attempt. Stays visible
+   * while the user edits the form so they can re-read the hint
+   * (typo? wrong region?). Cleared by the parent on the next attempt.
+   */
+  error: string | null
   onApiKeyChange: (v: string) => void
-  onProjectIdChange: (v: string) => void
+  onHostChange: (v: string) => void
 }) {
   return (
     <div className="space-y-3">
@@ -114,14 +135,82 @@ function PostHogForm({
           onChange={e => onApiKeyChange(e.target.value)}
           autoFocus
         />
+        <p className="text-xs text-muted-foreground">
+          Create one in PostHog under{' '}
+          <a
+            href="https://app.posthog.com/settings/user-api-keys"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            Personal API Keys
+          </a>
+          . Make sure it has read access to{' '}
+          <span className="font-medium text-foreground">Projects</span>.
+        </p>
       </div>
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Project ID</label>
-        <Input
-          placeholder="12345"
-          value={projectId}
-          onChange={e => onProjectIdChange(e.target.value)}
-        />
+        <label className="text-sm font-medium">Region</label>
+        <div className="grid grid-cols-2 gap-2">
+          {POSTHOG_HOSTS.map(h => (
+            <Button
+              key={h.id}
+              type="button"
+              variant="outline"
+              onClick={() => onHostChange(h.id)}
+              className={`h-auto justify-start py-2 text-sm ${
+                host === h.id ? 'border-foreground bg-muted' : ''
+              }`}
+            >
+              {h.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <InlineErrorBanner message={error} />
+    </div>
+  )
+}
+
+function PostHogProjectSelectForm({
+  projects,
+  selectedId,
+  onSelect,
+}: {
+  projects: { id: string; name: string; organization: string | null }[]
+  selectedId: string
+  onSelect: (id: string) => void
+}) {
+  if (projects.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        No projects on this PostHog account. Create one in PostHog and try again.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-3">
+      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+        {projects.map(p => (
+          <Button
+            key={p.id}
+            variant="outline"
+            onClick={() => onSelect(p.id)}
+            className={`w-full justify-start h-auto px-3 py-2.5 text-sm ${
+              selectedId === p.id ? 'border-foreground bg-muted' : ''
+            }`}
+          >
+            <div className="flex flex-col items-start gap-0.5 text-left">
+              <span className="font-medium">{p.name}</span>
+              {p.organization && (
+                <span className="text-xs text-muted-foreground">
+                  {p.organization}
+                </span>
+              )}
+            </div>
+          </Button>
+        ))}
       </div>
     </div>
   )
@@ -129,9 +218,14 @@ function PostHogForm({
 
 function WebhookForm({
   name,
+  error,
   onNameChange,
 }: {
   name: string
+  /** Inline error from the most recent connect attempt. Webhooks
+   *  used to fail silently — bad DB writes / failed key generation
+   *  closed the modal with no surface. */
+  error: string | null
   onNameChange: (v: string) => void
 }) {
   return (
@@ -146,8 +240,9 @@ function WebhookForm({
         />
       </div>
       <p className="text-xs text-muted-foreground">
-        You'll get a unique webhook URL and API key after connecting.
+        You&apos;ll get a unique webhook URL and API key after connecting.
       </p>
+      <InlineErrorBanner message={error} />
     </div>
   )
 }
@@ -232,11 +327,14 @@ function StripeChooseView({
 function StripeManualForm({
   name,
   apiKey,
+  error,
   onNameChange,
   onApiKeyChange,
 }: {
   name: string
   apiKey: string
+  /** Inline error from the most recent save attempt. */
+  error: string | null
   onNameChange: (v: string) => void
   onApiKeyChange: (v: string) => void
 }) {
@@ -271,15 +369,21 @@ function StripeManualForm({
           with read access to: Charges, Customers, Subscriptions, Balance.
         </p>
       </div>
+      <InlineErrorBanner message={error} />
     </div>
   )
 }
 
 function VercelTokenForm({
   token,
+  error,
   onTokenChange,
 }: {
   token: string
+  /** Inline error from the most recent fetch attempt. Cleared by
+   *  the parent on the next submit so the user sees a fresh state
+   *  per try. */
+  error: string | null
   onTokenChange: (v: string) => void
 }) {
   return (
@@ -301,9 +405,13 @@ function VercelTokenForm({
             className="underline underline-offset-2 hover:text-foreground transition-colors"
           >
             vercel.com/account/tokens
-          </a>
+          </a>{' '}
+          — make sure it&apos;s a{' '}
+          <span className="font-medium text-foreground">Personal</span> token
+          (not Team or Project scope).
         </p>
       </div>
+      <InlineErrorBanner message={error} />
     </div>
   )
 }
@@ -311,10 +419,12 @@ function VercelTokenForm({
 function VercelProjectSelectForm({
   projects,
   selectedId,
+  error,
   onSelect,
 }: {
   projects: { id: string; name: string }[]
   selectedId: string
+  error: string | null
   onSelect: (id: string) => void
 }) {
   return (
@@ -333,6 +443,7 @@ function VercelProjectSelectForm({
           </Button>
         ))}
       </div>
+      <InlineErrorBanner message={error} />
     </div>
   )
 }
@@ -446,13 +557,35 @@ export function CreateConnectionModal() {
   // wired below for how each form's value+disabled state plumbs into the
   // dialog header.
   const [posthogApiKey, setPosthogApiKey] = useState('')
-  const [posthogProjectId, setPosthogProjectId] = useState('')
+  // Host is a PostHog cloud region the user picks in step 1; defaults
+  // to US since that's where the majority of accounts live.
+  const [posthogHost, setPosthogHost] = useState<string>(POSTHOG_HOSTS[0].id)
+  // Projects come back from `/posthog/connection/projects` after the
+  // user submits the API key in step 1. Empty until step 2.
+  const [posthogProjects, setPosthogProjects] = useState<
+    { id: string; name: string; organization: string | null }[]
+  >([])
+  const [posthogSelectedProjectId, setPosthogSelectedProjectId] = useState('')
+  // Backend-supplied error message shown inline in the form so the
+  // user can read what went wrong while they fix it (a toast would
+  // disappear before they could re-read the hint about wrong region).
+  const [posthogError, setPosthogError] = useState<string | null>(null)
   const [webhookName, setWebhookName] = useState('')
+  const [webhookError, setWebhookError] = useState<string | null>(null)
   const [stripeManualName, setStripeManualName] = useState('Stripe')
   const [stripeManualKey, setStripeManualKey] = useState('')
+  // Inline error for the manual-key save flow. Today the form is
+  // a "click Save → modal closes whether or not it actually worked"
+  // black hole; this surface gives bad keys a visible failure mode.
+  const [stripeManualError, setStripeManualError] = useState<string | null>(null)
   const [vercelToken, setVercelToken] = useState('')
   const [vercelProjects, setVercelProjects] = useState<{ id: string; name: string }[]>([])
   const [vercelSelectedId, setVercelSelectedId] = useState<string>('')
+  // Inline error for both fetch-projects (step 1) and connect (step 2).
+  // Reset to null at the start of each attempt; populated from
+  // `err.message` on failure (the backend surfaces user-friendly hints
+  // there — see `vercel/connection/connection.controller.ts`).
+  const [vercelError, setVercelError] = useState<string | null>(null)
   const [vercelDrainUrl, setVercelDrainUrl] = useState('')
 
   // Single in-flight flag per form. `submitting` covers all forms because
@@ -462,14 +595,20 @@ export function CreateConnectionModal() {
 
   const resetFormState = () => {
     setPosthogApiKey('')
-    setPosthogProjectId('')
+    setPosthogHost(POSTHOG_HOSTS[0].id)
+    setPosthogProjects([])
+    setPosthogSelectedProjectId('')
+    setPosthogError(null)
     setWebhookName('')
+    setWebhookError(null)
     setStripeManualName('Stripe')
     setStripeManualKey('')
+    setStripeManualError(null)
     setVercelToken('')
     setVercelProjects([])
     setVercelSelectedId('')
     setVercelDrainUrl('')
+    setVercelError(null)
     setSubmitting(false)
   }
 
@@ -485,7 +624,7 @@ export function CreateConnectionModal() {
 
   const handleConnect = async (type: string) => {
     if (type === 'posthog') {
-      setView('posthog')
+      setView('posthog-form')
     } else if (type === 'stripe') {
       setView('stripe-choose')
     } else if (type === 'webhook') {
@@ -505,13 +644,22 @@ export function CreateConnectionModal() {
     const trimmed = vercelToken.trim()
     if (!trimmed) return
     setSubmitting(true)
+    setVercelError(null)
     try {
       const data = await ALGORITHM.getVercelProjects(trimmed)
       setVercelToken(trimmed)
       setVercelProjects(data.projects)
       setView('vercel-project-select')
-    } catch {
-      toast.error('Failed to fetch Vercel projects. Check your token.')
+    } catch (err) {
+      // Backend surfaces user-friendly messages on `err.message`
+      // (`UnauthorizedException` for bad token, `BadGatewayException`
+      // for upstream blip). Pull through unchanged so the inline
+      // banner reads exactly what the server sent.
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't reach Vercel. Try again in a moment."
+      setVercelError(message)
     } finally {
       setSubmitting(false)
     }
@@ -521,6 +669,7 @@ export function CreateConnectionModal() {
     const project = vercelProjects.find(p => p.id === vercelSelectedId)
     if (!project) return
     setSubmitting(true)
+    setVercelError(null)
     try {
       const connection = await connections.createConnection({
         name: 'Vercel',
@@ -536,8 +685,12 @@ export function CreateConnectionModal() {
       const backendUrl = process.env.NEXT_PUBLIC_API_URL ?? ''
       setVercelDrainUrl(`${backendUrl}/webhooks/vercel/${connection.id}`)
       setView('vercel-created')
-    } catch {
-      toast.error('Failed to create Vercel connection.')
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't save the Vercel connection. Try again."
+      setVercelError(message)
     } finally {
       setSubmitting(false)
     }
@@ -577,6 +730,7 @@ export function CreateConnectionModal() {
     const trimmedKey = stripeManualKey.trim()
     if (!trimmedKey) return
     setSubmitting(true)
+    setStripeManualError(null)
     try {
       const created = await connections.createConnection({
         name: trimmedName,
@@ -584,33 +738,93 @@ export function CreateConnectionModal() {
         projectId,
         config: { apiKey: trimmedKey },
       })
+      // `createConnection` returns null on a soft failure (rare —
+      // most failures throw via apiFetch). Treat both null and throw
+      // as the user-visible error path.
+      if (!created) {
+        setStripeManualError(
+          "Couldn't save the Stripe connection. Try again.",
+        )
+        return
+      }
       connections.closeModal()
       setView('list')
       resetFormState()
       // Hop to the connections page with the picker query params. The
       // picker reads `?stripe=select-products&connectionId=…` and opens
       // itself.
-      if (created) {
-        router.push(
-          `/hub/connections?stripe=select-products&connectionId=${created.id}`,
-        )
-      }
+      router.push(
+        `/hub/connections?stripe=select-products&connectionId=${created.id}`,
+      )
+    } catch (err) {
+      // Backend (after step 8 lands its pre-flight `/v1/account`
+      // check) raises `UnauthorizedException` with a hint when the
+      // key is the wrong shape (publishable instead of secret) or
+      // the key has been rotated. Until then, this branch catches
+      // generic Supabase / connection-create failures.
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't save the Stripe connection. Try again."
+      setStripeManualError(message)
     } finally {
       setSubmitting(false)
     }
   }
 
+  // Step 1 → Step 2: validate the API key by hitting PostHog's
+  // `/api/projects/` endpoint. On success, populate the picker; on
+  // failure, surface a clean toast and stay on the form. This is the
+  // mirror of `handleVercelFetchProjects`.
+  const handlePostHogFetchProjects = async () => {
+    const trimmedKey = posthogApiKey.trim()
+    if (!trimmedKey || !posthogHost) return
+    setSubmitting(true)
+    setPosthogError(null)
+    try {
+      const data = await ALGORITHM.getPosthogProjects(trimmedKey, posthogHost)
+      setPosthogProjects(data.projects)
+      // Pre-select if there's exactly one — saves a click for the
+      // common solo-project case.
+      if (data.projects.length === 1) {
+        setPosthogSelectedProjectId(data.projects[0].id)
+      } else {
+        setPosthogSelectedProjectId('')
+      }
+      setView('posthog-project-select')
+    } catch (err) {
+      // The backend's `UnauthorizedException` / `BadGatewayException`
+      // include user-friendly hints in `message` (typo / wrong region
+      // / give-it-a-moment). `apiFetch` rethrows them as `Error` with
+      // that same message — pull it through unchanged so the inline
+      // banner shows the precise reason rather than a generic toast.
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't reach PostHog. Try again in a moment."
+      setPosthogError(message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // Step 2: persist the connection with the picked project. Host is
+  // saved alongside so per-region API calls go to the right cloud.
   const handlePostHogConnect = async () => {
     const trimmedKey = posthogApiKey.trim()
-    const trimmedProject = posthogProjectId.trim()
-    if (!trimmedKey || !trimmedProject) return
+    const project = posthogProjects.find(p => p.id === posthogSelectedProjectId)
+    if (!trimmedKey || !project) return
     setSubmitting(true)
     try {
       await connections.createConnection({
-        name: 'PostHog',
+        name: project.name,
         type: 'posthog',
         projectId, // our internal project (or null = Common)
-        config: { apiKey: trimmedKey, projectId: trimmedProject },
+        config: {
+          apiKey: trimmedKey,
+          projectId: project.id,
+          host: posthogHost,
+        },
       })
       connections.closeModal()
       setView('list')
@@ -623,13 +837,24 @@ export function CreateConnectionModal() {
   const handleWebhookConnect = async () => {
     const trimmedName = webhookName.trim() || 'Custom Webhook'
     setSubmitting(true)
+    setWebhookError(null)
     try {
       const connection = await connections.createConnection({
         name: trimmedName,
         type: 'webhook',
         projectId,
       })
-      if (!connection) return
+      // Today, `createConnection` returns null on a soft failure
+      // (e.g. Supabase unique constraint). The old code returned
+      // silently here — the modal stayed open with no message and
+      // the user had no idea what happened. Now we surface the
+      // failure inline.
+      if (!connection) {
+        setWebhookError(
+          "Couldn't create the webhook. Try a different name and try again.",
+        )
+        return
+      }
 
       try {
         const keyData = await ALGORITHM.createWebhookKey(connection.id, 'Default')
@@ -637,12 +862,24 @@ export function CreateConnectionModal() {
         const webhookUrl = `${backendUrl}/webhooks/custom/${connection.webhookId}`
         setWebhookCreated({ connection, webhookUrl, apiKey: keyData.key })
         setView('webhook-created')
-      } catch {
-        toast.error('Connection created but failed to generate API key')
-        connections.closeModal()
-        setView('list')
-        resetFormState()
+      } catch (keyErr) {
+        // Connection was created but key generation failed — half-
+        // succeeded state. Surface inline rather than blowing the
+        // whole modal away (the user can retry, and the half-created
+        // connection appears in the list with a "Generate key" affordance
+        // already wired elsewhere).
+        const message =
+          keyErr instanceof Error && keyErr.message
+            ? `Webhook created, but generating the API key failed: ${keyErr.message}`
+            : 'Webhook created, but we couldn\'t generate its API key. Open the connection from the list and retry.'
+        setWebhookError(message)
       }
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "Couldn't create the webhook. Try again."
+      setWebhookError(message)
     } finally {
       setSubmitting(false)
     }
@@ -674,7 +911,8 @@ export function CreateConnectionModal() {
   // per active view so we don't bounce on the picker grid or post-success
   // info pages where there's nothing to save.
   const dirty =
-    (view === 'posthog' && (posthogApiKey.trim() !== '' || posthogProjectId.trim() !== '')) ||
+    (view === 'posthog-form' && posthogApiKey.trim() !== '') ||
+    (view === 'posthog-project-select' && posthogSelectedProjectId !== '') ||
     (view === 'stripe-manual-form' && stripeManualKey.trim() !== '') ||
     (view === 'webhook-form' && webhookName.trim() !== '') ||
     (view === 'vercel-token' && vercelToken.trim() !== '') ||
@@ -693,16 +931,49 @@ export function CreateConnectionModal() {
         </BottomDialog.Page>
       )}
 
-      {view === 'posthog' && (
+      {view === 'posthog-form' && (
         <BottomDialog.Page
           title="PostHog"
+          pageKey="posthog-form"
           onBack={backToList}
+          headerRight={(ctx: BottomDialogPageSlotContext) => (
+            // Step 1 → "Continue" (not "Connect"): we still have to
+            // fetch the project list before the connection is real.
+            // Mirror the Vercel two-step flow (`vercel-token` → fetch
+            // → `vercel-project-select`).
+            <HeaderSaveCancel
+              onSave={handlePostHogFetchProjects}
+              onCancel={backToList}
+              saving={submitting}
+              disabled={!posthogApiKey.trim() || !posthogHost}
+              bounce={ctx.bounce}
+              saveLabel="Continue"
+              savingLabel="Loading…"
+            />
+          )}
+        >
+          {projectPickerEl}
+          <PostHogForm
+            apiKey={posthogApiKey}
+            host={posthogHost}
+            error={posthogError}
+            onApiKeyChange={setPosthogApiKey}
+            onHostChange={setPosthogHost}
+          />
+        </BottomDialog.Page>
+      )}
+
+      {view === 'posthog-project-select' && (
+        <BottomDialog.Page
+          title="Pick a PostHog project"
+          pageKey="posthog-project-select"
+          onBack={() => setView('posthog-form')}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
             <HeaderSaveCancel
               onSave={handlePostHogConnect}
               onCancel={backToList}
               saving={submitting}
-              disabled={!posthogApiKey.trim() || !posthogProjectId.trim()}
+              disabled={!posthogSelectedProjectId}
               bounce={ctx.bounce}
               saveLabel="Connect"
               savingLabel="Connecting…"
@@ -710,11 +981,10 @@ export function CreateConnectionModal() {
           )}
         >
           {projectPickerEl}
-          <PostHogForm
-            apiKey={posthogApiKey}
-            projectId={posthogProjectId}
-            onApiKeyChange={setPosthogApiKey}
-            onProjectIdChange={setPosthogProjectId}
+          <PostHogProjectSelectForm
+            projects={posthogProjects}
+            selectedId={posthogSelectedProjectId}
+            onSelect={setPosthogSelectedProjectId}
           />
         </BottomDialog.Page>
       )}
@@ -750,6 +1020,7 @@ export function CreateConnectionModal() {
           <StripeManualForm
             name={stripeManualName}
             apiKey={stripeManualKey}
+            error={stripeManualError}
             onNameChange={setStripeManualName}
             onApiKeyChange={setStripeManualKey}
           />
@@ -790,7 +1061,11 @@ export function CreateConnectionModal() {
           )}
         >
           {projectPickerEl}
-          <WebhookForm name={webhookName} onNameChange={setWebhookName} />
+          <WebhookForm
+            name={webhookName}
+            error={webhookError}
+            onNameChange={setWebhookName}
+          />
         </BottomDialog.Page>
       )}
 
@@ -820,7 +1095,11 @@ export function CreateConnectionModal() {
           )}
         >
           {projectPickerEl}
-          <VercelTokenForm token={vercelToken} onTokenChange={setVercelToken} />
+          <VercelTokenForm
+            token={vercelToken}
+            error={vercelError}
+            onTokenChange={setVercelToken}
+          />
         </BottomDialog.Page>
       )}
 
@@ -845,6 +1124,7 @@ export function CreateConnectionModal() {
           <VercelProjectSelectForm
             projects={vercelProjects}
             selectedId={vercelSelectedId}
+            error={vercelError}
             onSelect={setVercelSelectedId}
           />
         </BottomDialog.Page>

@@ -44,6 +44,11 @@ interface ViewCardRetentionProps {
   periodLabel: 'day' | 'week' | null
   loading: boolean
   error: ViewResourceError | null
+  /**
+   * @deprecated Card always renders retention now (PostHog backend
+   * serves any date range). Kept on the props for backward
+   * compatibility; remove once existing call sites stop passing it.
+   */
   historical?: boolean
   projectName?: string
   onRefresh?: () => void
@@ -60,7 +65,6 @@ export function ViewCardRetention({
   periodLabel,
   loading,
   error,
-  historical = false,
   projectName,
   onRefresh,
   refreshing,
@@ -98,11 +102,7 @@ export function ViewCardRetention({
         />
 
         <div className="px-4 pb-4 mt-2">
-          {historical ? (
-            <p className="text-xs text-muted-foreground py-2">
-              Live data only — unavailable for past dates.
-            </p>
-          ) : loading ? (
+          {loading ? (
             <div className="flex items-center gap-1.5 py-3">
               <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
               <span className="text-xs text-muted-foreground">Loading retention…</span>

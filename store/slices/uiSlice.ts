@@ -29,6 +29,23 @@ interface UiState {
   createViewModalOpen: boolean
   createViewFolderId: string | null
   createViewProjectId: string | null
+  /**
+   * Cross-cutting "user wants to land on project X (optionally folder
+   * Y)" intent. The sidebar dispatches; the home page consumes it
+   * (smooth-scrolls to the matching `[data-project-id]` and seeds the
+   * matching `<ProjectView>`'s `currentFolderId`).
+   *
+   * Why a Redux field rather than URL params: same-project re-clicks
+   * need to fire the consumer's effect each time (e.g. user scrolled
+   * away, wants to come back). URL-driven approaches don't re-fire
+   * when the URL is unchanged. The bumped `nonce` here sidesteps that
+   * without polluting the URL.
+   */
+  projectNavIntent: {
+    projectId: string | null
+    folderId: string | null
+    nonce: number
+  }
 }
 
 const initialState: UiState = {
@@ -48,6 +65,7 @@ const initialState: UiState = {
   createViewModalOpen: false,
   createViewFolderId: null,
   createViewProjectId: null,
+  projectNavIntent: { projectId: null, folderId: null, nonce: 0 },
 }
 
 const uiSlice = createSlice({
@@ -131,6 +149,16 @@ const uiSlice = createSlice({
       state.createViewFolderId = null
       state.createViewProjectId = null
     },
+    setProjectNavIntent(
+      state,
+      action: PayloadAction<{ projectId: string; folderId?: string | null }>,
+    ) {
+      state.projectNavIntent = {
+        projectId: action.payload.projectId,
+        folderId: action.payload.folderId ?? null,
+        nonce: state.projectNavIntent.nonce + 1,
+      }
+    },
   },
 })
 
@@ -148,5 +176,6 @@ export const {
   closeCreateConnectionModal,
   openCreateViewModal,
   closeCreateViewModal,
+  setProjectNavIntent,
 } = uiSlice.actions
 export default uiSlice.reducer

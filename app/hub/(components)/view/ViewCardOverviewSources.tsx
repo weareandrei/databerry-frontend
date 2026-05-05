@@ -6,7 +6,7 @@ import {
   ArrowsClockwise,
   Cube,
   DotsThreeVertical,
-  Gear,
+  Plugs,
   PushPin,
   PushPinSlash,
   Warning,
@@ -256,11 +256,11 @@ function renderUsers(state: TabState<OverviewUser[]>): React.ReactElement {
           for this view. Connect a PostHog project to see individual visitors.
         </p>
         <Link
-          href="/hub/settings"
-          className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors"
+          href="/hub/connections"
+          className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1"
         >
-          <Gear size={12} weight="bold" />
-          Set up in Settings
+          <Plugs size={12} weight="bold" />
+          Connect PostHog
         </Link>
       </div>
     )
@@ -299,14 +299,18 @@ function ErrorState({ message }: { message: string }) {
 
 function NoTrafficState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 text-center py-6">
-      <p className="text-sm text-grey-dark">No traffic source connected.</p>
+    <div className="flex flex-col items-center justify-center gap-2 text-center py-6 px-4">
+      <p className="text-sm text-grey-dark">No analytics tool connected yet.</p>
+      <p className="text-xs text-grey-light max-w-[280px]">
+        Connect Google Analytics or PostHog to see where your traffic is coming
+        from.
+      </p>
       <Link
-        href="/hub/settings"
-        className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors"
+        href="/hub/connections"
+        className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1"
       >
-        <Gear size={12} weight="bold" />
-        Set up in Settings
+        <Plugs size={12} weight="bold" />
+        Connect analytics
       </Link>
     </div>
   )

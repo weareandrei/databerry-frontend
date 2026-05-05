@@ -159,7 +159,10 @@ export function TimezonePicker() {
   return (
     <div className="space-y-2">
       <select
-        className="w-full text-sm border border-stroke rounded-md px-3 py-2 bg-white outline-none focus:ring-1 focus:ring-brand/40 disabled:opacity-50"
+        // `max-w-sm` (384 px) prevents the select from stretching
+        // across the now-wider Settings page. Matches the
+        // `TrafficSourceSelector` cap so the two dropdowns line up.
+        className="w-full max-w-sm text-sm border border-stroke rounded-md px-3 py-2 bg-white outline-none focus:ring-1 focus:ring-brand/40 disabled:opacity-50"
         value={value}
         disabled={loading || saving}
         onChange={e => void handleSave(e.target.value)}
