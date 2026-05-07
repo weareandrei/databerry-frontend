@@ -31,6 +31,13 @@ interface ChatInputProps {
   onSubmit: () => void
   sending: boolean
   showSuggestions?: boolean
+  /**
+   * Override the suggestion chips shown above the input. Real callers
+   * omit this and get the default `EXAMPLE_PROMPTS`. The demo passes
+   * its preconfigured-Q&A questions so taps fill the textarea with a
+   * prompt the demo can actually answer.
+   */
+  suggestions?: string[]
 }
 
 export function ChatInput({
@@ -39,6 +46,7 @@ export function ChatInput({
   onSubmit,
   sending,
   showSuggestions = false,
+  suggestions = EXAMPLE_PROMPTS,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -87,13 +95,13 @@ export function ChatInput({
         only constraint is the parent's px-4 padding.
       */}
       <div className="rounded-xl border border-stroke bg-white shadow-card p-4">
-        {showSuggestions && (
+        {showSuggestions && suggestions.length > 0 && (
           <div className="mb-3">
             <div className="text-[10px] uppercase tracking-wider text-grey-light font-medium mb-2 px-1">
               Try asking
             </div>
             <div className="flex flex-wrap gap-2">
-              {EXAMPLE_PROMPTS.map(p => (
+              {suggestions.map(p => (
                 <button
                   key={p}
                   onClick={() => onChange(p)}

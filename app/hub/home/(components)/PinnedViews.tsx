@@ -18,8 +18,8 @@
 
 import { useSelector } from 'react-redux'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
-import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
+import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
+import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
 import {
   WidePosthogViewRenderer,
   isWidePosthogView,
@@ -139,7 +139,7 @@ function PinnedCompositesLane({
               key={group.projectId}
               className="grid grid-cols-1 xl:grid-cols-[5fr_2fr] gap-4"
             >
-              <ViewCardOverviewChart
+              <ViewCardOverviewChartConnected
                 key={group.chart!.id}
                 view={group.chart!}
                 dateFrom={dateFrom}
@@ -148,7 +148,7 @@ function PinnedCompositesLane({
                 projectName={projectName}
                 onPin={onUnpin}
               />
-              <ViewCardOverviewSources
+              <ViewCardOverviewSourcesConnected
                 key={group.sources!.id}
                 view={group.sources!}
                 dateFrom={dateFrom}
@@ -162,7 +162,7 @@ function PinnedCompositesLane({
         // Standalone Chart — full row width.
         if (group.chart) {
           return (
-            <ViewCardOverviewChart
+            <ViewCardOverviewChartConnected
               key={group.chart.id}
               view={group.chart}
               dateFrom={dateFrom}
@@ -180,7 +180,7 @@ function PinnedCompositesLane({
             key={group.projectId}
             className="w-full xl:max-w-[28%] xl:min-w-[300px]"
           >
-            <ViewCardOverviewSources
+            <ViewCardOverviewSourcesConnected
               key={group.sources!.id}
               view={group.sources!}
               dateFrom={dateFrom}
@@ -228,6 +228,13 @@ interface PinnedViewsProps {
    */
   onConnectionAssigned?: (updated: View) => void
   projects?: Project[]
+  /**
+   * Mobile flag — collapses the regular tile grid to a single column
+   * and the wide-posthog/composite lanes to a one-up vertical stack.
+   * Default false → desktop behaviour (grid sized per breakpoint,
+   * 140 px tile rows). Set by `<MobileHomeBody>` only.
+   */
+  singleColumn?: boolean
 }
 
 /**
@@ -243,6 +250,7 @@ const PinnedViews = ({
   unpinView,
   onConnectionAssigned,
   projects = [],
+  singleColumn = false,
 }: PinnedViewsProps) => {
   const dateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const dateTo = useSelector((s: RootState) => s.ui.globalDateTo)
@@ -292,8 +300,16 @@ const PinnedViews = ({
 
       {regular.length > 0 && (
         <div
-          className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
-          style={{ gridAutoRows: '140px' }}
+          // Mobile (`singleColumn`): vertical stack with a tighter gap
+          // and no fixed-height grid rows — each tile sizes to its
+          // content. Desktop unchanged: same `grid-cols-2 lg:cols-3 …`
+          // grid with 140 px rows.
+          className={
+            singleColumn
+              ? 'flex flex-col gap-3'
+              : 'grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6'
+          }
+          style={singleColumn ? undefined : { gridAutoRows: '140px' }}
         >
           {regular.map(pin => (
             <PinnedViewCard

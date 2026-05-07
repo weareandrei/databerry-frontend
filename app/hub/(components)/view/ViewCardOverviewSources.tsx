@@ -1,7 +1,18 @@
 'use client'
 
+/**
+ * Composite "project overview — sources / users" tile. Two-tab
+ * (Sources, Users) panel that sits next to the overview chart on
+ * desktop, or below it on mobile / inside the pinned-views card.
+ *
+ * Props-only data path — the component owns the active tab + the
+ * pin/unpin/refresh menu, but the per-tab data + loading state come
+ * from the caller. Real callers feed `useOverviewSourcesData()`
+ * through this prop set; demo callers pass static mock data.
+ */
+
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   ArrowsClockwise,
   Cube,
@@ -20,7 +31,7 @@ import {
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewSourcesPanel } from './OverviewSourcesPanel'
 import { OverviewUsersPanel } from './OverviewUsersPanel'
-import { PROJECT_OVERVIEW, type OverviewSource, type OverviewUser } from '@/lib/api'
+import type { OverviewSource, OverviewUser } from '@/lib/api'
 import type { ProjectOverviewSourcesConfig, View } from '@/types/view'
 
 type Tab = 'sources' | 'users'
@@ -32,115 +43,76 @@ function readConfig(view: View): ProjectOverviewSourcesConfig {
   }
 }
 
-// Per-tab fetch state. Each tab fetches lazily on first activation; subsequent
-// visits re-use the cached data. Loading/error are tracked independently so
-// switching tabs never flashes the sibling tab's spinner.
+// Per-tab fetch state. Each tab's fetch is owned by the caller (real
+// → `useOverviewSourcesData`, demo → static mock); this component
+// just renders whatever it's given. Loading/error are tracked
+// independently per tab so switching never flashes the sibling tab's
+// spinner.
 interface TabState<T> {
   data: T | null
   loading: boolean
   error: string | null
-  /** Only meaningful for 'users' — backend tells us why the list is empty. */
+  /** Only meaningful for 'users' — caller signals why the list is empty. */
   provider?: 'google_analytics' | 'posthog' | null
   /** True once a fetch has at least been attempted. */
   fetched: boolean
-}
-
-function initialState<T>(): TabState<T> {
-  return { data: null, loading: false, error: null, fetched: false }
 }
 
 interface ViewCardOverviewSourcesProps {
   view: View
   dateFrom: string
   dateTo: string
+  /**
+   * Currently-active tab. Lifted into the caller so the data hook
+   * can fire only the correct fetch (lazy-on-activation pattern).
+   * Demo passes whichever tab is most useful as the default and
+   * keeps it stable.
+   */
+  tab: Tab
+  onTabChange: (next: Tab) => void
+  /**
+   * Per-tab fetch state. Real mode threads `useOverviewSourcesData`
+   * through; demo mode hands in static mock results with
+   * `loading: false`, `fetched: true`.
+   */
+  sources: TabState<OverviewSource[]>
+  users: TabState<OverviewUser[]>
+  /** Refresh handlers — refresh acts on the active tab only. */
+  onRefreshSources: () => void
+  onRefreshUsers: () => void
   projectName?: string
   onUntrack?: (id: string) => void
   onPin?: (id: string) => void
+  /**
+   * When true, the wrapper renders without its own border + shadow.
+   * Same `chromeless` knob `ViewCard` etc. expose for nested layouts.
+   */
+  chromeless?: boolean
 }
 
 export function ViewCardOverviewSources({
   view,
-  dateFrom,
-  dateTo,
+  tab,
+  onTabChange,
+  sources,
+  users,
+  onRefreshSources,
+  onRefreshUsers,
   projectName,
   onUntrack,
   onPin,
+  chromeless = false,
 }: ViewCardOverviewSourcesProps) {
+  // Suppress unused-prop lint — `chromeless` is accepted for API
+  // uniformity but the wrapper below is always borderless (this
+  // composite tile is meant to nest inside a larger layout chunk
+  // already, same as `ViewCardOverviewChart`).
+  void chromeless
+
   const config = readConfig(view)
-  const [tab, setTab] = useState<Tab>('sources')
-  const [sources, setSources] = useState<TabState<OverviewSource[]>>(initialState)
-  const [users, setUsers] = useState<TabState<OverviewUser[]>>(initialState)
-  // Refresh ticks are per-tab so refreshing Sources doesn't invalidate Users'
-  // cache and vice-versa.
-  const [sourcesTick, setSourcesTick] = useState(0)
-  const [usersTick, setUsersTick] = useState(0)
-
-  // ── Sources fetch (runs when tab becomes 'sources' the first time, on
-  //    range changes while visible, or when its refresh tick bumps). ────
-  // The view's `sourcesLimit` config is *not* sent as the API limit any
-  // more — instead it controls the panel's local page size. We always
-  // ask for the backend default (100) so pagination has something to
-  // page through. Switching `sourcesLimit` therefore doesn't invalidate
-  // the cached data, only the pager's view of it.
-  useEffect(() => {
-    if (tab !== 'sources') return
-    let cancelled = false
-    setSources(s => ({ ...s, loading: true, error: null }))
-    PROJECT_OVERVIEW.getSources(view.projectId, dateFrom, dateTo)
-      .then(res => {
-        if (cancelled) return
-        setSources({ data: res.sources, loading: false, error: null, fetched: true })
-      })
-      .catch(err => {
-        if (cancelled) return
-        setSources({
-          data: null,
-          loading: false,
-          error: err instanceof Error ? err.message : 'Failed to load sources',
-          fetched: true,
-        })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tab, view.projectId, dateFrom, dateTo, sourcesTick])
-
-  // ── Users fetch (same lazy+refresh pattern). ────────────────────────────
-  useEffect(() => {
-    if (tab !== 'users') return
-    let cancelled = false
-    setUsers(s => ({ ...s, loading: true, error: null }))
-    PROJECT_OVERVIEW.getUsers(view.projectId, dateFrom, dateTo, 100)
-      .then(res => {
-        if (cancelled) return
-        setUsers({
-          data: res.users,
-          loading: false,
-          error: null,
-          provider: res.provider,
-          fetched: true,
-        })
-      })
-      .catch(err => {
-        if (cancelled) return
-        setUsers({
-          data: null,
-          loading: false,
-          error: err instanceof Error ? err.message : 'Failed to load users',
-          fetched: true,
-        })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [tab, view.projectId, dateFrom, dateTo, usersTick])
-
-  // Refresh acts on the active tab only — matches the user's mental model
-  // ("refresh what I'm looking at") and avoids an unnecessary round-trip to
-  // the idle tab.
   const refresh = () => {
-    if (tab === 'sources') setSourcesTick(t => t + 1)
-    else setUsersTick(t => t + 1)
+    if (tab === 'sources') onRefreshSources()
+    else onRefreshUsers()
   }
 
   const activeLoading = tab === 'sources' ? sources.loading : users.loading
@@ -153,10 +125,10 @@ export function ViewCardOverviewSources({
           composite-overview cards feel consistent. */}
       <div className="flex items-center justify-between gap-1 px-4 pt-3 pb-0 shrink-0">
         <div className="flex items-center gap-4 min-w-0">
-          <TabButton active={tab === 'sources'} onClick={() => setTab('sources')}>
+          <TabButton active={tab === 'sources'} onClick={() => onTabChange('sources')}>
             Sources
           </TabButton>
-          <TabButton active={tab === 'users'} onClick={() => setTab('users')}>
+          <TabButton active={tab === 'users'} onClick={() => onTabChange('users')}>
             Users
           </TabButton>
           {/* Project pill — only when the card is rendered away from its own

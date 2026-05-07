@@ -213,7 +213,7 @@ export function Hero() {
             href="/signup"
             className="rounded-full bg-black px-16 py-3.5 text-base font-medium text-white hover:opacity-75 transition-opacity"
           >
-            Get started
+            Start
           </Link>
         </motion.div>
 

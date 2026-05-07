@@ -65,10 +65,10 @@ export default function ForgotPasswordPage() {
       <PhoneBezel />
       <Navbar />
 
-      <div className="relative z-10 flex flex-1 items-center justify-center px-6 min-h-screen">
+      <div className="relative z-10 flex flex-1 items-center justify-center px-4 md:px-6 min-h-screen">
         <div className="rounded-2xl border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] overflow-hidden w-full max-w-md">
-          <div className="bg-white/35 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-xl px-8 py-10">
+          <div className="bg-white/35 backdrop-blur-sm p-3 md:p-4">
+            <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
               {done ? (
                 <div className="flex flex-col items-center gap-3 py-4 text-center">
                   <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
@@ -89,12 +89,12 @@ export default function ForgotPasswordPage() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-7">
+                  <div className="mb-5 md:mb-7">
                     <p className="text-xs font-medium text-orange-500 uppercase tracking-widest mb-2">
                       Account recovery
                     </p>
                     <h2
-                      className="text-3xl font-semibold tracking-tight text-gray-900 leading-[1.1]"
+                      className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 leading-[1.1]"
                       style={{ fontFamily: 'var(--font-bricolage)' }}
                     >
                       Reset your password

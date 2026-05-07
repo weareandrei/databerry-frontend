@@ -168,6 +168,8 @@ interface ViewCardUsersProps {
   onPin?: () => void
   isPinned?: boolean
   onConnectionAssigned?: (updated: View) => void
+  /** See `ViewCard.chromeless`. */
+  chromeless?: boolean
 }
 
 export function ViewCardUsers({
@@ -182,6 +184,7 @@ export function ViewCardUsers({
   onPin,
   isPinned,
   onConnectionAssigned,
+  chromeless = false,
 }: ViewCardUsersProps) {
   const [reassignOpen, setReassignOpen] = useState(false)
   const isDisconnected = !view.connectionId
@@ -190,7 +193,7 @@ export function ViewCardUsers({
 
   return (
     <>
-      <ViewWrapper className="col-span-2 row-span-2">
+      <ViewWrapper className="col-span-2 row-span-2" variant={chromeless ? 'borderless' : 'default'}>
         <ViewHeader
           name={view.name}
           connectionType={view.connectionType}

@@ -1,9 +1,22 @@
 'use client'
 
+/**
+ * Demo connections page — shows the list of mock connections with a
+ * trash button per row + an "Add connection" CTA that opens the
+ * mock-only `<DemoCreateConnectionModal>`.
+ *
+ * Connections-row chrome is visually similar to the real
+ * `/hub/connections` layout but at smaller scale. Tapping a row is
+ * a no-op in the demo (the real ConnectionDetailModal pulls from
+ * `useDashboard()` and isn't worth porting just for the demo).
+ */
+
+import { useState } from 'react'
 import { Plus, Trash } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { useDemoContext } from '../context/DemoContext'
+import { DemoCreateConnectionModal } from '../DemoCreateConnectionModal'
 import type { DemoConnection } from '../context/DemoContext'
 
 function ConnectionRow({
@@ -19,7 +32,12 @@ function ConnectionRow({
         <ConnectionIcon type={connection.type} size={16} className="text-muted-foreground" />
         <span className="text-sm font-medium truncate">{connection.name}</span>
       </div>
-      <div className="opacity-0 group-hover:opacity-100 shrink-0">
+      {/*
+        Always-visible trash on mobile (no hover events on touch).
+        `md:opacity-0 md:group-hover:opacity-100` keeps the desktop
+        hover-reveal style.
+      */}
+      <div className="md:opacity-0 md:group-hover:opacity-100 shrink-0">
         <button
           onClick={onDelete}
           className="flex items-center justify-center w-6 h-6 rounded text-muted-foreground hover:text-destructive transition-colors"
@@ -33,30 +51,44 @@ function ConnectionRow({
 }
 
 export function DemoConnectionsPage() {
-  const { connections, createConnection, deleteConnection } = useDemoContext()
+  const { connections, deleteConnection } = useDemoContext()
+  const [createOpen, setCreateOpen] = useState(false)
 
   return (
-    <div className="flex-1 overflow-y-scroll bg-white p-6 pt-12 md:pt-6">
-      <div className="flex items-start justify-between mb-6">
-        <h1 className="text-2xl font-semibold tracking-tight">Connections</h1>
-        <Button size="sm" className="gap-1.5" onClick={createConnection}>
-          <Plus size={15} weight="thin" />
-          Add connection
-        </Button>
+    <div className="flex-1 overflow-y-auto bg-background p-3 pt-8 md:pt-3">
+      <div className="rounded-xl border bg-card overflow-hidden shadow-card">
+        <div className="flex items-center justify-between gap-2 px-4 py-3 border-b">
+          <h1 className="text-sm font-bold text-foreground">Connections</h1>
+          <Button
+            size="sm"
+            className="rounded-full gap-1 px-3 h-7"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus size={11} weight="bold" />
+            <span className="text-xs">Add connection</span>
+          </Button>
+        </div>
+
+        <div className="p-3 space-y-2">
+          {connections.map(conn => (
+            <ConnectionRow
+              key={conn.id}
+              connection={conn}
+              onDelete={() => deleteConnection(conn.id)}
+            />
+          ))}
+          {connections.length === 0 && (
+            <p className="text-xs text-muted-foreground px-1 py-2">
+              No connections yet — click <span className="font-medium">Add connection</span> to start.
+            </p>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {connections.map(conn => (
-          <ConnectionRow
-            key={conn.id}
-            connection={conn}
-            onDelete={() => deleteConnection(conn.id)}
-          />
-        ))}
-        {connections.length === 0 && (
-          <p className="text-sm text-muted-foreground">No connections yet.</p>
-        )}
-      </div>
+      <DemoCreateConnectionModal
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+      />
     </div>
   )
 }

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
 import { useOAuthCallback } from '@/hooks/useOAuthCallback'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { ConnectionDetailModal } from '@/app/hub/(components)/modals/ConnectionDetailModal'
@@ -277,13 +278,34 @@ export default function ConnectionsPage() {
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null)
 
   return (
-    // Padding + width policy mirrors the home page (`/hub/home`):
-    // `pt-6 pr-6 pb-8`, no left padding (content flush against the
-    // sidebar — `p-8` previously added 32 px of left offset that
-    // misaligned this page with the home dashboard). Cap at 1600 px
-    // on very wide displays; below that the content fills the full
-    // available area.
-    <div className="pt-6 pr-6 pb-8 flex flex-col max-w-[1600px]">
+    /*
+      Single-tree layout. Chrome forks via Tailwind responsive
+      prefixes — same approach as `/hub/settings`:
+        - `<MobileTopBar variant="page">` is internally `md:hidden`,
+          carries the title + a brand-coloured `+` icon button on the
+          right (icon-only at <md to fit beside the title at 320 px).
+        - Desktop's `<SectionHeader>` (with the labelled "Add
+          connection" pill in its `rightSlot`) wraps in
+          `hidden md:block` so it disappears on mobile.
+      Padding mirrors the home page: balanced 16-px on mobile,
+      desktop reverts to "no left (sidebar fills it), 24-px right".
+    */
+    <>
+      <MobileTopBar
+        variant="page"
+        title="Connections"
+        rightSlot={
+          <button
+            type="button"
+            onClick={() => connections.openModal(null)}
+            aria-label="Add connection"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-brand text-white shadow-pill hover:bg-brand/90 transition-colors shrink-0"
+          >
+            <Plus size={14} weight="bold" />
+          </button>
+        }
+      />
+      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:px-0 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />
@@ -299,26 +321,29 @@ export default function ConnectionsPage() {
       />
 
       <div className="flex flex-col rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
-        <SectionHeader
-          icon={
-            <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-              <PlugsConnected size={14} weight="bold" className="text-grey-darkest" />
-            </span>
-          }
-          title={<span className="text-base font-bold text-grey-darkest">Connections</span>}
-          rightSlot={
-            <Button
-              className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
-              onClick={() => connections.openModal(null)}
-            >
-              <Plus size={14} weight="bold" />
-              Add connection
-            </Button>
-          }
-          // `bg-main` was previously the SectionHeader default; pass it
-          // explicitly now that the component no longer hardcodes a bg.
-          className="bg-main"
-        />
+        <div className="hidden md:block">
+          <SectionHeader
+            icon={
+              <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
+                <PlugsConnected size={14} weight="bold" className="text-grey-darkest" />
+              </span>
+            }
+            title={<span className="text-base font-bold text-grey-darkest">Connections</span>}
+            rightSlot={
+              <Button
+                className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
+                onClick={() => connections.openModal(null)}
+              >
+                <Plus size={14} weight="bold" />
+                Add connection
+              </Button>
+            }
+            // `bg-main` was previously the SectionHeader default; pass
+            // it explicitly now that the component no longer hardcodes
+            // a bg.
+            className="bg-main"
+          />
+        </div>
 
         {connections.loading ? (
           <div className="flex items-center justify-center py-8">
@@ -369,7 +394,13 @@ export default function ConnectionsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           onClick={e => e.stopPropagation()}
-                          className="opacity-0 group-hover:opacity-100 aria-expanded:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-grey-darkest transition-colors cursor-pointer"
+                          // `md:opacity-0 md:group-hover:opacity-100` keeps
+                          // the desktop hover-reveal behaviour but always
+                          // shows the button on mobile (no hover events on
+                          // touch devices). `aria-expanded:opacity-100`
+                          // covers the case where the menu is open without
+                          // the cursor on the row.
+                          className="md:opacity-0 md:group-hover:opacity-100 aria-expanded:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-grey-darkest transition-colors cursor-pointer"
                           title="More actions"
                         >
                           <DotsThreeVertical size={16} weight="bold" />
@@ -393,7 +424,11 @@ export default function ConnectionsPage() {
                     )}
                     <button
                       onClick={e => { e.stopPropagation(); connections.deleteConnection(connection.id) }}
-                      className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-destructive transition-colors"
+                      // Same `md:opacity-0 md:group-hover:opacity-100`
+                      // pattern as the dots-menu trigger above —
+                      // hover-reveal on desktop, always visible on
+                      // mobile (44 × 44 → 28 × 28 at md+).
+                      className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-destructive transition-colors"
                       title="Delete"
                     >
                       <Trash size={14} weight="bold" />
@@ -405,6 +440,7 @@ export default function ConnectionsPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   )
 }

@@ -1,61 +1,63 @@
 'use client'
 
-import { PushPin } from '@phosphor-icons/react'
-import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
-import { useDemoContext } from '../context/DemoContext'
-import { DemoViewCard } from '../DemoViewCard'
-import type { DemoFolder } from '../context/DemoContext'
-import type { Folder as RealFolder } from '@/types/folder'
+/**
+ * Demo home page — `<DemoTopBar>` (mock date/mode pills) on top,
+ * pinned-views card, then a stack of `<DemoProjectView>` cards
+ * (one per demo project). Mirrors the real `/hub/home` structure
+ * at the demo card's smaller scale.
+ *
+ * Section labels (`PINNED VIEWS`, `PROJECTS`) match the real
+ * dashboard's typography so the demo reads as the same product.
+ */
 
-function toRealFolder(f: DemoFolder): RealFolder {
-  return { projectId: 'id1', ...f, userId: 'demo', createdAt: '', updatedAt: '' }
-}
+import { useDemoContext } from '../context/DemoContext'
+import { DemoTopBar } from '../DemoTopBar'
+import { DemoPinnedViews } from '../projects/DemoPinnedViews'
+import { DemoProjectView } from '../projects/DemoProjectView'
 
 export function DemoHomePage() {
-  const { views, deleteView, folders, connections, setPageOpen, deleteFolder } = useDemoContext()
-  const pinnedViews = views.filter(v => v.pinned)
-  const rootFolders = folders.filter(f => f.parentId === null)
+  const { projects, views } = useDemoContext()
+  // Hide the pinned-views section entirely when there's nothing
+  // pinned — same affordance the real home page has, no orphan
+  // label hovering over an empty grid.
+  const hasPins = views.some(
+    v =>
+      v.pinned &&
+      v.kind !== 'overview-chart' &&
+      v.kind !== 'overview-sources',
+  )
 
   return (
-    <div className="flex-1 overflow-y-scroll bg-white p-6 pt-12 md:pt-6 space-y-6">
-      <div>
-        <h1 className="text-xl text-left font-semibold tracking-tight">Welcome to Databerry!</h1>
-        <p className="text-[12px] text-left text-muted-foreground mt-1">
-          This is your main dashboard. Pin important views, or quickly access folders.
-        </p>
-      </div>
-
-      {pinnedViews.length > 0 && (
-        <section>
-          <div className="flex items-center gap-1.5 mb-3">
-            <PushPin size={14} weight="thin" className="text-muted-foreground" />
-            <h2 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+    <div className="flex-1 overflow-y-auto bg-background">
+      <DemoTopBar />
+      <div className="px-3 pb-6 space-y-5">
+        {hasPins && (
+          <section>
+            <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               Pinned views
             </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3" style={{ gridAutoRows: '110px' }}>
-            {pinnedViews.map(view => (
-              <DemoViewCard
-                key={view.id}
-                view={view}
-                connection={connections.find(c => c.id === view.connectionId)}
-                onDelete={() => deleteView(view.id)}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+            <div className="rounded-xl border bg-card shadow-card p-3">
+              <DemoPinnedViews />
+            </div>
+          </section>
+        )}
 
-      {rootFolders.length > 0 && (
-        <section>
-          <FolderGrid
-            folders={rootFolders.map(toRealFolder)}
-            onDeleteFolder={deleteFolder}
-            onCreateSubfolder={() => {}}
-            onFolderClick={() => setPageOpen('explorer')}
-          />
+        <section className="space-y-3">
+          <h2 className="px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            Projects
+          </h2>
+          <div className="space-y-3">
+            {projects.map(project => (
+              <DemoProjectView key={project.id} project={project} />
+            ))}
+            {projects.length === 0 && (
+              <p className="px-1 text-xs text-muted-foreground">
+                No projects yet — create one from the sidebar.
+              </p>
+            )}
+          </div>
         </section>
-      )}
+      </div>
     </div>
   )
 }

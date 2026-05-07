@@ -40,6 +40,19 @@ interface ViewHeaderProps {
   isPinned?: boolean
   /** Compact layout: small icon + small title on a single line, no connection label / project chip. */
   compact?: boolean
+  /**
+   * "Dense" layout — same shape as the default (icon | title / second
+   * row | actions), but tighter sizing AND the connection label gets
+   * dropped when a `projectName` pill is present. The icon already
+   * conveys which integration this view belongs to, so showing both
+   * "Stripe" + the project pill on a narrow tile (e.g. inside the
+   * landing-page demo card) wraps the pill onto a third line —
+   * dropping the redundant text fixes that.
+   *
+   * Real-dashboard tiles leave this `false`; only the demo passes it.
+   * Default is opt-in so the existing dashboard pixels are unchanged.
+   */
+  dense?: boolean
 }
 
 export function ViewHeader({
@@ -58,6 +71,7 @@ export function ViewHeader({
   onPin,
   isPinned = false,
   compact = false,
+  dense = false,
 }: ViewHeaderProps) {
   // "Needs reattach" covers both true orphans and dangling FKs — same
   // remedy (point this view at a different connection of the same type),
@@ -82,15 +96,49 @@ export function ViewHeader({
         </div>
       ) : (
         <div className="flex items-center gap-2 min-w-0">
+          {/*
+            Sizing forks on `dense`:
+              - default real-dashboard sizing (34 px icon, `text-md`
+                title, `text-sm` label) is unchanged for every existing
+                tile in `/hub/...`
+              - dense (demo only) shrinks each rung one notch and
+                drops the connection-label text when there's a
+                project pill — the icon already conveys integration,
+                and on a narrow tile (~300 px) "Stripe" + pill won't
+                fit on one line, so we'd otherwise wrap pill onto a
+                third row.
+          */}
           <ConnectionIcon
             type={connectionType}
-            size={34}
+            size={dense ? 28 : 34}
             className="shrink-0 text-grey-dark"
           />
           <div className="min-w-0">
-            <p className="text-md font-semibold leading-tight truncate text-grey-dark">{name}</p>
+            <p
+              className={
+                dense
+                  ? 'text-sm font-semibold leading-tight truncate text-grey-dark'
+                  : 'text-md font-semibold leading-tight truncate text-grey-dark'
+              }
+            >
+              {name}
+            </p>
             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-              <p className="text-sm text-grey-light leading-tight">{connectionLabel}</p>
+              {/* In dense mode with a project pill, drop the connection
+                  label entirely — the icon already shows what
+                  integration this is, and shaving the label off frees
+                  the horizontal room the pill needs. */}
+              {!(dense && projectName) && (
+                <p
+                  className={
+                    dense
+                      ? 'text-xs text-grey-light leading-tight'
+                      : 'text-sm text-grey-light leading-tight'
+                  }
+                >
+                  {connectionLabel}
+                </p>
+              )}
               {projectName && (
                 <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
                   <Cube size={9} weight="bold" />

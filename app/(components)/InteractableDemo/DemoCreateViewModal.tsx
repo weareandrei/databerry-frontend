@@ -14,8 +14,13 @@ import {
 } from '@/components/ui/Dialog'
 import { cn } from '@/lib/utils'
 import { useDemoContext } from './context/DemoContext'
-import type { DemoView, DemoConnection } from './context/DemoContext'
-import { MOCK_POSTHOG_EVENTS, MOCK_STRIPE_CHARTS, MOCK_CALENDLY_MEETINGS } from './demoMocks'
+import type { DemoConnection } from './context/DemoContext'
+import {
+  MOCK_POSTHOG_EVENTS,
+  MOCK_STRIPE_CHARTS,
+  MOCK_CALENDLY_MEETINGS,
+  MOCK_STRIPE_TOP_CUSTOMERS,
+} from './demoMocks'
 import { STRIPE_VIEW_OPTIONS, CALENDLY_VIEW_OPTIONS } from '@/constants/viewOptions'
 
 const INTEGRATIONS: { type: string; label: string; description: string }[] = [
@@ -26,27 +31,6 @@ const INTEGRATIONS: { type: string; label: string; description: string }[] = [
   { type: 'sentry', label: 'Sentry', description: 'Error monitoring & performance' },
 ]
 
-function getMockExtras(
-  connectionType: string,
-  viewType: string,
-): Partial<Omit<DemoView, 'id' | 'name' | 'folderId' | 'connectionId' | 'pinned'>> {
-  if (connectionType === 'stripe_manual') {
-    const chart = MOCK_STRIPE_CHARTS[viewType]
-    if (chart) return { mockValue: String(chart.chartTotal), ...chart }
-    return { mockValue: '192000' }
-  }
-  if (connectionType === 'calendly' && viewType === 'calendly_meetings_list') {
-    return {
-      mockValue: String(MOCK_CALENDLY_MEETINGS.length),
-      mockMeetings: MOCK_CALENDLY_MEETINGS,
-    }
-  }
-  if (connectionType === 'calendly') return { mockValue: '2' }
-  if (connectionType === 'github') return { mockValue: '892' }
-  if (connectionType === 'sentry') return { mockValue: '7' }
-  return { mockValue: '42' }
-}
-
 type Step =
   | { kind: 'list' }
   | { kind: 'posthog'; conn: DemoConnection; selected: Set<string> }
@@ -56,10 +40,13 @@ type Step =
 interface Props {
   open: boolean
   onOpenChange: (v: boolean) => void
+  /** Project the new view will belong to. */
+  projectId: string
+  /** Folder inside that project. */
   folderId: string
 }
 
-export function DemoCreateViewModal({ open, onOpenChange, folderId }: Props) {
+export function DemoCreateViewModal({ open, onOpenChange, projectId, folderId }: Props) {
   const { connections, createView } = useDemoContext()
   const [step, setStep] = useState<Step>({ kind: 'list' })
   const [expandedType, setExpandedType] = useState<string | null>(null)
@@ -74,49 +61,116 @@ export function DemoCreateViewModal({ open, onOpenChange, folderId }: Props) {
     onOpenChange(v)
   }
 
+  // Construct a typed `DemoView` discriminated-union member per
+  // integration. Each handler returns a payload that satisfies the
+  // right `kind` variant — `createView` then assigns the `id`.
+
   function handleCreatePosthog(conn: DemoConnection, eventNames: string[]) {
     eventNames.forEach(name => {
       const event = MOCK_POSTHOG_EVENTS.find(e => e.name === name)
-      createView({ name, folderId, connectionId: conn.id, mockValue: event?.mockValue ?? '42' })
+      createView({
+        kind: 'value',
+        name,
+        projectId,
+        folderId,
+        connectionId: conn.id,
+        connectionType: 'posthog',
+        pinned: false,
+        mockValue: event?.mockValue ?? '42',
+      })
     })
     handleClose(false)
   }
 
   function handleCreateStripe(conn: DemoConnection, viewType: string) {
     const opt = STRIPE_VIEW_OPTIONS.find(o => o.type === viewType)!
-    const extras = getMockExtras('stripe_manual', viewType)
-    createView({
-      name: opt.name,
-      folderId,
-      connectionId: conn.id,
-      mockValue: extras.mockValue ?? '0',
-      ...extras,
-    })
+    if (viewType === 'stripe_top_customers') {
+      createView({
+        kind: 'customers',
+        name: opt.name,
+        projectId,
+        folderId,
+        connectionId: conn.id,
+        connectionType: 'stripe_manual',
+        pinned: false,
+        customers: MOCK_STRIPE_TOP_CUSTOMERS,
+      })
+    } else {
+      const chart = MOCK_STRIPE_CHARTS[viewType]
+      if (chart) {
+        createView({
+          kind: 'chart',
+          name: opt.name,
+          projectId,
+          folderId,
+          connectionId: conn.id,
+          connectionType: 'stripe_manual',
+          pinned: false,
+          mockValue: String(chart.chartTotal),
+          chartTotal: chart.chartTotal,
+          chartPoints: chart.chartPoints,
+          viewType,
+        })
+      } else {
+        createView({
+          kind: 'value',
+          name: opt.name,
+          projectId,
+          folderId,
+          connectionId: conn.id,
+          connectionType: 'stripe_manual',
+          pinned: false,
+          mockValue: '192000',
+          viewType,
+        })
+      }
+    }
     handleClose(false)
   }
 
   function handleCreateCalendly(conn: DemoConnection, viewType: string) {
     const opt = CALENDLY_VIEW_OPTIONS.find(o => o.type === viewType)!
-    const extras = getMockExtras('calendly', viewType)
-    createView({
-      name: opt.name,
-      folderId,
-      connectionId: conn.id,
-      mockValue: extras.mockValue ?? '0',
-      ...extras,
-    })
+    if (viewType === 'calendly_meetings_list') {
+      createView({
+        kind: 'meetings',
+        name: opt.name,
+        projectId,
+        folderId,
+        connectionId: conn.id,
+        connectionType: 'calendly',
+        pinned: false,
+        meetings: MOCK_CALENDLY_MEETINGS,
+      })
+    } else {
+      createView({
+        kind: 'value',
+        name: opt.name,
+        projectId,
+        folderId,
+        connectionId: conn.id,
+        connectionType: 'calendly',
+        pinned: false,
+        mockValue: '2',
+      })
+    }
     handleClose(false)
   }
 
   function handleCreateDirect(conn: DemoConnection, connectionType: string) {
     const nameMap: Record<string, string> = { github: 'Stars', sentry: 'Open Issues' }
-    const extras = getMockExtras(connectionType, '')
+    const fallbackValue =
+      connectionType === 'github' ? '892'
+      : connectionType === 'sentry' ? '7'
+      : '42'
     createView({
+      kind: 'value',
       name: nameMap[connectionType] ?? conn.name,
+      projectId,
       folderId,
       connectionId: conn.id,
-      mockValue: extras.mockValue ?? '0',
-      ...extras,
+      connectionType,
+      pinned: false,
+      mockValue: fallbackValue,
     })
     handleClose(false)
   }

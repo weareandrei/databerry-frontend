@@ -1,17 +1,36 @@
 'use client'
 
+/**
+ * Demo sidebar — mirrors the real sidebar's nav surface but at a
+ * smaller scale. Single-column desktop sidebar; mobile burger reveals
+ * a top-down curtain (same pattern the demo had before, kept
+ * verbatim).
+ *
+ * Nav items: Home / Settings / Ask AI / Connections.
+ * Below the nav, a "Projects" section lists each demo project; tapping
+ * a project switches to its dedicated project page in the demo. Each
+ * project row has a caret to expand the folder list inline.
+ *
+ * "All folders" was removed in this pass — it was a flat folder
+ * explorer that didn't match the real product (which navigates folders
+ * inside a project view). Folder navigation now happens in-place
+ * inside `<DemoProjectView>`.
+ */
+
 import { useState } from 'react'
 import { useMobileBreakpoint } from '@/hooks/useMobileBreakpoint'
 import {
   House,
-  Folders,
   PlugsConnected,
+  Robot,
+  Gear,
   CaretRight,
   Folder,
   FolderOpen,
   DotsThree,
   List,
   X,
+  Cube,
 } from '@phosphor-icons/react'
 import { Separator } from '@/components/ui/separator'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -23,10 +42,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { useDemoContext } from './context/DemoContext'
-import type { DemoFolder } from './context/DemoContext'
+import type { DemoFolder, DemoPage, DemoProject } from './context/DemoContext'
 import type { Icon } from '@phosphor-icons/react'
-
-type DemoPage = 'home' | 'connections' | 'explorer'
 
 interface DemoNavItemProps {
   page: DemoPage
@@ -57,11 +74,19 @@ function DemoNavItem({ page, label, icon: IconComponent, current, onClick }: Dem
 interface DemoSidebarFolderItemProps {
   folder: DemoFolder
   depth?: number
+  onNavigate?: () => void
 }
 
-function DemoSidebarFolderItem({ folder, depth = 0 }: DemoSidebarFolderItemProps) {
+/**
+ * Folder row inside a project's expanded folder list. Tapping the
+ * label routes to the project's view (the real sidebar drills
+ * straight into the folder view, but on the demo we keep things
+ * simpler — the folder list is just a visual hint, the project
+ * page handles navigation).
+ */
+function DemoSidebarFolderItem({ folder, depth = 0, onNavigate }: DemoSidebarFolderItemProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const { folders, deleteFolder, setPageOpen, setOpenFolderId } = useDemoContext()
+  const { folders, deleteFolder, goToPage } = useDemoContext()
 
   const children = folders.filter(f => f.parentId === folder.id)
   const hasChildren = children.length > 0
@@ -89,8 +114,8 @@ function DemoSidebarFolderItem({ folder, depth = 0 }: DemoSidebarFolderItemProps
 
         <button
           onClick={() => {
-            setOpenFolderId(folder.id)
-            setPageOpen('explorer')
+            goToPage('project', folder.projectId)
+            onNavigate?.()
           }}
           className="flex items-center gap-2 flex-1 py-1.5 text-sm text-muted-foreground min-w-0 text-left"
         >
@@ -131,8 +156,88 @@ function DemoSidebarFolderItem({ folder, depth = 0 }: DemoSidebarFolderItemProps
               style={{ left: `${20 + depth * 16}px` }}
             />
             {children.map(child => (
-              <DemoSidebarFolderItem key={child.id} folder={child} depth={depth + 1} />
+              <DemoSidebarFolderItem
+                key={child.id}
+                folder={child}
+                depth={depth + 1}
+                onNavigate={onNavigate}
+              />
             ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+interface ProjectRowProps {
+  project: DemoProject
+  onNavigate?: () => void
+}
+
+/**
+ * One project row in the sidebar. Tapping the name routes to the
+ * project view; tapping the caret expands the folder list inline.
+ * The two-button layout matches the real sidebar.
+ */
+function ProjectRow({ project, onNavigate }: ProjectRowProps) {
+  const { folders, goToPage } = useDemoContext()
+  const [isExpanded, setIsExpanded] = useState(false)
+  const projectFolders = folders.filter(
+    f => f.projectId === project.id && f.parentId === null,
+  )
+  const hasFolders = projectFolders.length > 0
+
+  return (
+    <div>
+      <div className="group flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground">
+        <button
+          onClick={() => {
+            goToPage('project', project.id)
+            onNavigate?.()
+          }}
+          className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+        >
+          <Cube size={14} weight="thin" className="shrink-0" />
+          <span className="truncate">{project.name}</span>
+        </button>
+        {hasFolders && (
+          <button
+            onClick={e => {
+              e.stopPropagation()
+              setIsExpanded(v => !v)
+            }}
+            className="flex items-center justify-center w-5 h-5 rounded text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <motion.span
+              animate={{ rotate: isExpanded ? 90 : 0 }}
+              transition={{ duration: 0.15 }}
+              className="flex"
+            >
+              <CaretRight size={12} weight="thin" />
+            </motion.span>
+          </button>
+        )}
+      </div>
+      <AnimatePresence initial={false}>
+        {isExpanded && hasFolders && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="overflow-hidden"
+          >
+            <div className="relative">
+              <div className="absolute top-0 bottom-0 w-px bg-border" style={{ left: '18px' }} />
+              {projectFolders.map(folder => (
+                <DemoSidebarFolderItem
+                  key={folder.id}
+                  folder={folder}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -145,11 +250,10 @@ function DemoSidebarContents({
 }: {
   onNavigate?: () => void
 }) {
-  const { pageOpen, setPageOpen, folders } = useDemoContext()
-  const rootFolders = folders.filter(f => f.parentId === null)
+  const { pageOpen, goToPage, projects } = useDemoContext()
 
   const handleNav = (page: DemoPage) => {
-    setPageOpen(page)
+    goToPage(page)
     onNavigate?.()
   }
 
@@ -166,17 +270,32 @@ function DemoSidebarContents({
 
       <nav className="px-2 space-y-0.5" onClick={e => e.stopPropagation()}>
         <DemoNavItem page="home" label="Home" icon={House} current={pageOpen} onClick={handleNav} />
-        <DemoNavItem page="explorer" label="All folders" icon={Folders} current={pageOpen} onClick={handleNav} />
+        <DemoNavItem page="agent-chat" label="Ask AI" icon={Robot} current={pageOpen} onClick={handleNav} />
         <DemoNavItem page="connections" label="Connections" icon={PlugsConnected} current={pageOpen} onClick={handleNav} />
+        <DemoNavItem page="settings" label="Settings" icon={Gear} current={pageOpen} onClick={handleNav} />
       </nav>
 
       <Separator className="my-3" />
 
-      <div className="flex-1 overflow-y-auto px-1 space-y-0.5">
-        {rootFolders.length === 0 ? (
-          <p className="px-3 py-2 text-xs text-muted-foreground">No folders yet</p>
+      {/* Projects label + list. Same affordance the real sidebar offers
+          — clicking a project routes to its page; the caret expands
+          the folder list inline. */}
+      <div className="px-2 mb-1">
+        <span className="block px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Projects
+        </span>
+      </div>
+      <div className="flex-1 overflow-y-auto px-1 space-y-0.5" onClick={e => e.stopPropagation()}>
+        {projects.length === 0 ? (
+          <p className="px-3 py-2 text-xs text-muted-foreground">No projects yet</p>
         ) : (
-          rootFolders.map(folder => <DemoSidebarFolderItem key={folder.id} folder={folder} />)
+          projects.map(project => (
+            <ProjectRow
+              key={project.id}
+              project={project}
+              onNavigate={onNavigate}
+            />
+          ))
         )}
       </div>
     </div>

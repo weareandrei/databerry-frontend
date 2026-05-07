@@ -72,6 +72,20 @@ interface ViewCardProps {
    * demos, Storybook, etc.).
    */
   dateRangeLabel?: string
+  /**
+   * When true, the wrapper renders without its own border + shadow
+   * (via `<ViewWrapper variant='borderless'>`). Used by the mobile
+   * project body, where tiles sit flat inside an outer white card —
+   * nesting border + shadow there would look bad. Default false →
+   * desktop chrome unchanged.
+   */
+  chromeless?: boolean
+  /**
+   * Forwards to `<ViewHeader dense>`. Demo-only knob — shrinks the
+   * header rung and drops the redundant connection label when a
+   * project pill is present. Real-dashboard tiles leave this `false`.
+   */
+  dense?: boolean
 }
 
 export function ViewCard({
@@ -87,6 +101,8 @@ export function ViewCard({
   isPinned,
   onConnectionAssigned,
   dateRangeLabel,
+  chromeless = false,
+  dense = false,
 }: ViewCardProps) {
   const isDisconnected = !view.connectionId
   // Connection FK still set on the row, but the row it points at is gone.
@@ -107,7 +123,7 @@ export function ViewCard({
 
   return (
     <>
-      <ViewWrapper className="col-span-1 row-span-1">
+      <ViewWrapper className="col-span-1 row-span-1" variant={chromeless ? 'borderless' : 'default'}>
         <ViewHeader
           name={view.name}
           connectionType={view.connectionType}
@@ -122,6 +138,7 @@ export function ViewCard({
           refreshing={refreshing}
           onPin={onPin}
           isPinned={isPinned}
+          dense={dense}
         />
 
         <div className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">

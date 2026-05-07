@@ -81,6 +81,10 @@ interface ViewCardFunnelProps {
   onPin?: () => void
   isPinned?: boolean
   onConnectionAssigned?: (updated: View) => void
+  /** See `ViewCard.chromeless`. */
+  chromeless?: boolean
+  /** See `ViewCard.dense`. Demo-only. */
+  dense?: boolean
 }
 
 export function ViewCardFunnel({
@@ -95,6 +99,8 @@ export function ViewCardFunnel({
   onPin,
   isPinned,
   onConnectionAssigned,
+  chromeless = false,
+  dense = false,
 }: ViewCardFunnelProps) {
   const [reassignOpen, setReassignOpen] = useState(false)
   const isDisconnected = !view.connectionId
@@ -104,7 +110,7 @@ export function ViewCardFunnel({
 
   return (
     <>
-      <ViewWrapper className="w-full max-w-2xl">
+      <ViewWrapper className="w-full max-w-2xl" variant={chromeless ? 'borderless' : 'default'}>
         <ViewHeader
           name={view.name}
           connectionType={view.connectionType}
@@ -119,6 +125,7 @@ export function ViewCardFunnel({
           refreshing={refreshing}
           onPin={onPin}
           isPinned={isPinned}
+          dense={dense}
         />
 
         <div className="px-4 pb-4 mt-2 flex flex-col gap-3">

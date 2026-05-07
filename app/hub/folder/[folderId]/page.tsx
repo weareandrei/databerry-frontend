@@ -32,8 +32,8 @@ import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
 import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
-import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
-import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
+import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
+import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
 import {
   WidePosthogViewRenderer,
   isWidePosthogView,
@@ -103,7 +103,7 @@ function ViewCardRouter({
   if (view.type === 'project_overview') {
     const dateStr = toDateStr(selectedDate)
     return (
-      <ViewCardOverviewChart
+      <ViewCardOverviewChartConnected
         view={view}
         dateFrom={dateStr}
         dateTo={dateStr}
@@ -115,7 +115,7 @@ function ViewCardRouter({
   if (view.type === 'project_overview_sources') {
     const dateStr = toDateStr(selectedDate)
     return (
-      <ViewCardOverviewSources
+      <ViewCardOverviewSourcesConnected
         view={view}
         dateFrom={dateStr}
         dateTo={dateStr}

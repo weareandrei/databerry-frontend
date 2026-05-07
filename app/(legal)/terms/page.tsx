@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     'The terms governing use of Databerry. Plain-English description of what you can do with the service and what we promise (and don’t).',
 }
 
-const LAST_UPDATED = 'May 2, 2026'
+const LAST_UPDATED = 'May 7, 2026'
 
 export default function TermsPage() {
   return (
@@ -106,9 +106,18 @@ export default function TermsPage() {
           changes they make to their APIs.
         </p>
         <p>
-          You can disconnect any integration at any time from your account
-          settings; we&apos;ll stop fetching data from it immediately and
-          revoke the stored token where the third&#8209;party API supports it.
+          Credentials are encrypted (AES&#8209;256&#8209;GCM with a per&#8209;user
+          derived key) before being written to our database. See the{' '}
+          <a href="/privacy" className="font-medium text-brand hover:underline">
+            Privacy Policy
+          </a>
+          {' '}§5 for the full security architecture.
+        </p>
+        <p>
+          You can disconnect any integration at any time from the Connections
+          page in Databerry. The encrypted credential row is deleted from our
+          primary database immediately, and the third&#8209;party token is
+          revoked where the provider&apos;s API supports it.
         </p>
       </LegalSection>
 
@@ -164,16 +173,27 @@ export default function TermsPage() {
 
       <LegalSection id="termination" title="9. Termination">
         <p>
-          You can stop using the Service and delete your account at any time
-          from your settings page. We may suspend or terminate your access if
-          you breach these Terms or use the Service in a way that risks harm
-          to us, our other users, or the third parties you&apos;ve connected.
+          You can stop using the Service and request account deletion at any
+          time by emailing{' '}
+          <a
+            href="mailto:team@heavenmade.org"
+            className="font-medium text-brand hover:underline"
+          >
+            team@heavenmade.org
+          </a>
+          . We process deletion requests within 48&nbsp;hours of receipt. We
+          may also suspend or terminate your access if you breach these Terms
+          or use the Service in a way that risks harm to us, our other users,
+          or the third parties you&apos;ve connected.
         </p>
         <p>
-          When your account is deleted, we delete your account record, your
-          stored credentials, and the cached data we hold from your
-          integrations. Backups and logs may persist for up to 30 days
-          before being purged.
+          When your account is deleted we wipe your account record, every
+          stored credential (encrypted or otherwise), every project / folder /
+          view you created, and the cached integration data we hold.
+          Database backups and runtime logs continue to age out per our
+          providers&apos; default retention windows; even within those
+          backups, credentials remain in their encrypted form (see Privacy
+          Policy §2.5 + §5).
         </p>
       </LegalSection>
 
@@ -188,11 +208,11 @@ export default function TermsPage() {
 
       <LegalSection id="governing-law" title="11. Governing law">
         <p>
-          These Terms are governed by the laws of the jurisdiction in which
-          Databerry&apos;s operating entity is registered, without regard to
-          conflict&#8209;of&#8209;laws principles. Disputes will be resolved in
-          the courts of that jurisdiction unless mandatory consumer
-          protection laws in your country provide otherwise.
+          Databerry&apos;s legal entity is registered in the State of Wyoming,
+          United States. These Terms are governed by the laws of the State of
+          Wyoming, without regard to conflict&#8209;of&#8209;laws principles.
+          Disputes will be resolved in the courts of Wyoming unless mandatory
+          consumer protection laws in your country provide otherwise.
         </p>
       </LegalSection>
 

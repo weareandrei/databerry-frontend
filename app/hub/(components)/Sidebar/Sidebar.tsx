@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDispatch } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
-import { House, PlugsConnected, List, X, Robot, CaretDown, Plus, Gear } from '@phosphor-icons/react'
+import { House, PlugsConnected, Robot, CaretDown, Plus, Gear } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
@@ -12,6 +12,7 @@ import { SidebarFolderItem } from './SidebarFolderItem'
 import { SidebarTimezone } from './SidebarTimezone'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { setProjectNavIntent } from '@/store/slices/uiSlice'
+import { useIsMobile } from '@/hooks/useMobileBreakpoint'
 import type { AppDispatch } from '@/store'
 
 function SectionHeader({
@@ -48,10 +49,29 @@ function SectionHeader({
   )
 }
 
-function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
+// Exported so the mobile bottom-sheet (`MobileBurgerSheet`) can
+// reuse the exact same nav surface as the desktop sidebar. Pass
+// `onNavigate` to dismiss the sheet on link click — the function
+// is called as a parent-level `onClick`, so any navigation that
+// bubbles up triggers it.
+//
+// `bounded=true` (default) is the desktop sidebar layout: the
+// component fills its `<aside>` parent (`flex-1 min-h-0`) and clips
+// internally so the projects list scrolls inside the fixed-height
+// gutter. `bounded=false` is the bottom-sheet layout: no flex-grow,
+// no overflow clipping — the parent (`BottomDialog` body) is the
+// scroll container, so we just lay out at natural height.
+export function SidebarContents({
+  onNavigate,
+  bounded = true,
+}: {
+  onNavigate?: () => void
+  bounded?: boolean
+}) {
   const { folders: foldersCtx, projects: projectsCtx } = useDashboard()
   const router = useRouter()
   const dispatch = useDispatch<AppDispatch>()
+  const isMobile = useIsMobile()
   const [workspaceCollapsed, setWorkspaceCollapsed] = useState(false)
   const [projectsCollapsed, setProjectsCollapsed] = useState(false)
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
@@ -62,18 +82,47 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
     return next
   })
 
-  // Jump to a project on the home page. The dispatch lands first
-  // (synchronous Redux), then router.push navigates to /hub/home — so
-  // the home page mounts (or re-renders) with the intent already in
-  // state. The intent's nonce bumps every call, so re-clicking the
-  // same project re-fires the consumer's effect.
+  // Jump to a project. Two flavours:
+  //
+  // - Desktop: dispatch a `setProjectNavIntent` and push `/hub/home`.
+  //   The home page already owns scroll-to-project + folder-pre-open
+  //   logic — landing on home with the intent in state is enough to
+  //   trigger it. The intent's nonce bumps every call, so re-clicking
+  //   the same project re-fires the consumer's effect.
+  //
+  // - Mobile: navigate directly to the dedicated route. There's no
+  //   inline "scroll to project" pattern on phones — the desktop
+  //   home tree isn't even rendered (`hidden md:flex`). When a
+  //   `folderId` is supplied, pushing straight to `/hub/folder/<id>`
+  //   gives the user the folder's contents on first paint, vs.
+  //   landing on the project root and asking them to drill in.
+  //
+  // `useIsMobile` returns `false` during SSR + first render, then
+  // settles after mount. Acceptable here: the desktop sidebar is
+  // `hidden md:flex` (clicks fire post-mount, hook is settled), and
+  // the mobile burger sheet is opened post-mount too.
   const goToProject = (projectId: string, folderId?: string) => {
+    if (isMobile) {
+      if (folderId) {
+        router.push(`/hub/folder/${folderId}`)
+      } else {
+        router.push(`/hub/project/${projectId}`)
+      }
+      return
+    }
     dispatch(setProjectNavIntent({ projectId, folderId }))
     router.push('/hub/home')
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 overflow-hidden font-semibold tracking-[0.05em]" onClick={onNavigate}>
+    <div
+      className={
+        bounded
+          ? 'flex flex-col flex-1 min-h-0 overflow-hidden font-semibold tracking-[0.05em]'
+          : 'flex flex-col font-semibold tracking-[0.05em]'
+      }
+      onClick={onNavigate}
+    >
       <div className="px-3 pt-3 pb-7">
         <SidebarUserProfile />
       </div>
@@ -103,8 +152,12 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
         </AnimatePresence>
       </div>
 
-      {/* Projects section */}
-      <div className="flex-1 overflow-hidden flex flex-col">
+      {/* Projects section. On desktop (`bounded`) the section grows
+          to fill the gutter and the inner motion.div scrolls
+          internally. In the bottom-sheet (`!bounded`) the projects
+          list lays out at its natural height; the sheet's own body
+          handles scroll. */}
+      <div className={bounded ? 'flex-1 overflow-hidden flex flex-col' : 'flex flex-col'}>
         <SectionHeader
           label="Projects"
           collapsed={projectsCollapsed}
@@ -239,62 +292,16 @@ function SidebarContents({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false)
-
   return (
-    <>
-      {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-64 z-30">
-        <SidebarContents />
-      </aside>
-
-      {/* Mobile burger button */}
-      <button
-        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-lg hover:bg-black/5"
-        onClick={() => setIsOpen(v => !v)}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          {isOpen ? (
-            <motion.div
-              key="close"
-              initial={{ rotate: -90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: 90, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <X size={22} />
-            </motion.div>
-          ) : (
-            <motion.div
-              key="open"
-              initial={{ rotate: 90, opacity: 0 }}
-              animate={{ rotate: 0, opacity: 1 }}
-              exit={{ rotate: -90, opacity: 0 }}
-              transition={{ duration: 0.15 }}
-            >
-              <List size={22} />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </button>
-
-      {/* Mobile curtain */}
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ y: '-100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '-100%' }}
-            transition={{ duration: 0.25, ease: 'easeInOut' }}
-            className="md:hidden fixed inset-0 z-40 flex flex-col overflow-hidden"
-            style={{ background: '#F4F1F1' }}
-          >
-            <div className="pt-14 flex flex-col flex-1 overflow-hidden">
-              <SidebarContents onNavigate={() => setIsOpen(false)} />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+    // Desktop only. Mobile users get the navigation through
+    // `<MobileTopBar variant="home">`'s burger, which opens
+    // `<MobileBurgerSheet>` (a `BottomDialog` wrapping
+    // `SidebarContents`). The previous fixed-position mobile burger
+    // button + top-down curtain that lived here is gone — having
+    // both surfaces stacked produced "two top headers" on mobile,
+    // and the curtain has been replaced by the bottom-sheet UX.
+    <aside className="hidden md:flex flex-col fixed top-0 left-0 h-screen w-64 z-30">
+      <SidebarContents />
+    </aside>
   )
 }

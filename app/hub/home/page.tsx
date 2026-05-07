@@ -10,6 +10,8 @@ import { GlobalDateModeDropdown } from '@/app/hub/home/(components)/GlobalDateCh
 import { ProjectsGrid } from '@/app/hub/home/(components)/ProjectsGrid/ProjectsGrid'
 import PinnedViews from "@/app/hub/home/(components)/PinnedViews";
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
+import { MobileHomeBody } from '@/app/hub/(components)/mobile/MobileHomeBody'
 
 export default function HomePage() {
   const { projects: projectsCtx, pins: pinsCtx } = useDashboard()
@@ -63,21 +65,38 @@ export default function HomePage() {
 
   return (
     /*
-      The whole page is `h-screen`, NOT scrollable as a single
-      document. The top bar (search + date) sits at the top of this
-      column and never moves; the area below it is the only scroll
-      container on the dashboard. That removes the need for
-      `position: sticky` on the top bar (and its ugly hairline
-      divider), and it also gives sticky elements *inside* the scroll
-      container a clean `top-0` reference frame — no magic offsets.
+      Two layouts in the same tree, gated by Tailwind breakpoints:
 
-      Sticky stack INSIDE the scroll container:
+        - Desktop (md+) renders the existing `h-screen flex flex-col`
+          layout with search bar, sticky labels, and inline project
+          cards. UNCHANGED from before this mobile pass.
+        - Mobile (<md) renders `<MobileTopBar>` + `<MobileHomeBody>`
+          — pinned in single column, projects as a flat list that
+          tap-throughs to the dedicated `/hub/project/<id>` page.
 
-        [ "Projects" label          ]   sticky top-0  z-30  (~32 px)
-        [ Active project header     ]   sticky top-8  z-20
-        [ scrolling project body    ]
+      Both trees are present in the DOM; CSS gates visibility. This
+      avoids a hydration-mismatch flash on first paint that a
+      JS-driven `useIsMobile()` branch would cause.
     */
-    <div className="h-screen flex flex-col">
+    <>
+      {/* ─── Mobile layout (<md) ──────────────────────────────────── */}
+      {/*
+        `flex-1` (rather than `min-h-screen`) makes this div fill the
+        flex-col `<main>`'s remaining space *after* its `pt-[60px]`
+        gutter — without it, `min-h-screen` would push the bottom of
+        this div 60 px past the viewport on mobile (because main is
+        already 100 vh and this child also asks for 100 vh).
+        `<MobileTopBar>` is `position: fixed`, so it doesn't take up
+        space in this flex column — `<MobileHomeBody>`'s `flex-1
+        overflow-y-auto` fills the entire content area below the bar.
+      */}
+      <div className="md:hidden flex-1 flex flex-col bg-main">
+        <MobileTopBar variant="home" />
+        <MobileHomeBody />
+      </div>
+
+      {/* ─── Desktop layout (md+) — UNCHANGED from pre-mobile ────── */}
+      <div className="hidden md:flex h-screen flex-col">
       {/* Top bar — fixed at top of the column, no border, no sticky. */}
       <div className="shrink-0 flex items-center gap-4 pt-6 pb-2 pr-6 bg-main">
         <div className="flex-1 flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 shadow-sm">
@@ -138,6 +157,7 @@ export default function HomePage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   )
 }

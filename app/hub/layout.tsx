@@ -24,7 +24,14 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
             style={{ background: 'var(--c-main)', fontFamily: 'var(--font-jakarta), sans-serif' }}
           >
             <Sidebar />
-            <main className="md:ml-64 flex flex-col pt-12 md:pt-0 min-h-screen">{children}</main>
+            {/* `md:ml-64` reserves the desktop sidebar's 256-px gutter.
+                `pt-[60px] md:pt-0` reserves the gutter under the
+                fixed-position `<MobileTopBar>` on phones — that bar
+                sits `position: fixed` at viewport top, so without this
+                padding every page's first row would slip under it.
+                Desktop never paints the bar (`md:hidden`), so
+                `md:pt-0` keeps the desktop layout pixel-identical. */}
+            <main className="md:ml-64 flex flex-col min-h-screen pt-[60px] md:pt-0">{children}</main>
           </div>
           <CreateProjectModal />
           <CreateFolderModal />

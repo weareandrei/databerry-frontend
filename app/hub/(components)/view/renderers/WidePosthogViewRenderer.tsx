@@ -57,6 +57,15 @@ interface WidePosthogProps {
    */
   onPin?: (viewId: string) => void
   onConnectionAssigned?: (updated: View) => void
+  /**
+   * Forwarded to the picked tile component (`<ViewCardFunnel>` /
+   * `<ViewCardRetention>` / `<ViewCardUsers>`), which threads it
+   * into `<ViewWrapper variant=…>` — `'borderless'` when
+   * `chromeless`. Used by the mobile project body so wide PostHog
+   * tiles sit flat inside its outer white card. Default false →
+   * desktop chrome unchanged.
+   */
+  chromeless?: boolean
 }
 
 function PosthogFunnelRenderer(props: WidePosthogProps) {
@@ -78,6 +87,7 @@ function PosthogFunnelRenderer(props: WidePosthogProps) {
       onRefresh={refresh}
       refreshing={loading}
       onConnectionAssigned={props.onConnectionAssigned}
+      chromeless={props.chromeless}
     />
   )
 }
@@ -102,6 +112,7 @@ function PosthogRetentionRenderer(props: WidePosthogProps) {
       onRefresh={refresh}
       refreshing={loading}
       onConnectionAssigned={props.onConnectionAssigned}
+      chromeless={props.chromeless}
     />
   )
 }
@@ -125,6 +136,7 @@ function PosthogUsersRenderer(props: WidePosthogProps) {
       onRefresh={refresh}
       refreshing={loading}
       onConnectionAssigned={props.onConnectionAssigned}
+      chromeless={props.chromeless}
     />
   )
 }

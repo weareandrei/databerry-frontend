@@ -1,10 +1,47 @@
 'use client'
 
+/**
+ * Composite "project overview" chart tile. Visualises the primary
+ * traffic metric (visitors / pageviews / conversions / revenue)
+ * with an optional secondary overlay (conversion rate / bounce rate
+ * / avg session / revenue), plus a "now" reference line that
+ * advances every minute.
+ *
+ * Props-only data path. The component owns:
+ *   - The metric-dropdown state (UI). Selecting a new metric calls
+ *     back via `onConfigChange(next)`; the caller persists if it
+ *     wants (real → `ALGORITHM.updateView`, demo → no-op).
+ *   - The `nowTick` interval that re-derives `nowLabel` once a
+ *     minute (purely visual, no fetch).
+ *
+ * Everything else — the actual chart payload, loading/error flags,
+ * refresh trigger, conversions-dialog opener — comes from the
+ * caller. Real callers compose `useOverviewChartData()` + render
+ * this component. Demo callers pass static mock data.
+ *
+ * Why split? Real-mode is paired with a Supabase-backed
+ * `PROJECT_OVERVIEW.getChart()` call inside a project page that has
+ * full Redux + dashboard context. The demo (`<InteractableDemo>`
+ * on the landing page) has neither — but the visual surface is the
+ * same. Hoisting the data path above the component keeps a single
+ * source of truth for the design.
+ */
+
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowsClockwise, CaretDown, Check, Cube, DotsThreeVertical, Gear, Plugs, PushPin, PushPinSlash, Target, Warning } from '@phosphor-icons/react'
-import { toast } from 'sonner'
+import {
+  ArrowsClockwise,
+  CaretDown,
+  Check,
+  Cube,
+  DotsThreeVertical,
+  Gear,
+  Plugs,
+  PushPin,
+  PushPinSlash,
+  Target,
+  Warning,
+} from '@phosphor-icons/react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,8 +50,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
-import { ProjectConversionsDialog } from './ProjectConversionsDialog'
-import { ALGORITHM, PROJECT_OVERVIEW, type OverviewChartResponse } from '@/lib/api'
+import type { OverviewChartResponse } from '@/lib/api'
 import { bucketLabelForNow } from '@/utils/overviewBucketLabel'
 import type {
   OverviewPrimaryMetric,
@@ -98,9 +134,51 @@ interface ViewCardOverviewChartProps {
   dateFrom: string
   dateTo: string
   mode: 'daily' | 'weekly' | 'monthly'
+  /**
+   * Currently-selected primary metric. Lifted into the caller (rather
+   * than local state in this component) so the same value drives both
+   * the dropdown UI *and* the data fetch — without that, the caller's
+   * `useOverviewChartData()` and the component's dropdown can drift
+   * (caller doesn't know which metric to refetch with).
+   */
+  primaryMetric: OverviewPrimaryMetric
+  secondaryMetric: OverviewSecondaryMetric
+  /**
+   * Called when the user picks a new metric from either dropdown.
+   * Caller is expected to update its own metric state + (real mode)
+   * persist via `ALGORITHM.updateView`. Demo passes a state-only
+   * setter, no persistence.
+   */
+  onMetricChange: (next: ProjectOverviewChartConfig) => void
+  // Caller-supplied data — real mode threads `useOverviewChartData()`
+  // through; demo mode passes static mock results.
+  chart: OverviewChartResponse | null
+  loading: boolean
+  error: string | null
+  /** Called when the user picks Refresh from the menu. */
+  onRefresh: () => void
+  /**
+   * Optional opener for the project-conversions configuration dialog.
+   * When provided, the menu's "Configure conversions" item fires
+   * this callback. When omitted, the menu item is hidden — used by
+   * the demo, which has no conversions dialog.
+   */
+  onOpenConversions?: () => void
+  /**
+   * Optional /hub/settings opener. When provided, the menu's
+   * "Global settings" item fires this. When omitted, the item is
+   * hidden — same demo escape hatch as `onOpenConversions`.
+   */
+  onOpenSettings?: () => void
   projectName?: string
   onUntrack?: (id: string) => void
   onPin?: (id: string) => void
+  /**
+   * When true, the wrapper renders without its own border + shadow
+   * (mobile project body). The caller is responsible for placing
+   * this tile inside something that already provides the chrome.
+   */
+  chromeless?: boolean
 }
 
 export function ViewCardOverviewChart({
@@ -108,22 +186,25 @@ export function ViewCardOverviewChart({
   dateFrom,
   dateTo,
   mode,
+  primaryMetric,
+  secondaryMetric,
+  onMetricChange,
+  chart,
+  loading,
+  error,
+  onRefresh,
+  onOpenConversions,
+  onOpenSettings,
   projectName,
   onUntrack,
   onPin,
+  chromeless = false,
 }: ViewCardOverviewChartProps) {
-  const initialConfig = useMemo(() => readConfig(view), [view])
-  const [config, setConfig] = useState<ProjectOverviewChartConfig>(initialConfig)
-  const [chart, setChart] = useState<OverviewChartResponse | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [refreshTick, setRefreshTick] = useState(0)
-  const [conversionsOpen, setConversionsOpen] = useState(false)
   // `nowTick` bumps once per minute so the "now" reference line advances to
   // the next bucket when the wall clock crosses an hour/day boundary without
-  // requiring a refetch.
+  // requiring a refetch. Purely visual — this is the only state the
+  // component owns; data + selected metrics live above.
   const [nowTick, setNowTick] = useState(0)
-  const router = useRouter()
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(t => t + 1), 60_000)
@@ -137,87 +218,40 @@ export function ViewCardOverviewChart({
     [mode, dateFrom, dateTo, nowTick],
   )
 
-  const persistConfig = async (next: ProjectOverviewChartConfig) => {
-    try {
-      await ALGORITHM.updateView(view.id, {
-        config: next as unknown as Record<string, unknown>,
-      })
-    } catch {
-      toast.error('Failed to save view settings')
-    }
-  }
+  const onPrimaryChange = (next: OverviewPrimaryMetric) =>
+    onMetricChange({ primaryMetric: next, secondaryMetric })
+  const onSecondaryChange = (next: OverviewSecondaryMetric) =>
+    onMetricChange({ primaryMetric, secondaryMetric: next })
 
-  const onPrimaryChange = (primaryMetric: OverviewPrimaryMetric) => {
-    const next = { ...config, primaryMetric }
-    setConfig(next)
-    void persistConfig(next)
-  }
-  const onSecondaryChange = (secondaryMetric: OverviewSecondaryMetric) => {
-    const next = { ...config, secondaryMetric }
-    setConfig(next)
-    void persistConfig(next)
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    PROJECT_OVERVIEW.getChart(
-      view.projectId,
-      dateFrom,
-      dateTo,
-      mode,
-      config.primaryMetric,
-      config.secondaryMetric,
-    )
-      .then(chartRes => {
-        if (!cancelled) setChart(chartRes)
-      })
-      .catch(err => {
-        if (!cancelled)
-          setError(err instanceof Error ? err.message : 'Failed to load overview')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [
-    view.projectId,
-    dateFrom,
-    dateTo,
-    mode,
-    config.primaryMetric,
-    config.secondaryMetric,
-    refreshTick,
-  ])
-
-  const refresh = () => setRefreshTick(t => t + 1)
   const primaryUnavailable = chart?.primaryUnavailable ?? false
   const secondaryUnavailable = chart?.secondaryUnavailable ?? false
   const totalPrimary = chart?.totalPrimary ?? 0
 
   return (
-    <ViewWrapper variant="borderless">
+    <ViewWrapper variant={chromeless ? 'borderless' : 'borderless'}>
       {/* Metric selectors row — replaces the standard header for this composite view.
           When a projectName is passed (pinned views on Home), a small project pill
           sits after the metric dropdowns so the user can see which project the
           card came from. On a project page the pill is omitted (the project
-          context is already obvious from the route). */}
+          context is already obvious from the route).
+
+          Note: the wrapper above always renders `borderless` regardless of
+          `chromeless` — this composite tile has its own bespoke layout that
+          doesn't use the standard view-card border + shadow chrome. The prop
+          is accepted for API uniformity with the rest of the tile components. */}
       <div className="px-4 pt-3.5 pb-3 flex items-center gap-4 flex-wrap shrink-0">
         <MetricDropdown
           label="Primary"
-          value={config.primaryMetric}
+          value={primaryMetric}
           options={PRIMARY_OPTIONS}
           onChange={onPrimaryChange}
         />
         <MetricDropdown
           label="Overlay"
-          value={config.secondaryMetric}
+          value={secondaryMetric}
           options={SECONDARY_OPTIONS}
           onChange={onSecondaryChange}
-          colorDot={config.secondaryMetric ? '#F46719' : undefined}
+          colorDot={secondaryMetric ? '#F46719' : undefined}
         />
         {projectName && (
           <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
@@ -239,20 +273,24 @@ export function ViewCardOverviewChart({
               <DotsThreeVertical size={18} weight="bold" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuItem
-                onClick={() => setConversionsOpen(true)}
-                className="text-sm gap-2"
-              >
-                <Target size={13} weight="bold" />
-                Configure conversions
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => router.push('/hub/settings')}
-                className="text-sm gap-2"
-              >
-                <Gear size={13} weight="bold" />
-                Global settings
-              </DropdownMenuItem>
+              {onOpenConversions && (
+                <DropdownMenuItem
+                  onClick={onOpenConversions}
+                  className="text-sm gap-2"
+                >
+                  <Target size={13} weight="bold" />
+                  Configure conversions
+                </DropdownMenuItem>
+              )}
+              {onOpenSettings && (
+                <DropdownMenuItem
+                  onClick={onOpenSettings}
+                  className="text-sm gap-2"
+                >
+                  <Gear size={13} weight="bold" />
+                  Global settings
+                </DropdownMenuItem>
+              )}
               {onPin && (
                 <DropdownMenuItem
                   onClick={() => onPin(view.id)}
@@ -266,7 +304,7 @@ export function ViewCardOverviewChart({
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
-                onClick={refresh}
+                onClick={onRefresh}
                 disabled={loading}
                 className="text-sm gap-2"
               >
@@ -322,20 +360,38 @@ export function ViewCardOverviewChart({
             </div>
           ) : chart ? (
             <>
-              <OverviewChart
-                data={chart}
-                primaryMetric={config.primaryMetric}
-                secondaryMetric={config.secondaryMetric}
-                nowLabel={nowLabel}
-              />
-              {secondaryUnavailable && config.secondaryMetric && (
+              {/*
+                Horizontal-scroll wrapper for mobile. A 7-day daily chart
+                squishes to ~40 px per bar on a 350-px-wide phone, which
+                is unreadable. We give the chart `min-w-[560px]` (≈80 px
+                per bar) and let the parent scroll it horizontally; the
+                negative + positive horizontal padding bleeds the
+                scroll container to the card's edges so the right-edge
+                clip reads as a "scroll for more →" cue.
+
+                Desktop (`md:`) reverts to the existing behaviour
+                — `overflow-visible`, no min-width, no negative
+                padding — so the responsive container fills the card
+                cleanly with no stray scrollbar.
+              */}
+              <div className="absolute inset-0 overflow-x-auto md:overflow-x-visible -mx-4 md:mx-0 px-4 md:px-0">
+                <div className="h-full min-w-[560px] md:min-w-0">
+                  <OverviewChart
+                    data={chart}
+                    primaryMetric={primaryMetric}
+                    secondaryMetric={secondaryMetric}
+                    nowLabel={nowLabel}
+                  />
+                </div>
+              </div>
+              {secondaryUnavailable && secondaryMetric && (
                 <p className="absolute left-2 bottom-0 text-[11px] text-grey-light">
-                  {config.secondaryMetric === 'bounce_rate' ||
-                  config.secondaryMetric === 'avg_session_sec'
+                  {secondaryMetric === 'bounce_rate' ||
+                  secondaryMetric === 'avg_session_sec'
                     ? `${
-                        config.secondaryMetric === 'bounce_rate' ? 'Bounce rate' : 'Avg. session'
+                        secondaryMetric === 'bounce_rate' ? 'Bounce rate' : 'Avg. session'
                       } requires Google Analytics.`
-                    : config.secondaryMetric === 'conversion_rate'
+                    : secondaryMetric === 'conversion_rate'
                       ? 'Configure conversions from the menu to see the rate line.'
                       : 'This overlay is unavailable for the current setup.'}
                 </p>
@@ -344,12 +400,6 @@ export function ViewCardOverviewChart({
           ) : null}
         </div>
       </div>
-
-      <ProjectConversionsDialog
-        projectId={view.projectId}
-        open={conversionsOpen}
-        onOpenChange={setConversionsOpen}
-      />
     </ViewWrapper>
   )
 }

@@ -77,7 +77,7 @@ const Navbar = () => {
               href="/signup"
               className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
             >
-              Sign up
+              Start
             </Link>
           </div>
         </div>
@@ -105,7 +105,7 @@ const Navbar = () => {
                 className="text-3xl font-semibold text-gray-900 hover:text-orange-500 transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
-                Sign up
+                Start
               </Link>
               <Link
                 href="/login"

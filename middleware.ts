@@ -1,17 +1,33 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-// Pages reachable without an active session. The two `forgot/reset`
-// routes belong here even though they involve auth flows — they're
-// the *recovery path* for users who can't sign in normally
-// (e.g. signed up via Google OAuth originally and now want a password).
-const PUBLIC_PATHS = [
-  '/',
+// Two flavours of "public" path:
+//
+//   - `AUTH_PUBLIC_PATHS` are pages a *signed-out* user can hit but
+//     a *signed-in* user has no business on (login / signup / the
+//     password recovery path). Visiting one of these while logged in
+//     should bounce to `/hub/home`.
+//
+//   - `UNIVERSAL_PUBLIC_PATHS` are pages anyone can read regardless
+//     of auth state (landing page + legal pages). These DO NOT
+//     bounce a logged-in visitor; the user gets the page they asked
+//     for.
+//
+// Splitting the two lists is what fixes the previous bug where
+// hitting `/terms` while logged in redirected to `/hub/home` —
+// `/terms` was lumped in with the auth-flow paths and got the
+// authenticated-redirect treatment.
+const AUTH_PUBLIC_PATHS = [
   '/login',
   '/signup',
   '/forgot-password',
   '/auth/callback',
   '/auth/reset-password',
+]
+const UNIVERSAL_PUBLIC_PATHS = [
+  '/',
+  '/terms',
+  '/privacy',
 ]
 const DEFAULT_AUTHENTICATED = '/hub/home'
 const DEFAULT_UNAUTHENTICATED = '/login'
@@ -48,7 +64,17 @@ export async function middleware(request: NextRequest) {
     // Edge runtime error — fail open so the page can handle it
   }
 
-  const isPublic = PUBLIC_PATHS.some(p => (p === '/' ? pathname === '/' : pathname.startsWith(p)))
+  // Match against both lists for the "is this path public at all"
+  // check; only `AUTH_PUBLIC_PATHS` participates in the
+  // authenticated-bounce decision below. `/` is matched exactly
+  // (every path technically starts with it); legal + auth paths
+  // match by `startsWith` so future sub-routes work too (e.g.
+  // `/terms/changelog`).
+  const matchesPath = (p: string) =>
+    p === '/' ? pathname === '/' : pathname.startsWith(p)
+  const isAuthPublic = AUTH_PUBLIC_PATHS.some(matchesPath)
+  const isUniversalPublic = UNIVERSAL_PUBLIC_PATHS.some(matchesPath)
+  const isPublic = isAuthPublic || isUniversalPublic
 
   // Unauthenticated → redirect to login
   if (!user && !isPublic) {
@@ -82,15 +108,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/reset-password', request.url))
   }
 
-  // Authenticated → redirect away from auth pages (but not the landing
-  // page, and not the password reset route — a user might already
-  // have a session AND need to set a password (e.g. Google-OAuth-only
-  // signups adding a password later via the recovery flow). Bouncing
-  // them off `/auth/reset-password` would break that path.
+  // Authenticated → redirect away from AUTH-flow pages only
+  // (login / signup / forgot-password / auth callback). Universal
+  // public paths (`/`, `/terms`, `/privacy`) are deliberately
+  // excluded so a logged-in user can still read them.
+  //
+  // `/auth/reset-password` is also excluded from the bounce — a
+  // user might already have a session AND need to set a password
+  // (e.g. Google-OAuth-only signup adding a password via the
+  // recovery flow). Bouncing them off would break that path.
   if (
     user &&
-    isPublic &&
-    pathname !== '/' &&
+    isAuthPublic &&
     !pathname.startsWith('/auth/reset-password')
   ) {
     return NextResponse.redirect(new URL(DEFAULT_AUTHENTICATED, request.url))

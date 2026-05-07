@@ -85,6 +85,11 @@ interface ViewCardChartProps {
    * parent won't know to update.
    */
   onConnectionAssigned?: (updated: View) => void
+  /** See `ViewCard.chromeless`. Drops border + shadow when nested
+   *  inside an outer card (mobile project body). */
+  chromeless?: boolean
+  /** See `ViewCard.dense`. Demo-only; tightens the header rung. */
+  dense?: boolean
 }
 
 export function ViewCardChart({
@@ -103,6 +108,8 @@ export function ViewCardChart({
   onPin,
   isPinned,
   onConnectionAssigned,
+  chromeless = false,
+  dense = false,
 }: ViewCardChartProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   // Mirror `ViewCard`'s reattach plumbing: track strict orphans
@@ -116,7 +123,7 @@ export function ViewCardChart({
 
   return (
     <>
-    <ViewWrapper className="col-span-2 row-span-2">
+    <ViewWrapper className="col-span-2 row-span-2" variant={chromeless ? 'borderless' : 'default'}>
       <ViewHeader
         name={title}
         connectionType={view.connectionType}
@@ -131,6 +138,7 @@ export function ViewCardChart({
         refreshing={refreshing}
         onPin={onPin}
         isPinned={isPinned}
+        dense={dense}
       />
 
       <div className="px-4 mt-2 shrink-0">

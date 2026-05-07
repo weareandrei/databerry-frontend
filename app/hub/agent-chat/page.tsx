@@ -23,7 +23,8 @@ import { useEffect, useRef, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSelector } from 'react-redux'
 import { v4 as uuidv4 } from 'uuid'
-import { Warning } from '@phosphor-icons/react'
+import { Trash, Warning } from '@phosphor-icons/react'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
 import { ChatHeader } from './(components)/ChatHeader'
 import { ChatEmpty } from './(components)/ChatEmpty'
 import { ChatMessage } from './(components)/ChatMessage'
@@ -202,8 +203,47 @@ function AgentChat() {
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      <ChatHeader hasMessages={messages.length > 0} onClear={clear} />
+    /*
+      `flex-1 min-h-0` instead of `h-screen` so this column fills
+      `<main>`'s remaining space *after* its `pt-[60px]` mobile gutter
+      (used to reserve room for the fixed `<MobileTopBar>`). With
+      `h-screen` the column would extend exactly 100 vh down from
+      its origin, overshooting the viewport bottom by 60 px on
+      phones. `min-h-0` lets the inner `flex-1 overflow-y-auto` log
+      shrink instead of growing past the column — standard flex-
+      child shrink trick, same one `home/page.tsx` uses.
+    */
+    <div className="flex-1 min-h-0 flex flex-col">
+      {/*
+        Mobile top bar — internally `md:hidden`. Carries the title and
+        a Trash icon-button on the right that triggers `clear` (only
+        when there's something to clear, mirroring the desktop
+        `<ChatHeader>`'s gating). The chat log + input stay shared
+        between layouts — single tree, two top-bar variants chosen by
+        breakpoint.
+      */}
+      <MobileTopBar
+        variant="page"
+        title="Ask AI"
+        rightSlot={
+          messages.length > 0 ? (
+            <button
+              type="button"
+              onClick={clear}
+              aria-label="Clear chat"
+              className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-grey-darkest hover:bg-hover-fill transition-colors shrink-0"
+            >
+              <Trash size={14} weight="bold" />
+            </button>
+          ) : null
+        }
+      />
+      {/* Desktop header — title + subtitle + Clear button. Wrapped in
+          `hidden md:block` so the mobile bar is the only header at
+          phone widths. */}
+      <div className="hidden md:block">
+        <ChatHeader hasMessages={messages.length > 0} onClear={clear} />
+      </div>
 
       {/*
         Beta warning — Ask AI is still under active development.
@@ -212,7 +252,7 @@ function AgentChat() {
         scroll position. Amber tone matches the warning treatment used
         for view-tile reattach prompts elsewhere in the app.
       */}
-      <div className="shrink-0 mx-4 mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+      <div className="shrink-0 mx-4 mt-3 md:mt-0 mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
         <Warning size={14} weight="bold" className="shrink-0" />
         <span>
           Ask AI is still in early development — answers may be inaccurate,

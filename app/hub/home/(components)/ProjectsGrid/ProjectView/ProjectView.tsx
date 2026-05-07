@@ -27,27 +27,17 @@ import { ProjectViewBreadCrumbs } from './ProjectViewBreadCrumbs'
 import { ProjectMenu } from './ProjectMenu'
 import { EditProjectDialog } from './EditProjectDialog'
 import { DeleteProjectDialog } from './DeleteProjectDialog'
-import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
-import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
-import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
-import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
-import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
+import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
+import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
 import {
   WidePosthogViewRenderer,
   isWidePosthogView,
 } from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
-import {
-  isStripeChartView,
-  useCalendlyMeetings,
-  useStripeChart,
-  useStripeTopCustomers,
-  useViewLiveValue,
-} from '@/app/hub/(components)/view/data'
+import { ViewCardRenderer } from '@/app/hub/(components)/view/renderers/ViewCardRenderer'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { useStripeSyncOnMount } from '@/lib/hooks/useStripeSyncOnMount'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { formatIsoDateRange, periodBoundariesInTz, todayInTz } from '@/utils/dateHelpers'
+import { periodBoundariesInTz, todayInTz } from '@/utils/dateHelpers'
 import type { RootState } from '@/store'
 import type { Project } from '@/types/project'
 import type { Folder } from '@/types/folder'
@@ -55,29 +45,32 @@ import type { View } from '@/types/view'
 import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { Button } from '@/components/ui/button'
 
-// ── View-type dispatch helpers ─────────────────────────────────────────────
-
-function isCalendlyMeetingsListView(view: View): boolean {
-  return view.connectionType === 'calendly' && view.type === 'calendly_meetings_list'
-}
-
-function isStripeTopCustomersView(view: View): boolean {
-  return (
-    (view.connectionType === 'stripe_manual' || view.connectionType === 'stripe') &&
-    view.type === 'stripe_top_customers'
-  )
-}
-
-function isListView(view: View): boolean {
-  // Calendly meetings + Stripe top customers both go through the wide list
-  // lane — each has its own card component (different row shape) but they
-  // share this dispatch helper so `ViewCardRenderer` only branches once.
-  return isCalendlyMeetingsListView(view) || isStripeTopCustomersView(view)
-}
+// `ViewCardRenderer` and its view-type predicate helpers
+// (`isCalendlyMeetingsListView`, `isStripeTopCustomersView`,
+// `isListView`) used to live inline in this file. Extracted to
+// `app/hub/(components)/view/renderers/ViewCardRenderer.tsx` so
+// the mobile project body can import the same dispatch logic.
+// `ProjectBodyViews` below imports what it needs to partition
+// views by lane.
 
 // ── Project-level state hook ───────────────────────────────────────────────
 
-function useProjectView(
+/**
+ * Drives the desktop `<ProjectView>` and the mobile `<MobileProjectBody>`
+ * with the same fetch path. Owns folder navigation (current folder + back),
+ * date-range awareness (`isRange`), optimistic untrack/pin, and the live-on-
+ * mount Stripe sync. Both call sites pass:
+ *
+ *   - `project` — the project being rendered
+ *   - `initialFolderId` — desktop sidebar's nav intent for this project
+ *     (mobile passes `null`; the project page enters at root)
+ *   - `navNonce` — bumped on each sidebar nav (desktop only). Mobile
+ *     passes `0` since the route push is the navigation primitive there.
+ *
+ * Exported so the mobile body in `(components)/mobile/MobileProjectBody.tsx`
+ * can drive itself off the same source of truth as the desktop body.
+ */
+export function useProjectView(
   project: Project,
   initialFolderId: string | null,
   navNonce: number,
@@ -225,124 +218,8 @@ function useProjectView(
   }
 }
 
-// ── View card renderer ─────────────────────────────────────────────────────
-
-/**
- * View types that get a date-range caption rendered below their value.
- * Currently just MRR — the caption answers "for which period was this
- * computed?", which is more meaningful for snapshot-style metrics than
- * for "today" tiles (e.g. `stripe_revenue_today` already says "today"
- * in its name; a redundant caption would just take vertical space).
- *
- * Lives here (not inside `ViewCard`) because the decision "should this
- * tile show a date caption?" is a CALLER concern: the page knows about
- * the global date range, ViewCard does not. Moving the predicate here
- * lets ViewCard stay provider-free.
- */
-const DATE_RANGE_CAPTION_TYPES = new Set(['stripe_mrr'])
-
-interface ViewCardRendererProps {
-  view: View
-  isRange: boolean
-  dateFrom: string
-  dateTo: string
-  mode: 'daily' | 'weekly' | 'monthly'
-  /** User's currently-selected timezone, threaded into per-view data
-   *  hooks so day-bucketing math runs in wall-clock time. Read once at
-   *  the top of `useProjectView` from `state.ui.globalTimeZone`. */
-  tz: string | null
-  onUntrack: (id: string) => void
-  onPin: (viewId: string) => void
-  onConnectionAssigned: (updated: View) => void
-}
-
-function ViewCardRenderer({
-  view,
-  isRange,
-  dateFrom,
-  dateTo,
-  mode,
-  tz,
-  onUntrack,
-  onPin,
-  onConnectionAssigned,
-}: ViewCardRendererProps) {
-  const live = useViewLiveValue(view, { dateFrom, dateTo, tz })
-  const chart = useStripeChart(view, { dateFrom, dateTo, mode, tz })
-  const meetings = useCalendlyMeetings(view, { dateFrom, dateTo, tz })
-  const customers = useStripeTopCustomers(view, { dateFrom, dateTo, tz })
-
-  // Compute the optional caption string for view types that benefit
-  // from one (currently MRR). `formatIsoDateRange` returns null on
-  // missing/invalid input, which `<ViewCard>` interprets as "no
-  // caption" — keeps the dispatcher branchless.
-  const dateRangeLabel = DATE_RANGE_CAPTION_TYPES.has(view.type)
-    ? formatIsoDateRange(dateFrom, dateTo) ?? undefined
-    : undefined
-
-  const handlePin = () => onPin(view.id)
-  const sharedCardProps = {
-    view,
-    onUntrack,
-    onConnectionAssigned,
-    onPin: handlePin,
-    isPinned: view.isPinned,
-    historical: isRange,
-  }
-
-  if (isStripeChartView(view)) {
-    return (
-      <ViewCardChart
-        {...sharedCardProps}
-        points={chart.points}
-        loading={chart.loading}
-        error={chart.error}
-        total={chart.total}
-        onRefresh={chart.refresh}
-        refreshing={chart.loading}
-      />
-    )
-  }
-  if (isStripeTopCustomersView(view)) {
-    return (
-      <ViewCardCustomerList
-        {...sharedCardProps}
-        customers={customers.customers}
-        loading={customers.loading}
-        error={customers.error}
-        onRefresh={customers.refresh}
-        refreshing={customers.loading}
-      />
-    )
-  }
-  if (isListView(view)) {
-    return (
-      <ViewCardList
-        {...sharedCardProps}
-        meetings={meetings.meetings}
-        loading={meetings.loading}
-        error={meetings.error}
-        onRefresh={meetings.refresh}
-        refreshing={meetings.loading}
-      />
-    )
-  }
-  return (
-    <ViewCard
-      view={view}
-      onUntrack={onUntrack}
-      liveValue={live.liveValue}
-      liveLoading={live.liveLoading}
-      liveError={live.liveError}
-      onRefresh={live.refresh}
-      refreshing={live.liveLoading}
-      onPin={handlePin}
-      isPinned={view.isPinned}
-      onConnectionAssigned={onConnectionAssigned}
-      dateRangeLabel={dateRangeLabel}
-    />
-  )
-}
+// ── View card renderer ─ moved to (components)/view/renderers/ViewCardRenderer.tsx
+// (imported below as `ViewCardRenderer`).
 
 // ── Main component ─────────────────────────────────────────────────────────
 
@@ -682,7 +559,7 @@ function ProjectBodyViews({
       {(chartView || sourcesView) && (
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
           {chartView && (
-            <ViewCardOverviewChart
+            <ViewCardOverviewChartConnected
               key={chartView.id}
               view={chartView}
               dateFrom={dateFrom}
@@ -693,7 +570,7 @@ function ProjectBodyViews({
             />
           )}
           {sourcesView && (
-            <ViewCardOverviewSources
+            <ViewCardOverviewSourcesConnected
               key={sourcesView.id}
               view={sourcesView}
               dateFrom={dateFrom}

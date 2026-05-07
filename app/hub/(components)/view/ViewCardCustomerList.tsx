@@ -118,6 +118,10 @@ interface ViewCardCustomerListProps {
   onPin?: () => void
   isPinned?: boolean
   onConnectionAssigned?: (updated: View) => void
+  /** See `ViewCard.chromeless`. */
+  chromeless?: boolean
+  /** See `ViewCard.dense`. Demo-only. */
+  dense?: boolean
 }
 
 export function ViewCardCustomerList({
@@ -133,6 +137,8 @@ export function ViewCardCustomerList({
   onPin,
   isPinned,
   onConnectionAssigned,
+  chromeless = false,
+  dense = false,
 }: ViewCardCustomerListProps) {
   const [reassignOpen, setReassignOpen] = useState(false)
   const isDisconnected = !view.connectionId
@@ -141,7 +147,7 @@ export function ViewCardCustomerList({
 
   return (
     <>
-      <ViewWrapper className="col-span-2 row-span-2">
+      <ViewWrapper className="col-span-2 row-span-2" variant={chromeless ? 'borderless' : 'default'}>
         <ViewHeader
           name={view.name}
           connectionType={view.connectionType}
@@ -156,6 +162,7 @@ export function ViewCardCustomerList({
           refreshing={refreshing}
           onPin={onPin}
           isPinned={isPinned}
+          dense={dense}
         />
 
         <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">

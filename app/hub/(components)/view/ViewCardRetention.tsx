@@ -56,6 +56,8 @@ interface ViewCardRetentionProps {
   onPin?: () => void
   isPinned?: boolean
   onConnectionAssigned?: (updated: View) => void
+  /** See `ViewCard.chromeless`. */
+  chromeless?: boolean
 }
 
 export function ViewCardRetention({
@@ -71,6 +73,7 @@ export function ViewCardRetention({
   onPin,
   isPinned,
   onConnectionAssigned,
+  chromeless = false,
 }: ViewCardRetentionProps) {
   const [reassignOpen, setReassignOpen] = useState(false)
   const isDisconnected = !view.connectionId
@@ -84,7 +87,7 @@ export function ViewCardRetention({
 
   return (
     <>
-      <ViewWrapper className="w-full">
+      <ViewWrapper className="w-full" variant={chromeless ? 'borderless' : 'default'}>
         <ViewHeader
           name={view.name}
           connectionType={view.connectionType}
