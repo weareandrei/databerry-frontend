@@ -44,12 +44,14 @@ import { INITIAL_VIEWS, type DemoView } from './demoSeedViews'
 import {
   avgColumn,
   chartPoints,
+  chooseGranularity,
   groupRowsByGranularity,
   lastColumn,
   loadDemoTimeSeries,
   sumColumn,
   type DemoTimeSeriesRow,
 } from './demoTimeSeries'
+import { SOURCE_STYLE } from '@/constants/trafficSources'
 import type { OverviewChartResponse } from '@/lib/api'
 
 // ─── Types re-exported for callers ────────────────────────────────────────
@@ -183,21 +185,16 @@ function deriveView(
   }
 }
 
-// Per-project overview-chart palette — must stay in sync with
-// `DEMO_SOURCE_COLOR` in `demoMocks.ts`. Inlined here (not imported)
-// because we'd otherwise create a circular dep: `demoMocks` already
-// owns the static `MOCK_OVERVIEW_CHARTS` and importing back from it
-// would close the loop.
-const ACME_PALETTE = {
-  organic:  '#FB923C',
-  direct:   '#F46719',
-  referral: '#94A3B8',
-} as const
-const SIDE_PALETTE = {
-  direct:   '#F46719',
-  organic:  '#FB923C',
-  social:   '#CBD5E1',
-} as const
+// Per-source colours — pulled from `trafficSources.ts`'s `SOURCE_STYLE`
+// table at module load so we don't duplicate brand colours. Every key
+// here is also a real production source key, so the demo's chart
+// renders with the same colour the real dashboard would use for the
+// same source. `SOURCE_STYLE` lookups can theoretically be undefined
+// for an unknown key; the fallback `''` would render an empty colour
+// (recharts then defaults to its own palette), but in practice every
+// key below is in `SOURCE_STYLE` — the `??` is belt-and-braces.
+const SOURCE_COLOR = (key: string): string =>
+  SOURCE_STYLE[key]?.color ?? ''
 
 /**
  * Build an `OverviewChartResponse` for a project from the CSV rows
@@ -230,17 +227,26 @@ function buildOverviewChart(
     rs.length === 0 ? 0 : sumOver(rs, col) / rs.length
 
   if (projectId === 'proj-acme') {
+    // Acme has 5 sources — generic organic + direct, plus three
+    // branded referrers (Reddit / X / ProductHunt). Source keys
+    // match what production's `SOURCE_STYLE` table recognises so
+    // the renderers pick up brand colours + brand logos
+    // automatically.
     const buckets = groups.map(g => {
-      const organic  = sumOver(g.rows, 'acme_visitors_organic')
-      const direct   = sumOver(g.rows, 'acme_visitors_direct')
-      const referral = sumOver(g.rows, 'acme_visitors_referral')
+      const organic     = sumOver(g.rows, 'acme_visitors_organic')
+      const direct      = sumOver(g.rows, 'acme_visitors_direct')
+      const reddit      = sumOver(g.rows, 'acme_visitors_reddit')
+      const x           = sumOver(g.rows, 'acme_visitors_x')
+      const producthunt = sumOver(g.rows, 'acme_visitors_producthunt')
       return {
         label: g.label,
-        total: organic + direct + referral,
+        total: organic + direct + reddit + x + producthunt,
         bySource: [
-          { source: 'organic',  label: 'Organic',  color: ACME_PALETTE.organic,  value: organic },
-          { source: 'direct',   label: 'Direct',   color: ACME_PALETTE.direct,   value: direct },
-          { source: 'referral', label: 'Referral', color: ACME_PALETTE.referral, value: referral },
+          { source: 'organic',     label: 'Organic',     color: SOURCE_COLOR('organic'),     value: organic },
+          { source: 'direct',      label: 'Direct',      color: SOURCE_COLOR('direct'),      value: direct },
+          { source: 'reddit',      label: 'Reddit',      color: SOURCE_COLOR('reddit'),      value: reddit },
+          { source: 'x',           label: 'x.com',       color: SOURCE_COLOR('x'),           value: x },
+          { source: 'producthunt', label: 'ProductHunt', color: SOURCE_COLOR('producthunt'), value: producthunt },
         ],
         // Conversion is a rate — average across the bucket's days,
         // not sum (summing percentages would be meaningless).
@@ -256,17 +262,20 @@ function buildOverviewChart(
   }
 
   if (projectId === 'proj-side') {
+    // Side — leaner showcase, only 3 sources (organic / direct /
+    // reddit). Keeps the chart visually less busy than Acme's
+    // 5-source stack.
     const buckets = groups.map(g => {
-      const direct  = sumOver(g.rows, 'side_visitors_direct')
       const organic = sumOver(g.rows, 'side_visitors_organic')
-      const social  = sumOver(g.rows, 'side_visitors_social')
+      const direct  = sumOver(g.rows, 'side_visitors_direct')
+      const reddit  = sumOver(g.rows, 'side_visitors_reddit')
       return {
         label: g.label,
-        total: direct + organic + social,
+        total: organic + direct + reddit,
         bySource: [
-          { source: 'direct',  label: 'Direct',  color: SIDE_PALETTE.direct,  value: direct },
-          { source: 'organic', label: 'Organic', color: SIDE_PALETTE.organic, value: organic },
-          { source: 'social',  label: 'Social',  color: SIDE_PALETTE.social,  value: social },
+          { source: 'organic', label: 'Organic', color: SOURCE_COLOR('organic'), value: organic },
+          { source: 'direct',  label: 'Direct',  color: SOURCE_COLOR('direct'),  value: direct },
+          { source: 'reddit',  label: 'Reddit',  color: SOURCE_COLOR('reddit'),  value: reddit },
         ],
         // Side has no secondary metric in seed data — keep it `null`
         // so `<ViewCardOverviewChart>` shows the secondary picker as
@@ -417,11 +426,49 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // ─── Date ──────────────────────────────────────────────────────────────
+  //
+  // Mode and range are coupled both ways so picking either pill in
+  // `<DemoTopBar>` produces a visible change:
+  //   - Picking a MODE auto-selects a range whose auto-granularity
+  //     matches: daily → last 7 d, weekly → last 30 d, monthly → last
+  //     90 d. (Bare-mode toggle without a matching range was a no-op
+  //     visually because `chartPoints`'s auto-bucketing reads off the
+  //     range, not the mode label.)
+  //   - Picking a RANGE auto-derives the mode from the same
+  //     `chooseGranularity` logic, so the mode pill's label always
+  //     mirrors what the chart is actually doing.
+  // Real dashboard treats mode + range as independent dimensions
+  // (mode = bucket granularity, range = period); for the demo we
+  // collapse them so the two pills can't drift out of sync — gives a
+  // simpler "picking either one makes things change" UX.
   const setGlobalDateMode = useCallback((mode: DateMode) => {
-    setGlobalDate(d => ({ ...d, mode }))
+    setGlobalDate(() => {
+      const to = TODAY_ISO
+      // ISO-date math via Date arithmetic — safe for all reasonable
+      // demo ranges (we never cross year boundaries by enough to
+      // worry about leap-year DST etc.).
+      const back = (n: number) => {
+        const d = new Date(`${to}T00:00:00Z`)
+        d.setUTCDate(d.getUTCDate() - n)
+        return d.toISOString().slice(0, 10)
+      }
+      const from =
+        mode === 'daily'   ? back(6)   // 7 days inclusive
+        : mode === 'weekly' ? back(29) // 30 days inclusive
+        : back(89)                       // 90 days inclusive (monthly)
+      return { mode, from, to }
+    })
   }, [])
   const setGlobalDateRange = useCallback((from: string, to: string) => {
-    setGlobalDate(d => ({ ...d, from, to }))
+    setGlobalDate(() => {
+      // Derive the displayed mode from the picked range so the mode
+      // pill's label stays honest. `chooseGranularity` returns
+      // `'day' | 'week' | 'month'`; map onto the demo's three modes.
+      const g = chooseGranularity(from, to)
+      const mode: DateMode =
+        g === 'day' ? 'daily' : g === 'week' ? 'weekly' : 'monthly'
+      return { mode, from, to }
+    })
   }, [])
 
   // ─── Project mutations ─────────────────────────────────────────────────

@@ -25,23 +25,36 @@ export interface NormalizedSource {
 // Generic sources (`direct`, `other`) use neutrals so they recede behind
 // the named sources rather than competing.
 export const SOURCE_STYLE: Record<string, NormalizedSource> = {
-  direct:     { key: 'direct',     label: 'direct',      color: '#94a3b8' }, // slate-400 — neutral, recedes
-  chatgpt:    { key: 'chatgpt',    label: 'ChatGPT',     color: '#10a37f', logo: '/logos/chatgpt.svg' }, // brand emerald
-  google:     { key: 'google',     label: 'Google',      color: '#ffffff', outlined: true, logo: '/logos/google.svg' },
-  x:          { key: 'x',          label: 'x.com',       color: '#1f2937', logo: '/logos/x.png' }, // X wordmark grey
-  reddit:     { key: 'reddit',     label: 'Reddit',      color: '#F46719', logo: '/logos/reddit.svg' }, // brand orange
-  youtube:    { key: 'youtube',    label: 'YouTube',     color: '#f43f5e' }, // rose-500
-  facebook:   { key: 'facebook',   label: 'Facebook',    color: '#3b82f6' }, // blue-500
-  linkedin:   { key: 'linkedin',   label: 'LinkedIn',    color: '#06b6d4' }, // cyan-500
-  github:     { key: 'github',     label: 'GitHub',      color: '#8b5cf6' }, // violet-500
-  hn:         { key: 'hn',         label: 'Hacker News', color: '#f97316' }, // orange-500
-  bing:       { key: 'bing',       label: 'Bing',        color: '#14b8a6' }, // teal-500
-  duckduckgo: { key: 'duckduckgo', label: 'DuckDuckGo',  color: '#f59e0b' }, // amber-500
-  instagram:  { key: 'instagram',  label: 'Instagram',   color: '#ec4899' }, // pink-500
-  tiktok:     { key: 'tiktok',     label: 'TikTok',      color: '#a855f7' }, // purple-500
-  other:      { key: 'other',      label: 'other',       color: '#cbd5e1' }, // slate-300 — even quieter than direct
-  total:      { key: 'total',      label: 'Total',       color: '#64748b' }, // slate-500
-  revenue:    { key: 'revenue',    label: 'Revenue',     color: '#F46719' }, // brand orange
+  direct:      { key: 'direct',      label: 'direct',      color: '#94a3b8' }, // slate-400 — neutral, recedes
+  // 'organic' — generic search/SEO traffic. Backend's
+  // source-normalization.ts doesn't emit this key today (real-mode
+  // referrers normalize to 'google' / 'bing' / 'duckduckgo' / 'other'),
+  // but the demo CSV uses 'organic' as a catch-all SEO bucket so we
+  // give it a brand-aligned warm gold here. Adding the entry costs
+  // nothing in production.
+  organic:     { key: 'organic',     label: 'Organic',     color: '#F59E0B' }, // amber-500 — warm gold, distinct
+  chatgpt:     { key: 'chatgpt',     label: 'ChatGPT',     color: '#10a37f', logo: '/logos/chatgpt.svg' }, // brand emerald
+  google:      { key: 'google',      label: 'Google',      color: '#ffffff', outlined: true, logo: '/logos/google.svg' },
+  x:           { key: 'x',           label: 'x.com',       color: '#1f2937', logo: '/logos/x.png' }, // X wordmark grey
+  reddit:      { key: 'reddit',      label: 'Reddit',      color: '#F46719', logo: '/logos/reddit.svg' }, // brand orange
+  // ProductHunt — `#DA552F` is PH's actual brand red-orange. Sits
+  // close to our brand orange (`#F46719`) so it's still in the warm
+  // family that keeps the dashboard cohesive, but darker / redder so
+  // it reads as a distinct source from Reddit when the two are
+  // rendered side-by-side in a stacked bar.
+  producthunt: { key: 'producthunt', label: 'ProductHunt', color: '#DA552F' },
+  youtube:     { key: 'youtube',     label: 'YouTube',     color: '#f43f5e' }, // rose-500
+  facebook:    { key: 'facebook',    label: 'Facebook',    color: '#3b82f6' }, // blue-500
+  linkedin:    { key: 'linkedin',    label: 'LinkedIn',    color: '#06b6d4' }, // cyan-500
+  github:      { key: 'github',      label: 'GitHub',      color: '#8b5cf6' }, // violet-500
+  hn:          { key: 'hn',          label: 'Hacker News', color: '#f97316' }, // orange-500
+  bing:        { key: 'bing',        label: 'Bing',        color: '#14b8a6' }, // teal-500
+  duckduckgo:  { key: 'duckduckgo',  label: 'DuckDuckGo',  color: '#f59e0b' }, // amber-500
+  instagram:   { key: 'instagram',   label: 'Instagram',   color: '#ec4899' }, // pink-500
+  tiktok:      { key: 'tiktok',      label: 'TikTok',      color: '#a855f7' }, // purple-500
+  other:       { key: 'other',       label: 'other',       color: '#cbd5e1' }, // slate-300 — even quieter than direct
+  total:       { key: 'total',       label: 'Total',       color: '#64748b' }, // slate-500
+  revenue:     { key: 'revenue',     label: 'Revenue',     color: '#F46719' }, // brand orange
 }
 
 /**

@@ -92,76 +92,69 @@ export const INITIAL_CONNECTIONS: DemoConnection[] = [
 
 // ─── Demo source palette ──────────────────────────────────────────────────
 //
-// Brand-led colour scheme for the Overview chart's stacked bars + the
-// sources / users lists. The DOMINANT source ('direct') gets brand
-// orange `#F46719` — same colour `--c-brand` carries everywhere else
-// in the product so the demo reads as "this is Databerry" at a
-// glance. A second saturated orange ('organic' = orange-400) and two
-// neutral slates fill the rest so adjacent stacked segments still
-// differentiate visually without diluting the brand-first impression.
+// Mirrors `SOURCE_STYLE` in `constants/trafficSources.ts` for the
+// keys the demo emits: real-mode `<OverviewChart>` and
+// `<OverviewSourcesPanel>` look colours up from `SOURCE_STYLE` for
+// known keys (and our entries are all known), so these data-side
+// values are what's used during the brief flash before the
+// CSV-derived chart takes over.
 //
-// (Earlier draft used pale `orange-300` / `orange-200` shades that
-// looked washed-out next to the brand cream surface; those got
-// replaced after the user flagged them as "strange pale orange".)
+// Source keys + brand colours:
+//   organic     — generic SEO traffic, amber-500 (warm gold)
+//   direct      — neutral slate, recedes
+//   reddit      — brand orange `#F46719` (= our brand)
+//   x           — X wordmark dark `#1f2937`
+//   producthunt — PH brand red-orange `#DA552F`
 //
-// Note: `OverviewChart.tsx` still draws its secondary-metric overlay
-// line at `#F46719`. Where the line crosses the dominant `direct`
-// bars they share a hue, but the line is a thin stroke on top — easy
-// to read against either the orange or the slate segments below.
-//
-// Adding a new source: pick the next warm/neutral shade and keep the
-// same colour for the same source key across `acmeChart`, `sideChart`,
-// `acmeSources`, `sideSources`, `acmeUsers`, `sideUsers` so a visitor
-// reading the chart and then the sources list sees the same colour for
-// the same channel.
+// Earlier drafts used generic `referral` / `social` keys that fell
+// through to a hash-picked pastel palette (which the user called
+// "strange pale orange / ugly grey"). Replaced with these specific
+// branded keys so the chart reads as actual product channels.
 const DEMO_SOURCE_COLOR = {
-  direct:   '#F46719', // brand orange — the primary bar
-  organic:  '#FB923C', // orange-400  — saturated companion, tone-on-tone
-  referral: '#94A3B8', // slate-400   — neutral, recedes
-  social:   '#CBD5E1', // slate-300   — even quieter neutral for the smallest segment
+  organic:     '#F59E0B', // amber-500    — warm gold
+  direct:      '#94a3b8', // slate-400    — neutral, recedes
+  reddit:      '#F46719', // brand orange
+  x:           '#1f2937', // X wordmark
+  producthunt: '#DA552F', // PH brand red-orange
 } as const
 
 // ─── Overview chart data (one per project, two metric mixes) ──────────────
 
+// Static fallback used only during the brief CSV-fetch window. Once
+// `loadDemoTimeSeries()` resolves, `DemoContext.buildOverviewChart`
+// takes over with date-aware data sliced from the time series.
+//
+// Source mix mirrors the CSV's columns: organic + direct + reddit + x
+// + producthunt. Numbers are smaller (one-week sample) so the
+// fallback paints something plausible while the real data lands.
+function acmeBucket(label: string, organic: number, direct: number, reddit: number, x: number, ph: number, conv: number) {
+  return {
+    label,
+    total: organic + direct + reddit + x + ph,
+    bySource: [
+      { source: 'organic',     label: 'Organic',     color: DEMO_SOURCE_COLOR.organic,     value: organic },
+      { source: 'direct',      label: 'Direct',      color: DEMO_SOURCE_COLOR.direct,      value: direct },
+      { source: 'reddit',      label: 'Reddit',      color: DEMO_SOURCE_COLOR.reddit,      value: reddit },
+      { source: 'x',           label: 'x.com',       color: DEMO_SOURCE_COLOR.x,           value: x },
+      { source: 'producthunt', label: 'ProductHunt', color: DEMO_SOURCE_COLOR.producthunt, value: ph },
+    ],
+    secondary: conv,
+  }
+}
+
 const acmeChart: OverviewChartResponse = {
   buckets: [
-    { label: 'Mon', total: 1240, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 540 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 420 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 280 },
-    ], secondary: 3.4 },
-    { label: 'Tue', total: 1480, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 620 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 510 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 350 },
-    ], secondary: 4.1 },
-    { label: 'Wed', total: 1620, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 700 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 540 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 380 },
-    ], secondary: 5.2 },
-    { label: 'Thu', total: 1810, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 770 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 620 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 420 },
-    ], secondary: 4.8 },
-    { label: 'Fri', total: 2110, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 920 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 720 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 470 },
-    ], secondary: 5.6 },
-    { label: 'Sat', total: 1320, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 590 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 440 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 290 },
-    ], secondary: 3.1 },
-    { label: 'Sun', total: 1180, bySource: [
-      { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 530 },
-      { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 390 },
-      { source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, value: 260 },
-    ], secondary: 2.9 },
+    acmeBucket('Mon', 540, 320, 180, 130,  70, 3.4),
+    acmeBucket('Tue', 620, 380, 220, 160,  90, 4.1),
+    acmeBucket('Wed', 700, 410, 240, 180, 100, 5.2),
+    acmeBucket('Thu', 770, 470, 270, 200, 110, 4.8),
+    acmeBucket('Fri', 920, 540, 320, 240, 130, 5.6),
+    acmeBucket('Sat', 590, 320, 180, 130,  70, 3.1),
+    acmeBucket('Sun', 530, 290, 160, 110,  60, 2.9),
   ],
-  totalPrimary: 10760,
+  // Sums match the per-row totals so `<ViewCardOverviewChart>`'s
+  // header total reads consistent.
+  totalPrimary:  4670 + 2730 + 1570 + 1150 + 630, // = 10750
   totalSecondary: 4.2,
   trafficProvider: 'posthog',
 }
@@ -171,37 +164,37 @@ const sideChart: OverviewChartResponse = {
     { label: 'Mon', total: 320, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 180 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 90 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 50 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 50 },
     ], secondary: null },
     { label: 'Tue', total: 410, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 220 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 130 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 60 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 60 },
     ], secondary: null },
     { label: 'Wed', total: 380, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 200 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 120 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 60 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 60 },
     ], secondary: null },
     { label: 'Thu', total: 510, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 270 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 160 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 80 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 80 },
     ], secondary: null },
     { label: 'Fri', total: 470, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 250 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 140 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 80 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 80 },
     ], secondary: null },
     { label: 'Sat', total: 290, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 160 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 90 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 40 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 40 },
     ], secondary: null },
     { label: 'Sun', total: 230, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 130 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 70 },
-      { source: 'social',   label: 'Social',   color: DEMO_SOURCE_COLOR.social, value: 30 },
+      { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 30 },
     ], secondary: null },
   ],
   totalPrimary: 2610,
@@ -217,29 +210,31 @@ export const MOCK_OVERVIEW_CHARTS: Record<string, OverviewChartResponse> = {
 // ─── Overview sources / users (one set per project) ───────────────────────
 
 const acmeSources: OverviewSource[] = [
-  { source: 'organic',  label: 'Organic search', color: DEMO_SOURCE_COLOR.organic, visitors: 4670, share: 0.43 },
-  { source: 'direct',   label: 'Direct',         color: DEMO_SOURCE_COLOR.direct, visitors: 3640, share: 0.34 },
-  { source: 'referral', label: 'Referral',       color: DEMO_SOURCE_COLOR.referral, visitors: 2450, share: 0.23 },
+  { source: 'organic',     label: 'Organic search', color: DEMO_SOURCE_COLOR.organic,     visitors: 4670, share: 0.41 },
+  { source: 'direct',      label: 'Direct',         color: DEMO_SOURCE_COLOR.direct,      visitors: 3120, share: 0.27 },
+  { source: 'reddit',      label: 'Reddit',         color: DEMO_SOURCE_COLOR.reddit,      visitors: 1620, share: 0.14 },
+  { source: 'x',           label: 'x.com',          color: DEMO_SOURCE_COLOR.x,           visitors: 1240, share: 0.11 },
+  { source: 'producthunt', label: 'ProductHunt',    color: DEMO_SOURCE_COLOR.producthunt, visitors:  840, share: 0.07 },
 ]
 
 const sideSources: OverviewSource[] = [
-  { source: 'direct',   label: 'Direct',         color: DEMO_SOURCE_COLOR.direct, visitors: 1410, share: 0.54 },
-  { source: 'organic',  label: 'Organic search', color: DEMO_SOURCE_COLOR.organic, visitors: 800,  share: 0.31 },
-  { source: 'social',   label: 'Social',         color: DEMO_SOURCE_COLOR.social, visitors: 400,  share: 0.15 },
+  { source: 'organic', label: 'Organic search', color: DEMO_SOURCE_COLOR.organic, visitors: 1180, share: 0.45 },
+  { source: 'direct',  label: 'Direct',         color: DEMO_SOURCE_COLOR.direct,  visitors:  790, share: 0.30 },
+  { source: 'reddit',  label: 'Reddit',         color: DEMO_SOURCE_COLOR.reddit,  visitors:  640, share: 0.25 },
 ]
 
 const acmeUsers: OverviewUser[] = [
-  { pseudoId: 'alice@acme.dev',     source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, sessionSec: 412, lastSeen: '2026-04-08T13:14:00Z' },
-  { pseudoId: 'bob@startup.io',     source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, sessionSec: 268, lastSeen: '2026-04-08T12:41:00Z' },
-  { pseudoId: 'carol@studio.com',   source: 'referral', label: 'Referral', color: DEMO_SOURCE_COLOR.referral, sessionSec: 195, lastSeen: '2026-04-08T11:28:00Z' },
-  { pseudoId: 'd9c41a8b-6e7f-…',    source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, sessionSec: 73,  lastSeen: '2026-04-08T10:56:00Z' },
-  { pseudoId: 'evan@example.com',   source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, sessionSec: 322, lastSeen: '2026-04-08T10:12:00Z' },
+  { pseudoId: 'alice@acme.dev',     source: 'organic',     label: 'Organic',     color: DEMO_SOURCE_COLOR.organic,     sessionSec: 412, lastSeen: '2026-04-08T13:14:00Z' },
+  { pseudoId: 'bob@startup.io',     source: 'direct',      label: 'Direct',      color: DEMO_SOURCE_COLOR.direct,      sessionSec: 268, lastSeen: '2026-04-08T12:41:00Z' },
+  { pseudoId: 'carol@studio.com',   source: 'reddit',      label: 'Reddit',      color: DEMO_SOURCE_COLOR.reddit,      sessionSec: 195, lastSeen: '2026-04-08T11:28:00Z' },
+  { pseudoId: 'd9c41a8b-6e7f-…',    source: 'producthunt', label: 'ProductHunt', color: DEMO_SOURCE_COLOR.producthunt, sessionSec:  73, lastSeen: '2026-04-08T10:56:00Z' },
+  { pseudoId: 'evan@example.com',   source: 'x',           label: 'x.com',       color: DEMO_SOURCE_COLOR.x,           sessionSec: 322, lastSeen: '2026-04-08T10:12:00Z' },
 ]
 
 const sideUsers: OverviewUser[] = [
-  { pseudoId: 'fran@hello.dev',     source: 'direct', label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, sessionSec: 188, lastSeen: '2026-04-08T13:40:00Z' },
-  { pseudoId: '0f9c-1abe-…',        source: 'organic', label: 'Organic', color: DEMO_SOURCE_COLOR.organic, sessionSec: 51,  lastSeen: '2026-04-08T12:09:00Z' },
-  { pseudoId: 'gina@team.app',      source: 'social', label: 'Social',   color: DEMO_SOURCE_COLOR.social, sessionSec: 304, lastSeen: '2026-04-08T11:01:00Z' },
+  { pseudoId: 'fran@hello.dev', source: 'direct',  label: 'Direct',  color: DEMO_SOURCE_COLOR.direct,  sessionSec: 188, lastSeen: '2026-04-08T13:40:00Z' },
+  { pseudoId: '0f9c-1abe-…',    source: 'organic', label: 'Organic', color: DEMO_SOURCE_COLOR.organic, sessionSec:  51, lastSeen: '2026-04-08T12:09:00Z' },
+  { pseudoId: 'gina@team.app',  source: 'reddit',  label: 'Reddit',  color: DEMO_SOURCE_COLOR.reddit,  sessionSec: 304, lastSeen: '2026-04-08T11:01:00Z' },
 ]
 
 export const MOCK_OVERVIEW_SOURCES: Record<string, OverviewSource[]> = {

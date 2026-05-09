@@ -5,12 +5,12 @@
  * the demo home page with a date-range pill + mode dropdown that
  * mirrors the real dashboard's chrome.
  *
- * Both controls are mock — selecting a different range / mode just
- * updates the demo context's `globalDate` triple, but the tile data
- * does NOT recompute (we don't actually have 30-day pivots for the
- * mock projects). This is intentional: the user asked for a "date
- * changing on top" affordance, and the visible state-change is what
- * matters for the demo.
+ * Both controls are LIVE — they drive `globalDate` in `DemoContext`,
+ * which in turn drives every value/chart tile via the CSV time-
+ * series aggregation. Mode and range are coupled: picking a range
+ * auto-updates the mode label (via `chooseGranularity`), and picking
+ * a mode auto-selects a sensible range. The two pills can't drift
+ * out of sync.
  *
  * Layout:
  *
@@ -32,10 +32,17 @@ import {
 import { useDemoContext } from './context/DemoContext'
 import type { DateMode } from './context/DemoContext'
 
+// Range presets aligned with the three mode tiers in `DemoContext`'s
+// `setGlobalDateMode` so picking either pill yields a consistent
+// state — `<DemoContext>`'s `chooseGranularity()` maps these spans
+// onto `daily` / `weekly` / `monthly`:
+//   - 7 days  → 'day'   bucket  → 'daily' mode label
+//   - 30 days → 'week'  bucket  → 'weekly' mode label
+//   - 90 days → 'month' bucket  → 'monthly' mode label
 const RANGE_PRESETS: { label: string; from: string; to: string }[] = [
   { label: 'Last 7 days',  from: '2026-04-02', to: '2026-04-08' },
-  { label: 'This month',   from: '2026-04-01', to: '2026-04-30' },
   { label: 'Last 30 days', from: '2026-03-10', to: '2026-04-08' },
+  { label: 'Last 90 days', from: '2026-01-09', to: '2026-04-08' },
 ]
 
 const MODE_OPTIONS: { value: DateMode; label: string }[] = [

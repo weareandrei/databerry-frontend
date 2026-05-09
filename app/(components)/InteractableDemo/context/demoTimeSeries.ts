@@ -35,10 +35,16 @@ export interface DemoTimeSeriesRow {
   acme_ga_active_now: number
   /** GA sessions — additive. */
   acme_ga_sessions: number
-  /** Overview-chart visitors per source — all additive. */
+  /** Overview-chart visitors per source — all additive. Acme has a
+   *  diverse traffic mix with organic search at the top, plus
+   *  branded referrers (Reddit + X + ProductHunt) — same source
+   *  keys the production `SOURCE_STYLE` table recognizes, so the
+   *  brand colours flow through automatically. */
   acme_visitors_organic: number
   acme_visitors_direct: number
-  acme_visitors_referral: number
+  acme_visitors_reddit: number
+  acme_visitors_x: number
+  acme_visitors_producthunt: number
   /** Conversion %, used as the overview chart's secondary metric. */
   acme_conversion_pct: number
 
@@ -47,9 +53,9 @@ export interface DemoTimeSeriesRow {
   side_gross_cents: number
   side_dashboard_events: number
   side_ga_users: number
-  side_visitors_direct: number
   side_visitors_organic: number
-  side_visitors_social: number
+  side_visitors_direct: number
+  side_visitors_reddit: number
 }
 
 const NUMERIC_COLS: ReadonlyArray<keyof DemoTimeSeriesRow> = [
@@ -61,15 +67,17 @@ const NUMERIC_COLS: ReadonlyArray<keyof DemoTimeSeriesRow> = [
   'acme_ga_sessions',
   'acme_visitors_organic',
   'acme_visitors_direct',
-  'acme_visitors_referral',
+  'acme_visitors_reddit',
+  'acme_visitors_x',
+  'acme_visitors_producthunt',
   'acme_conversion_pct',
   'side_pageviews',
   'side_gross_cents',
   'side_dashboard_events',
   'side_ga_users',
-  'side_visitors_direct',
   'side_visitors_organic',
-  'side_visitors_social',
+  'side_visitors_direct',
+  'side_visitors_reddit',
 ]
 
 /**
