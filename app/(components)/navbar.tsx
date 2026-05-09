@@ -1,14 +1,48 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { List, X } from '@phosphor-icons/react'
+import { createClient } from '@/lib/supabase/client'
 
 const CORNER_PATH = 'M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z'
 
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false)
+
+  // Auth state for the single CTA: signed-in users see "Dashboard"
+  // (one click into `/hub/home`); everyone else sees "Get started"
+  // pointing at signup.
+  //
+  // `null` is the third state — "we haven't checked yet". It exists
+  // so the first paint isn't a misleading "Get started" for a user
+  // who's actually logged in (which would flicker to "Dashboard"
+  // 50ms later). Rendering the button only after the check
+  // resolves keeps SSR deterministic and avoids the flicker. The
+  // `onAuthStateChange` subscription updates the state if the user
+  // signs out from another tab while the landing page is open.
+  const [signedIn, setSignedIn] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    let mounted = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (mounted) setSignedIn(data.session !== null)
+    })
+
+    const { data: subscription } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (mounted) setSignedIn(session !== null)
+      },
+    )
+
+    return () => {
+      mounted = false
+      subscription.subscription.unsubscribe()
+    }
+  }, [])
 
   return (
     <>
@@ -50,7 +84,7 @@ const Navbar = () => {
           <path d={CORNER_PATH} fill="white" />
         </svg>
 
-        <div className="flex flex-row items-center justify-between h-[54px] md:h-[70px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[34px] md:rounded-b-[42px] px-5 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
+        <div className="flex flex-row items-center justify-between h-[54px] md:h-[65px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[34px] md:rounded-b-[42px] px-5 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 md:gap-3 mx-auto md:mx-0">
             <Image src="/Databerry_icon.svg" alt="DataBerry" width={24} height={24} className="md:w-[30px] md:h-[30px] rounded-lg" />
@@ -62,23 +96,42 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Auth CTAs — login as a small text link, signup as the
-              primary pill. Two-button setup keeps the navbar pill
-              compact while giving returning users a one-click path
-              to the dashboard. */}
-          <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-sm font-medium text-gray-700 hover:text-black transition-colors"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
-            >
-              Start
-            </Link>
+          {/* Single CTA — flips on auth state.
+                  signedIn == null  → still resolving the session;
+                                       render an invisible placeholder
+                                       so the layout doesn't reflow
+                                       once we know.
+                  signedIn === true → "Dashboard" → /hub/home
+                  signedIn === false → "Get started" → /signup
+              The login page is still reachable directly at /login for
+              returning users who type the URL or land via password
+              recovery; we just don't surface it in the marketing nav. */}
+          <div className="hidden md:flex items-center">
+            {signedIn === null ? (
+              // Reserve the same width as the resolved button so the
+              // navbar doesn't shift when auth state lands. `invisible`
+              // (vs hidden/display:none) keeps it in the layout flow.
+              <span
+                aria-hidden
+                className="invisible rounded-full bg-black px-5 py-2 text-sm font-medium"
+              >
+                Get started
+              </span>
+            ) : signedIn ? (
+              <Link
+                href="/hub/home"
+                className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
+              >
+                Dashboard
+              </Link>
+            ) : (
+              <Link
+                href="/signup"
+                className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
+              >
+                Get started
+              </Link>
+            )}
           </div>
         </div>
 

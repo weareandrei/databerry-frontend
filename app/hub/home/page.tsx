@@ -142,14 +142,8 @@ export default function HomePage() {
               </section>
             )}
 
-            {/* ── Projects ─────────────────────────────────────────────
-                "Projects" label is `sticky top-0` within this scroll
-                container — it stays glued to the top of the visible
-                area while every project scrolls past underneath. Each
-                project's own header sticks at `top-8` (32 px = the
-                label's height) so the two stack cleanly. */}
-            <section className="flex flex-col gap-3">
-              <h2 className="sticky top-0 z-30 bg-main py-2 px-1 text-xs font-medium uppercase tracking-wider text-grey-light">
+            <section className="flex flex-col">
+              <h2 className="sticky top-0 z-30 bg-main py-3 px-1 text-xs font-medium uppercase tracking-wider text-grey-light">
                 Projects
               </h2>
               <ProjectsGrid projects={projectsCtx.projects} loading={projectsCtx.loading} />

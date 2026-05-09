@@ -17,7 +17,8 @@ import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
 import { ReassignConnectionDialog } from './ReassignConnectionDialog'
 import type { View } from '@/types/view'
-import { formatCents } from '@/utils/formatters'
+import { formatChartValue, formatChartAxisTick } from '@/utils/formatters'
+import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { ConnectionMissingError } from '@/lib/api'
 import type { ViewResourceError } from '@/lib/hooks/useViewResource'
 
@@ -26,8 +27,22 @@ const VIEW_TITLES: Record<string, string> = {
   stripe_gross_week: 'This Week Gross Volume',
 }
 
-const STRIPE_BLUE = '#635BFF'
-const STRIPE_BLUE_HOVER = '#4F46E5'
+/**
+ * Per-connection bar colors. The Stripe entries keep the brand purple
+ * the original chart shipped with; PostHog gets its primary blue, GA
+ * gets Google's analytics amber, webhook + composite fall back to a
+ * neutral emerald. Adding a new integration here is the only place
+ * you should need to touch when introducing a new chart-mode source.
+ */
+const BAR_COLORS: Record<string, { base: string; hover: string }> = {
+  stripe_manual:    { base: '#635BFF', hover: '#4F46E5' }, // Stripe purple
+  stripe:           { base: '#635BFF', hover: '#4F46E5' },
+  google_analytics: { base: '#F4B400', hover: '#E0A300' }, // Google amber
+  posthog:          { base: '#1D4AFF', hover: '#0F2CB5' }, // PostHog blue
+  webhook:          { base: '#10B981', hover: '#059669' }, // emerald
+  composite:        { base: '#10B981', hover: '#059669' },
+}
+const FALLBACK_BAR = { base: '#635BFF', hover: '#4F46E5' }
 
 export interface ChartPoint {
   label: string
@@ -39,14 +54,20 @@ interface CustomTooltipProps {
   active?: boolean
   payload?: TooltipPayloadEntry[]
   label?: string
+  /**
+   * View type — used to pick currency vs integer formatting in the
+   * tooltip. Recharts wraps the tooltip component, so we have to
+   * thread `viewType` through via a closure (see usage below).
+   */
+  viewType: string
 }
 
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, label, viewType }: CustomTooltipProps) {
   if (!active || !payload?.length) return null
   return (
     <div className="rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-sm">
       <p className="text-muted-foreground mb-0.5">{label}</p>
-      <p className="font-semibold">{formatCents(payload[0].value)}</p>
+      <p className="font-semibold">{formatChartValue(payload[0].value, viewType)}</p>
     </div>
   )
 }
@@ -120,6 +141,14 @@ export function ViewCardChart({
   const isConnectionMissing = error instanceof ConnectionMissingError
   const needsReattach = isDisconnected || isConnectionMissing
   const title = VIEW_TITLES[view.type] ?? view.name
+  // Per-connection bar palette; falls back to Stripe purple if a new
+  // connection type lands here without an entry in `BAR_COLORS`.
+  const barColor = BAR_COLORS[view.connectionType] ?? FALLBACK_BAR
+  // Connection label shown in the header sub-row. Hardcoded "Stripe"
+  // before; now driven by the same display-name map every other
+  // chrome path uses, so PostHog/GA/webhook charts read correctly.
+  const connectionLabel =
+    CONNECTION_DISPLAY_NAMES[view.connectionType] ?? view.connectionType
 
   return (
     <>
@@ -127,7 +156,7 @@ export function ViewCardChart({
       <ViewHeader
         name={title}
         connectionType={view.connectionType}
-        connectionLabel="Stripe"
+        connectionLabel={connectionLabel}
         isDisconnected={isDisconnected}
         isConnectionMissing={isConnectionMissing}
         onReconnect={() => setReassignOpen(true)}
@@ -139,6 +168,11 @@ export function ViewCardChart({
         onPin={onPin}
         isPinned={isPinned}
         dense={dense}
+        // See ViewCard for prop-name rationale — `onUpdated` reuses
+        // the existing `onConnectionAssigned` plumbing as a generic
+        // "view was updated" callback.
+        view={view}
+        onUpdated={onConnectionAssigned}
       />
 
       <div className="px-4 mt-2 shrink-0">
@@ -166,7 +200,7 @@ export function ViewCardChart({
           <FetchErrorBadge message="Couldn't load value" />
         ) : (
           <p className="text-2xl font-semibold tabular-nums leading-none">
-            {total != null ? formatCents(total) : '—'}
+            {total != null ? formatChartValue(total, view.type) : '—'}
           </p>
         )}
       </div>
@@ -195,7 +229,7 @@ export function ViewCardChart({
         {!loading && !error && points.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <p className="text-xs text-muted-foreground">
-              No charges in this date range.
+              No data in this date range.
             </p>
           </div>
         )}
@@ -226,7 +260,11 @@ export function ViewCardChart({
                 tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
                 axisLine={false}
                 tickLine={false}
-                tickFormatter={(v: number) => (v === 0 ? '$0' : `$${(v / 100).toFixed(0)}`)}
+                // Per-type tick formatting: Stripe shows "$X", every
+                // other provider's chart shows integer counts (with
+                // k/M shorthand past 1k for non-money). See
+                // `formatChartAxisTick` in `utils/formatters.ts`.
+                tickFormatter={(v: number) => formatChartAxisTick(v, view.type)}
                 // 15% headroom above the tallest bar. Without it,
                 // recharts auto-domain produces a max equal to the data
                 // max, so a $790 bar in a 7-day window reaches the
@@ -241,7 +279,7 @@ export function ViewCardChart({
                   return Math.ceil(padded / magnitude) * magnitude
                 }]}
               />
-              <Tooltip content={<CustomTooltip />} cursor={false} />
+              <Tooltip content={<CustomTooltip viewType={view.type} />} cursor={false} />
               <Bar
                 dataKey="value"
                 radius={[4, 4, 0, 0]}
@@ -256,7 +294,7 @@ export function ViewCardChart({
                 {points.map((_, index) => (
                   <Cell
                     key={index}
-                    fill={activeIndex === index ? STRIPE_BLUE_HOVER : STRIPE_BLUE}
+                    fill={activeIndex === index ? barColor.hover : barColor.base}
                     opacity={activeIndex === null || activeIndex === index ? 1 : 0.45}
                   />
                 ))}

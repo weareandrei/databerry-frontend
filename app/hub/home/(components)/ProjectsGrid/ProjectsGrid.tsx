@@ -35,6 +35,7 @@ export function ProjectsGrid({ projects, loading = false }: ProjectsGridProps) {
       </div>
     )
   }
+
   return (
     <div className="flex flex-col gap-5">
       {projects.map(project => (

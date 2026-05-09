@@ -32,8 +32,12 @@
  */
 
 import {
+  isGAChartView,
+  isPosthogChartView,
   isStripeChartView,
   useCalendlyMeetings,
+  useGAChart,
+  usePosthogChart,
   useStripeChart,
   useStripeTopCustomers,
   useViewLiveValue,
@@ -69,7 +73,7 @@ export function isListView(view: View): boolean {
  * View types that get a date-range caption rendered below their value.
  * Currently just MRR — the caption answers "for which period was this
  * computed?", which is more meaningful for snapshot-style metrics than
- * for "today" tiles (e.g. `stripe_revenue_today` already says "today"
+ * for "today" tiles (e.g. today's gross revenue already says "today"
  * in its name; a redundant caption would just take vertical space).
  *
  * Lives here (not inside `ViewCard`) because the decision "should this
@@ -114,7 +118,9 @@ export function ViewCardRenderer({
   chromeless = false,
 }: ViewCardRendererProps) {
   const live = useViewLiveValue(view, { dateFrom, dateTo, tz })
-  const chart = useStripeChart(view, { dateFrom, dateTo, mode, tz })
+  const stripeChart = useStripeChart(view, { dateFrom, dateTo, mode, tz })
+  const gaChart = useGAChart(view, { dateFrom, dateTo, mode, tz })
+  const posthogChart = usePosthogChart(view, { dateFrom, dateTo, tz })
   const meetings = useCalendlyMeetings(view, { dateFrom, dateTo, tz })
   const customers = useStripeTopCustomers(view, { dateFrom, dateTo, tz })
 
@@ -141,12 +147,38 @@ export function ViewCardRenderer({
     return (
       <ViewCardChart
         {...sharedCardProps}
-        points={chart.points}
-        loading={chart.loading}
-        error={chart.error}
-        total={chart.total}
-        onRefresh={chart.refresh}
-        refreshing={chart.loading}
+        points={stripeChart.points}
+        loading={stripeChart.loading}
+        error={stripeChart.error}
+        total={stripeChart.total}
+        onRefresh={stripeChart.refresh}
+        refreshing={stripeChart.loading}
+      />
+    )
+  }
+  if (isGAChartView(view)) {
+    return (
+      <ViewCardChart
+        {...sharedCardProps}
+        points={gaChart.points}
+        loading={gaChart.loading}
+        error={gaChart.error}
+        total={gaChart.total}
+        onRefresh={gaChart.refresh}
+        refreshing={gaChart.loading}
+      />
+    )
+  }
+  if (isPosthogChartView(view)) {
+    return (
+      <ViewCardChart
+        {...sharedCardProps}
+        points={posthogChart.points}
+        loading={posthogChart.loading}
+        error={posthogChart.error}
+        total={posthogChart.total}
+        onRefresh={posthogChart.refresh}
+        refreshing={posthogChart.loading}
       />
     )
   }

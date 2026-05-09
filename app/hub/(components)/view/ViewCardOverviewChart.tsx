@@ -179,6 +179,19 @@ interface ViewCardOverviewChartProps {
    * this tile inside something that already provides the chrome.
    */
   chromeless?: boolean
+  /**
+   * Compact size variant — shrinks the chart's internal height and
+   * skips the `xl:` upsize so the tile fits inside narrow containers
+   * (e.g. the landing-page demo card, where horizontal space is shared
+   * with the sources/users panel on the right). Default `false` keeps
+   * the real dashboard's existing dimensions unchanged.
+   *
+   * Padding + bar widths are NOT changed by this prop — recharts'
+   * `ResponsiveContainer` handles bar spacing automatically as the
+   * chart shrinks, so a smaller height naturally produces smaller
+   * bars without us touching `OverviewChart`'s configuration.
+   */
+  compact?: boolean
 }
 
 export function ViewCardOverviewChart({
@@ -199,6 +212,7 @@ export function ViewCardOverviewChart({
   onUntrack,
   onPin,
   chromeless = false,
+  compact = false,
 }: ViewCardOverviewChartProps) {
   // `nowTick` bumps once per minute so the "now" reference line advances to
   // the next bucket when the wall clock crosses an hour/day boundary without
@@ -328,9 +342,18 @@ export function ViewCardOverviewChart({
         </div>
       </div>
 
-      {/* Chart */}
+      {/* Chart.
+          Heights:
+            - default       → `h-[280px] xl:h-[340px]` — real dashboard sizing
+            - compact=true  → `h-[200px]` flat, no xl upsize — for narrow
+                              containers (landing-page demo) where the
+                              chart shares horizontal room with a
+                              sources/users panel on the right.
+          Recharts' `ResponsiveContainer` handles bar widths as the
+          height shrinks, so we don't need to touch `OverviewChart`'s
+          internal `maxBarSize` / segment sizing. */}
       <div className="relative p-4">
-        <div className="relative h-[280px] xl:h-[340px]">
+        <div className={`relative ${compact ? 'h-[200px]' : 'h-[280px] xl:h-[340px]'}`}>
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <ArrowsClockwise

@@ -15,6 +15,12 @@ export type { ViewLiveValueResource } from './useViewLiveValue'
 export { useStripeChart, isStripeChartView } from './useStripeChart'
 export type { StripeChartResource } from './useStripeChart'
 
+export { useGAChart, isGAChartView } from './useGAChart'
+export type { GAChartResource } from './useGAChart'
+
+export { usePosthogChart, isPosthogChartView } from './usePosthogChart'
+export type { PosthogChartResource } from './usePosthogChart'
+
 export { useStripeTopCustomers } from './useStripeTopCustomers'
 export type { StripeTopCustomersResource } from './useStripeTopCustomers'
 

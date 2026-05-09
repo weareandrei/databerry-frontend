@@ -353,7 +353,7 @@ export function ProjectView({
         // expanded so the body's `rounded-b-xl` covers the bottom.
         // Critical at the sticky position — without this the curves
         // would be invisible against the card's bg-white.
-        className={`sticky top-8 left-0 z-20 bg-white ${
+        className={`sticky top-10 left-0 z-20 bg-white ${
           collapsed ? 'rounded-xl' : 'rounded-t-xl'
         }`}
       />

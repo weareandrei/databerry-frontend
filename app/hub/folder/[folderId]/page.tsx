@@ -39,8 +39,12 @@ import {
   isWidePosthogView,
 } from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
 import {
+  isGAChartView,
+  isPosthogChartView,
   isStripeChartView,
   useCalendlyMeetings,
+  useGAChart,
+  usePosthogChart,
   useStripeChart,
   useStripeTopCustomers,
   useViewLiveValue,
@@ -89,7 +93,9 @@ function ViewCardRouter({
   // `historical` is true we skip-fetch via `enabled: false` so the cards
   // show their "Live data only" empty state.
   const live = useViewLiveValue(view, { enabled: !historical, tz })
-  const chart = useStripeChart(view, { enabled: !historical, tz })
+  const stripeChart = useStripeChart(view, { enabled: !historical, tz })
+  const gaChart = useGAChart(view, { enabled: !historical, tz })
+  const posthogChart = usePosthogChart(view, { enabled: !historical, tz })
   const meetings = useCalendlyMeetings(view, { enabled: !historical, tz })
   const customers = useStripeTopCustomers(view, { enabled: !historical, tz })
 
@@ -147,12 +153,44 @@ function ViewCardRouter({
         view={view}
         onUntrack={onUntrack}
         historical={historical}
-        points={chart.points}
-        loading={chart.loading}
-        error={chart.error}
-        total={historical ? historicalChartTotal : chart.total}
-        onRefresh={chart.refresh}
-        refreshing={chart.loading}
+        points={stripeChart.points}
+        loading={stripeChart.loading}
+        error={stripeChart.error}
+        total={historical ? historicalChartTotal : stripeChart.total}
+        onRefresh={stripeChart.refresh}
+        refreshing={stripeChart.loading}
+        onConnectionAssigned={onConnectionAssigned}
+      />
+    )
+  }
+  if (isGAChartView(view)) {
+    return (
+      <ViewCardChart
+        view={view}
+        onUntrack={onUntrack}
+        historical={historical}
+        points={gaChart.points}
+        loading={gaChart.loading}
+        error={gaChart.error}
+        total={gaChart.total}
+        onRefresh={gaChart.refresh}
+        refreshing={gaChart.loading}
+        onConnectionAssigned={onConnectionAssigned}
+      />
+    )
+  }
+  if (isPosthogChartView(view)) {
+    return (
+      <ViewCardChart
+        view={view}
+        onUntrack={onUntrack}
+        historical={historical}
+        points={posthogChart.points}
+        loading={posthogChart.loading}
+        error={posthogChart.error}
+        total={posthogChart.total}
+        onRefresh={posthogChart.refresh}
+        refreshing={posthogChart.loading}
         onConnectionAssigned={onConnectionAssigned}
       />
     )

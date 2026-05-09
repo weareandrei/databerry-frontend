@@ -305,7 +305,11 @@ export function OverviewSourcesPanel({
         className="flex max-h-[360px] flex-col gap-1.5 overflow-y-auto pr-0.5"
       >
         {pageRows.map(s => {
-          const style = sourceStyle(s.source, s.label)
+          // See `OverviewChart.buildRows` for the rationale on passing
+          // `s.color` here — known integrations ignore it (production
+          // unchanged), unknown keys (demo's `organic`/`referral`/etc.)
+          // now honour the data-supplied colour instead of hash-picking.
+          const style = sourceStyle(s.source, s.label, s.color)
           const barCount = barCounts.get(s.source) ?? BAR_MIN
           // Only the "Other" bucket gets a help tooltip — other rows are
           // self-explanatory (a domain or a recognised brand). Detected

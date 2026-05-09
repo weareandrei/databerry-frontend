@@ -163,6 +163,8 @@ export function ViewCardCustomerList({
           onPin={onPin}
           isPinned={isPinned}
           dense={dense}
+          view={view}
+          onUpdated={onConnectionAssigned}
         />
 
         <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">

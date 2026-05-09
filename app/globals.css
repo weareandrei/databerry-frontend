@@ -63,6 +63,16 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+  Smooth-scroll for hash navigation. Affects in-page links like
+  `<a href="#contact">` (FAQ → contact form on the landing page) and
+  any `scrollIntoView()` calls that don't pass `behavior` explicitly.
+  No effect on regular page loads or Next.js routing.
+*/
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);

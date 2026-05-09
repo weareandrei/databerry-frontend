@@ -1,6 +1,20 @@
 'use client'
 
-import { DotsThreeVertical, Warning, Cube, ArrowsClockwise, PushPin, PushPinSlash, Info, Plug } from '@phosphor-icons/react'
+import { useState } from 'react'
+import {
+  DotsThreeVertical,
+  Warning,
+  Cube,
+  ArrowsClockwise,
+  PushPin,
+  PushPinSlash,
+  Info,
+  Plug,
+  ChartLine,
+  Hash,
+  ListBullets,
+} from '@phosphor-icons/react'
+import { toast } from 'sonner'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import {
   DropdownMenu,
@@ -9,6 +23,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { ALGORITHM } from '@/lib/api'
+import { getViewOption, type ViewKind } from '@/constants/viewOptions'
+import type { View } from '@/types/view'
 
 interface ViewHeaderProps {
   name: string
@@ -53,6 +70,29 @@ interface ViewHeaderProps {
    * Default is opt-in so the existing dashboard pixels are unchanged.
    */
   dense?: boolean
+
+  /**
+   * Optional full view object — when present, ViewHeader can render
+   * "Convert to <mode>" menu items for view types that support
+   * multiple display modes (chart / value / list). Wired alongside
+   * `onUpdated` so the parent's local state stays in sync after the
+   * `ALGORITHM.updateView` round-trip.
+   *
+   * Both must be present for the convert items to render. Cards that
+   * shouldn't allow conversion (e.g. the demo, where mutations are
+   * no-ops) simply omit them.
+   */
+  view?: View
+  onUpdated?: (updated: View) => void
+}
+
+// Per-mode glyph + label, kept local to ViewHeader. Mirrors the chip
+// styles in `ViewPickerBar` semantically — same icon mapping — but
+// renders monochrome here to fit the rest of the menu.
+const MODE_META: Record<ViewKind, { label: string; icon: typeof ChartLine }> = {
+  chart: { label: 'chart', icon: ChartLine },
+  value: { label: 'value', icon: Hash },
+  list: { label: 'list', icon: ListBullets },
 }
 
 export function ViewHeader({
@@ -72,11 +112,49 @@ export function ViewHeader({
   isPinned = false,
   compact = false,
   dense = false,
+  view,
+  onUpdated,
 }: ViewHeaderProps) {
   // "Needs reattach" covers both true orphans and dangling FKs — same
   // remedy (point this view at a different connection of the same type),
   // same dropdown affordance.
   const needsReattach = isDisconnected || isConnectionMissing
+
+  // ── Convert-to-mode plumbing ───────────────────────────────────────────
+  //
+  // When the view's type supports multiple display modes (and we have
+  // the full `view` object plus an updater), surface a "Convert to X"
+  // item in the menu for every OTHER mode. Single-mode views or callers
+  // that didn't pass the full view get nothing here.
+  const [converting, setConverting] = useState(false)
+  const option = view ? getViewOption(view.connectionType, view.type) : null
+  const currentDisplayMode =
+    (view?.config as { displayMode?: ViewKind } | undefined)?.displayMode ??
+    option?.kind ??
+    null
+  // Modes the user can switch TO — i.e. supported modes minus the
+  // current one. Empty when the view-type only supports one mode.
+  const convertibleModes: ViewKind[] =
+    option && view && onUpdated && option.modes.length > 1
+      ? option.modes.filter(m => m !== currentDisplayMode)
+      : []
+
+  const handleConvert = async (mode: ViewKind) => {
+    if (!view || !onUpdated || converting) return
+    setConverting(true)
+    try {
+      // Spread existing config so we don't drop sibling keys (e.g.
+      // PostHog's `eventName`, webhook's `field`, project_overview's
+      // `primaryMetric`). Only `displayMode` is being touched.
+      const nextConfig = { ...(view.config ?? {}), displayMode: mode }
+      const updated = await ALGORITHM.updateView(view.id, { config: nextConfig })
+      onUpdated(updated)
+    } catch {
+      toast.error(`Couldn’t convert to ${MODE_META[mode].label}`)
+    } finally {
+      setConverting(false)
+    }
+  }
   return (
     <div
       className={
@@ -210,6 +288,26 @@ export function ViewHeader({
                 Reconnect
               </DropdownMenuItem>
             )}
+            {/* "Convert to X" — one item per OTHER mode the view-type
+                supports. Hidden entirely for single-mode types so the
+                menu stays compact for the common case. While a
+                conversion is in flight every conversion item is
+                disabled (the local optimism is on `onUpdated`'s
+                caller, not here). */}
+            {convertibleModes.map(mode => {
+              const Icon = MODE_META[mode].icon
+              return (
+                <DropdownMenuItem
+                  key={`convert:${mode}`}
+                  onClick={() => handleConvert(mode)}
+                  disabled={converting}
+                  className="text-sm gap-2"
+                >
+                  <Icon size={13} weight="bold" />
+                  Convert to {MODE_META[mode].label}
+                </DropdownMenuItem>
+              )
+            })}
             {extraMenuItems}
             {onPin && (
               <DropdownMenuItem onClick={onPin} className="text-sm gap-2">

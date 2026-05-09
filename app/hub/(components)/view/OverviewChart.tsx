@@ -63,7 +63,13 @@ function buildRows(
   for (const b of buckets) {
     for (const s of b.bySource) {
       if (!keySet.has(s.source)) {
-        const style = sourceStyle(s.source, s.label)
+        // Pass `s.color` so unknown sources (the demo's custom keys
+        // like `organic`/`referral`, or backend's `unset`) honour the
+        // data-supplied colour instead of falling through to the hash
+        // palette. Known integrations are returned verbatim from
+        // `SOURCE_STYLE` and ignore this hint, so production rendering
+        // for `direct` / `google` / `reddit` / etc. is unchanged.
+        const style = sourceStyle(s.source, s.label, s.color)
         keySet.set(s.source, {
           key: s.source,
           color: style.color,

@@ -402,6 +402,24 @@ export const ALGORITHM = {
       `/google-analytics/views/live-value?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
+  /**
+   * Time-series for `ga_users_today` / `ga_sessions_today` /
+   * `ga_pageviews_today` views in chart mode (`config.displayMode === 'chart'`).
+   * Wire shape matches `getStripeManualChartData` so `<ViewCardChart>`
+   * accepts both interchangeably.
+   */
+  getGoogleAnalyticsChartData: (
+    connectionId: string,
+    viewType: string,
+    dateFrom?: string,
+    dateTo?: string,
+    mode?: 'daily' | 'weekly' | 'monthly',
+    tz?: string | null,
+  ) =>
+    apiFetch<{ points: { label: string; value: number }[]; unavailable?: boolean }>(
+      `/google-analytics/views/chart-data?connectionId=${connectionId}&viewType=${viewType}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${mode ? `&mode=${mode}` : ''}${tzParam(tz)}`,
+    ),
+
   // ── Vercel ───────────────────────────────────────────────────────────────
 
   getVercelProjects: (token: string) =>
@@ -556,6 +574,22 @@ export const ALGORITHM = {
   ) =>
     apiFetch<{ value: string | null; unavailable?: boolean }>(
       `/posthog/views/live-value?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
+    ),
+
+  /**
+   * Time-series for a `daily_counter` view in chart mode
+   * (`config.displayMode === 'chart'`). Same wire shape as the
+   * Stripe + GA chart endpoints — `<ViewCardChart>` reads any of them.
+   */
+  getPosthogChartData: (
+    connectionId: string,
+    viewId: string,
+    dateFrom?: string,
+    dateTo?: string,
+    tz?: string | null,
+  ) =>
+    apiFetch<{ points: { label: string; value: number }[]; unavailable?: boolean }>(
+      `/posthog/views/chart-data?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
   /** Cumulative-count funnel for a `posthog_funnel` view. */

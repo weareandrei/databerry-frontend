@@ -43,7 +43,13 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
         ['--demo-offset' as string]: `${topOffset}px`,
       }}
     >
-      <div className="sticky z-[20] mx-auto w-[76vw] md:w-[55vw] pb-24" style={{ top: stickyTop }}>
+      {/* Width tiers: 76vw on mobile keeps the card inset from the
+          screen edges (matches the old design); md+ pins to a 56rem
+          (`w-4xl`) container; xl+ scales with the viewport (`55vw`)
+          so the demo stays proportional on ultrawide displays.
+          Without the mobile floor, `w-4xl` overflows phones (896px on
+          a 375px viewport). */}
+      <div className="sticky z-[20] mx-auto w-[76vw] md:w-4xl xl:w-[55vw] pb-24" style={{ top: stickyTop }}>
         <motion.div
           ref={cardRef}
           style={{ scale }}
@@ -66,7 +72,7 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
               </div>
             )}
 
-            <div className="dashboard h-[440px] p-4 pt-0">
+            <div className="dashboard h-[440px] xl:h-[500px] 3xl:h-[620px] p-4 pt-0">
               <InteractableDemo />
             </div>
           </div>
@@ -96,7 +102,7 @@ function useDemoLayout(cardRef: React.RefObject<HTMLDivElement | null>) {
       const sectionTop = section.getBoundingClientRect().top + scrollY
 
       setTopOffset(sectionTop - anchorBottom)
-      setStickyTop(isMobile ? vh * 0.35 : (vh - cardHeight) / 1.1)
+      setStickyTop(isMobile ? vh * 0.35 : (150 + (vh - cardHeight) * 0.3))
     }
 
     calculate()
@@ -129,19 +135,19 @@ const DemoSection = () => {
       id="second-section"
       className="relative px-12 flex flex-col items-center text-center bg-white py-24 overflow-x-clip"
     >
-      <h1
-        className="max-w-4xl text-6xl font-semibold leading-[1.05] tracking-[-0.06em] text-gray-900"
-        style={{ fontFamily: 'var(--font-bricolage)' }}
-      >
-        Start using in one click
-      </h1>
+      {/*<h1*/}
+      {/*  className="max-w-4xl text-6xl font-semibold leading-[1.05] tracking-[-0.06em] text-gray-900"*/}
+      {/*  style={{ fontFamily: 'var(--font-bricolage)' }}*/}
+      {/*>*/}
+      {/*  Start using in one click*/}
+      {/*</h1>*/}
 
-      <h4
-        className="mt-5 max-w-xl text-lg font-normal leading-[1.4] tracking-[0.01em] text-gray-500"
-        style={{ fontFamily: 'var(--font-inter)' }}
-      >
-        It's unbelievably easy to set up.
-      </h4>
+      {/*<h4*/}
+      {/*  className="mt-5 max-w-xl text-lg font-normal leading-[1.4] tracking-[0.01em] text-gray-500"*/}
+      {/*  style={{ fontFamily: 'var(--font-inter)' }}*/}
+      {/*>*/}
+      {/*  It's unbelievably easy to set up.*/}
+      {/*</h4>*/}
 
       <div className="h-[550px] md:h-[600px] py-24" />
 

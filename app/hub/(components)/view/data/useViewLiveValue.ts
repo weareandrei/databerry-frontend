@@ -18,21 +18,62 @@ import type { View } from '@/types/view'
 import type { PerViewHookOptions } from './types'
 
 // SaaS metrics tiles backed by `stripe_subscriptions` (MRR, active subs,
-// churn) join `stripe_revenue_today` here — all served by the same
-// `/stripe/views/live-value` endpoint.
+// churn) — all served by the same `/stripe/views/live-value` endpoint.
+// `stripe_gross` joins this set when `config.displayMode === 'value'`
+// (the merged-in successor of the legacy `stripe_revenue_today` type).
 const STRIPE_MANUAL_LIVE_TYPES = new Set([
-  'stripe_revenue_today',
   'stripe_mrr',
   'stripe_active_subs',
   'stripe_churn_rate',
 ])
 const CALENDLY_LIVE_TYPES = new Set(['calendly_meetings_today'])
+// GA live-value types stay live-value when `config.displayMode === 'value'`
+// (the default). Chart mode for users/sessions/pageviews routes through
+// `useGAChart` instead — see `ViewCardRenderer.tsx`.
 const GA_LIVE_TYPES = new Set([
   'ga_active_users',
   'ga_users_today',
   'ga_sessions_today',
   'ga_pageviews_today',
 ])
+
+function isStripeManualValueView(view: View): boolean {
+  if (view.connectionType !== 'stripe_manual') return false
+  if (STRIPE_MANUAL_LIVE_TYPES.has(view.type)) return true
+  // stripe_gross + displayMode='value' → today's gross revenue (legacy
+  // `stripe_revenue_today` semantics, merged into the polymorphic type).
+  if (view.type === 'stripe_gross') {
+    const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
+    return displayMode === 'value'
+  }
+  return false
+}
+
+function isGAValueView(view: View): boolean {
+  if (view.connectionType !== 'google_analytics') return false
+  if (!GA_LIVE_TYPES.has(view.type)) return false
+  // ga_active_users is realtime-only — no chart mode exists, so always value.
+  if (view.type === 'ga_active_users') return true
+  // The other three are polymorphic — value when displayMode is unset (legacy
+  // default) or explicitly 'value'. Chart mode routes through useGAChart.
+  const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
+  return displayMode !== 'chart'
+}
+
+function isPosthogValueView(view: View): boolean {
+  if (view.connectionType !== 'posthog') return false
+  // daily_counter is the only PostHog *live-value* type. funnel/retention/users
+  // route through their own dedicated hooks. Chart mode for daily_counter
+  // routes through usePosthogChart.
+  if (view.type === 'daily_counter') {
+    const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
+    return displayMode !== 'chart'
+  }
+  // Legacy PostHog wide cards are not live-value views — preserved by the
+  // existing `dispatch.posthog` short-circuit when the view-type doesn't
+  // match daily_counter (the dispatch returns false via the same predicate).
+  return false
+}
 
 interface LiveValueDispatch {
   stripeManual: boolean
@@ -43,13 +84,18 @@ interface LiveValueDispatch {
 }
 
 function classifyLiveValue(view: View): LiveValueDispatch {
-  const stripeManual =
-    view.connectionType === 'stripe_manual' && STRIPE_MANUAL_LIVE_TYPES.has(view.type)
+  const stripeManual = isStripeManualValueView(view)
   const calendly =
     view.connectionType === 'calendly' && CALENDLY_LIVE_TYPES.has(view.type)
-  const ga =
-    view.connectionType === 'google_analytics' && GA_LIVE_TYPES.has(view.type)
-  const posthog = view.connectionType === 'posthog'
+  const ga = isGAValueView(view)
+  // PostHog stays on the live-value path for daily_counter (value mode) and
+  // for the legacy wide cards (funnel/retention/users) — those return null
+  // values via their own hooks but still flow through this dispatch as
+  // historical no-ops. `isPosthogValueView` handles daily_counter; the
+  // remaining wide cards keep the existing posthog short-circuit.
+  const posthog =
+    view.connectionType === 'posthog' &&
+    (isPosthogValueView(view) || view.type !== 'daily_counter')
   return {
     stripeManual,
     calendly,

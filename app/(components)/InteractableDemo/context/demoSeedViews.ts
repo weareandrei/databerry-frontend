@@ -11,12 +11,19 @@
  *   - 'overview-sources'  → composite project overview sources/users
  *
  * Project A (Acme SaaS) — bigger / fuller coverage:
- *     overview, funnel, MRR, gross volume, calendly, 2 posthog events.
- * Project B (Side Project) — leaner showcase:
- *     overview, pageviews, customers, gross volume, 1 posthog event.
+ *     overview, funnel, MRR, gross volume, calendly, 2 posthog events,
+ *     2 GA tiles. Organised into TWO top-level folders ("Marketing"
+ *     and "Revenue") plus a handful of root-level composite tiles
+ *     (overview chart + sources, funnel, calendly).
+ * Project B (Side Project) — leaner, FLAT showcase:
+ *     overview, pageviews, customers, gross volume (now a small value
+ *     tile, not a wide chart), 1 PostHog event, 1 GA tile. NO folders
+ *     on Side — every tile lives directly under the project header.
  *
- * Pinned set: MRR + Calendly meetings (Project A) + Pageviews
- * (Project B) — three pinned tiles, one row in the demo card width.
+ * Pinned set: MRR (in Acme/Revenue) + Pageviews (Side) — small pinned
+ * row at the top of the demo home page. Calendly was previously
+ * pinned but flipped off because the meetings list reads visually
+ * heavier than other tiles and crowded the row.
  */
 
 import {
@@ -107,11 +114,12 @@ export const INITIAL_VIEWS: DemoView[] = [
     steps: MOCK_POSTHOG_FUNNEL,
   },
   {
+    // ── Revenue folder (mrr / gross / payments) ──
     id: 'view-acme-mrr',
     kind: 'value',
     name: 'MRR',
     projectId: 'proj-acme',
-    folderId: 'fld-acme-root',
+    folderId: 'fld-acme-revenue',
     connectionId: 'conn-stripe-acme',
     connectionType: 'stripe_manual',
     pinned: true,
@@ -123,7 +131,7 @@ export const INITIAL_VIEWS: DemoView[] = [
     kind: 'chart',
     name: 'This week gross volume',
     projectId: 'proj-acme',
-    folderId: 'fld-acme-root',
+    folderId: 'fld-acme-revenue',
     connectionId: 'conn-stripe-acme',
     connectionType: 'stripe_manual',
     pinned: false,
@@ -133,6 +141,11 @@ export const INITIAL_VIEWS: DemoView[] = [
     viewType: 'stripe_gross_week',
   },
   {
+    // Calendly meetings stay at project root (orphan folderId — old
+    // 'fld-acme-root' that no longer exists as a folder). At root,
+    // `<DemoProjectView>` shows ALL non-overview tiles regardless of
+    // folderId, so the calendly card renders alongside the other
+    // tiles when the user is on the project's main view.
     id: 'view-acme-calendly',
     kind: 'meetings',
     name: "Today's calls",
@@ -140,10 +153,11 @@ export const INITIAL_VIEWS: DemoView[] = [
     folderId: 'fld-acme-root',
     connectionId: 'conn-calendly',
     connectionType: 'calendly',
-    pinned: true,
+    pinned: false,
     meetings: MOCK_CALENDLY_MEETINGS,
   },
   {
+    // ── Marketing folder (signups + GA active + GA sessions) ──
     id: 'view-acme-signups',
     kind: 'value',
     name: 'user_signed_up',
@@ -159,17 +173,16 @@ export const INITIAL_VIEWS: DemoView[] = [
     kind: 'value',
     name: 'payment_completed',
     projectId: 'proj-acme',
-    folderId: 'fld-acme-root',
+    folderId: 'fld-acme-revenue',
     connectionId: 'conn-posthog-acme',
     connectionType: 'posthog',
     pinned: false,
     mockValue: '1293',
   },
-  // Two GA tiles — one in the Marketing subfolder (Active users, a
-  // realtime metric that fits a marketer's daily check) and one at
-  // root (Sessions, a higher-level traffic counter). Showcases the
-  // GA integration alongside the existing PostHog event tiles in
-  // the same project.
+  // Two GA tiles — both in Marketing now (was split between
+  // Marketing + root before the folder restructure). They're
+  // analytics-y metrics that fit cleanly under the same folder
+  // alongside the PostHog `user_signed_up` event.
   {
     id: 'view-acme-ga-active',
     kind: 'value',
@@ -187,7 +200,7 @@ export const INITIAL_VIEWS: DemoView[] = [
     kind: 'value',
     name: 'Sessions this week',
     projectId: 'proj-acme',
-    folderId: 'fld-acme-root',
+    folderId: 'fld-acme-marketing',
     connectionId: 'conn-ga-acme',
     connectionType: 'google_analytics',
     pinned: false,
@@ -239,17 +252,21 @@ export const INITIAL_VIEWS: DemoView[] = [
     customers: MOCK_STRIPE_TOP_CUSTOMERS,
   },
   {
+    // Demoted from a wide chart card to a small value tile — Side
+    // Project's body had two big-format cards stacked (overview + gross
+    // chart) which read as "two giant tiles" instead of a packed grid.
+    // Rendered as a value tile with `viewType: 'stripe_gross_week'`
+    // so `formatViewValue` (in `utils/formatters.ts`) picks up the
+    // currency formatter and shows "$1,840" rather than the raw cents.
     id: 'view-side-gross',
-    kind: 'chart',
-    name: 'This week gross volume',
+    kind: 'value',
+    name: 'Gross this week',
     projectId: 'proj-side',
     folderId: 'fld-side-root',
     connectionId: 'conn-stripe-side',
     connectionType: 'stripe_manual',
     pinned: false,
     mockValue: String(MOCK_STRIPE_GROSS['proj-side']!.chartTotal),
-    chartTotal: MOCK_STRIPE_GROSS['proj-side']!.chartTotal,
-    chartPoints: MOCK_STRIPE_GROSS['proj-side']!.chartPoints,
     viewType: 'stripe_gross_week',
   },
   {

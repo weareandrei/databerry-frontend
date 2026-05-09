@@ -293,12 +293,27 @@ const ConnectSection = () => {
             </p>
           </RevealOnScroll>
           <RevealOnScroll delay={0.22}>
-            <Link
-              href="/hub/connections"
-              className="w-fit rounded-xl bg-white px-6 py-3 text-sm font-medium text-gray-900 shadow-sm hover:bg-white/90 transition-colors"
-            >
-              View connections
-            </Link>
+            {/*
+              Translucent-white halo around the white button — same
+              ring-in-ring pattern as the FAQ "Ask a question" CTA, just
+              with the colours inverted for the dark backdrop. `bg-white/25`
+              is the wrapper tint; the inner stays solid white so the
+              button itself stays high-contrast against the section's
+              dark background. `rounded-[18px]` = inner `rounded-xl`
+              (12 px) + outer `p-1.5` (6 px); using `rounded-2xl` (16 px)
+              would leave the corners slightly off-concentric.
+              `w-fit` + `shadow-sm` move from the Link to this wrapper
+              so the button + halo cluster reads as one element with one
+              drop shadow.
+            */}
+            <span className="inline-flex w-fit rounded-[18px] bg-white/25 p-1.5 shadow-sm">
+              <Link
+                href="/hub/connections"
+                className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-gray-900 hover:bg-white/90 transition-colors"
+              >
+                View connections
+              </Link>
+            </span>
           </RevealOnScroll>
           <RevealOnScroll delay={0.32}>
             <div className="mt-4">{LogoGrid}</div>
@@ -325,12 +340,18 @@ const ConnectSection = () => {
           </p>
         </RevealOnScroll>
         <RevealOnScroll delay={0.18}>
-          <Link
-            href="/hub/connections"
-            className="w-fit rounded-xl bg-white px-6 py-3 text-sm font-medium text-gray-900 shadow-sm hover:bg-white/90 transition-colors"
-          >
-            View connections
-          </Link>
+          {/* Mobile mirror of the desktop halo wrapper above — see
+              that block for the rationale on the radius math
+              (`rounded-[18px]` outer + `rounded-xl` inner) and why
+              `shadow-sm` lives on the wrapper. */}
+          <span className="inline-flex w-fit rounded-[18px] bg-white/25 p-1.5 shadow-sm">
+            <Link
+              href="/hub/connections"
+              className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-gray-900 hover:bg-white/90 transition-colors"
+            >
+              View connections
+            </Link>
+          </span>
         </RevealOnScroll>
         <RevealOnScroll delay={0.26}>{LogoGrid}</RevealOnScroll>
         <RevealOnScroll delay={0.34}>{PreviewCard}</RevealOnScroll>

@@ -19,14 +19,25 @@ import type { ChartPoint } from '@/app/hub/(components)/view/ViewCardChart'
 import type { View } from '@/types/view'
 import type { PerViewHookOptions } from './types'
 
-const CHART_VIEW_TYPES = new Set([
+// Legacy chart-only types — these always render as a chart. `stripe_gross`
+// is the consolidated polymorphic type (chart by default, value when
+// `config.displayMode === 'value'`); the legacy `stripe_revenue_today`
+// type was merged in via the 2026-05 migration.
+const CHART_ONLY_VIEW_TYPES = new Set([
   'stripe_gross_today',
   'stripe_gross_week',
-  'stripe_gross',
 ])
 
 export function isStripeChartView(view: View): boolean {
-  return view.connectionType === 'stripe_manual' && CHART_VIEW_TYPES.has(view.type)
+  if (view.connectionType !== 'stripe_manual') return false
+  if (CHART_ONLY_VIEW_TYPES.has(view.type)) return true
+  // stripe_gross is the polymorphic merged type — chart mode unless
+  // explicitly opted into value mode via config.displayMode.
+  if (view.type === 'stripe_gross') {
+    const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
+    return displayMode !== 'value'
+  }
+  return false
 }
 
 interface StripeChartPayload {

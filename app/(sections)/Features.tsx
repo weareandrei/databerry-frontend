@@ -88,7 +88,7 @@ function SalesPreview() {
           onUntrack={() => {}}
         />
         <ViewCard
-          view={fakeView('s3', "Today's Revenue", 'stripe_manual', '284000', 'stripe_revenue_today')}
+          view={fakeView('s3', "Today's Revenue", 'stripe_manual', '284000', 'stripe_gross')}
           onUntrack={() => {}}
         />
       </div>
@@ -150,7 +150,7 @@ function HistoryPreview() {
       </div>
       <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '100px' }}>
         <ViewCard
-          view={fakeView('h1', 'Gross Volume', 'stripe_manual', '1042000', 'stripe_revenue_today')}
+          view={fakeView('h1', 'Gross Volume', 'stripe_manual', '1042000', 'stripe_gross')}
           onUntrack={() => {}}
         />
         <ViewCard
@@ -360,77 +360,111 @@ const FeaturesSection = () => {
 
   return (
     <section id="features-section" className="relative px-[10vw] flex flex-col bg-white">
-      {/* Sticky header */}
-      <div className="sticky top-0 z-30 bg-white pt-24 md:pt-20 pb-8 overflow-visible">
-        <RevealOnScroll delay={0} y={16}>
-          <p className="text-xs font-medium text-orange-500 uppercase tracking-widest">Features</p>
-          <h2
-            className="mt-2 text-4xl font-semibold tracking-tight text-gray-900"
-            style={{ fontFamily: 'var(--font-bricolage)' }}
-          >
-            All in one platform
-          </h2>
-        </RevealOnScroll>
-        <AnimatePresence mode="wait">
-          <motion.p
-            key={activeIndex}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -5 }}
-            transition={{ duration: 0.2 }}
-            className="mt-1.5 text-base text-gray-400"
-          >
-            {FEATURES[activeIndex].tagline}
-          </motion.p>
-        </AnimatePresence>
-        <div className="absolute bottom-0 left-0 right-0 h-[50px] translate-y-full bg-gradient-to-b from-white to-transparent pointer-events-none" />
-      </div>
-
-      {/* Feature list + sticky preview */}
-      <div className="flex flex-row pb-32 pt-6 gap-16 items-start">
-        {/* Left: feature text */}
-        <div className="flex flex-col w-full md:w-[45%]">
-          {FEATURES.map((feature, i) => (
-            <RevealOnScroll key={i} delay={0} y={20}>
-              <FeatureItem
-                index={i}
-                badge={feature.badge}
-                header={feature.header}
-                sub={feature.sub}
-                bullets={feature.bullets}
-                cta={feature.cta}
-                active={activeIndex === i}
-                divider={i < FEATURES.length - 1}
-                innerRef={el => {
-                  featureRefs.current[i] = el
-                }}
-                onScrollTo={() => scrollToFeature(i)}
-                Preview={feature.Preview}
-              />
-            </RevealOnScroll>
-          ))}
-        </div>
-
-        {/* Right: sticky preview panel — desktop only */}
-        <div className="hidden md:block flex-1 sticky top-[30vh]">
-          <RevealOnScroll delay={0.1} y={20}>
-          <div className="dashboard rounded-2xl border bg-card p-5 shadow-sm flex items-center justify-center h-[40vh]">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeIndex}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-                className="w-full"
-              >
-                <ActivePreview />
-              </motion.div>
-            </AnimatePresence>
-          </div>
+      {/*
+        Inner wrapper acts as the sticky header's *containing block* —
+        sticky releases when this wrapper's bottom edge reaches the
+        viewport top. To make the header un-stick 200 px early
+        (without shrinking the section as a whole), the feature-list
+        below carries a `-mb-[200px]` negative margin: that shrinks
+        the wrapper's flex-computed height by 200 px while keeping the
+        feature-list's content visually the same. The 200 px tail
+        sibling sits in the gap so the section's overall height —
+        and the start of the next section — is unchanged.
+      */}
+      <div className="flex flex-col">
+        {/* Sticky header */}
+        <div className="sticky top-0 z-30 bg-white pt-24 md:pt-20 pb-8 overflow-visible">
+          <RevealOnScroll delay={0} y={16}>
+            <p className="text-xs font-medium text-orange-500 uppercase tracking-widest">Features</p>
+            <h2
+              className="mt-2 text-4xl font-semibold tracking-tight text-gray-900"
+              style={{ fontFamily: 'var(--font-bricolage)' }}
+            >
+              All in one platform
+            </h2>
           </RevealOnScroll>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={activeIndex}
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.2 }}
+              className="mt-1.5 text-base text-gray-400"
+            >
+              {FEATURES[activeIndex].tagline}
+            </motion.p>
+          </AnimatePresence>
+          <div className="absolute bottom-0 left-0 right-0 h-[50px] translate-y-full bg-gradient-to-b from-white to-transparent pointer-events-none" />
+        </div>
+
+        {/*
+          Feature list + sticky preview.
+          `-mb-[200px]` is what actually makes the header un-stick early.
+          In a flex column, a child's outer-size = content + margins
+          (incl. negative margins). With this −200 mb, the wrapper above
+          treats this child as 200 px shorter, so its flex-computed
+          height — and thus its bottom edge in the document, which is
+          the sticky's release point — comes up 200 px. The visible
+          content below is unchanged; the 200 px tail sibling occupies
+          the same Y range that gets reclaimed here, keeping the
+          section's overall height (and the next section's start
+          position) constant.
+        */}
+        <div className="flex flex-row pb-32 pt-6 gap-16 items-start -mb-[200px]">
+          {/* Left: feature text */}
+          <div className="flex flex-col w-full md:w-[45%]">
+            {FEATURES.map((feature, i) => (
+              <RevealOnScroll key={i} delay={0} y={20}>
+                <FeatureItem
+                  index={i}
+                  badge={feature.badge}
+                  header={feature.header}
+                  sub={feature.sub}
+                  bullets={feature.bullets}
+                  cta={feature.cta}
+                  active={activeIndex === i}
+                  divider={i < FEATURES.length - 1}
+                  innerRef={el => {
+                    featureRefs.current[i] = el
+                  }}
+                  onScrollTo={() => scrollToFeature(i)}
+                  Preview={feature.Preview}
+                />
+              </RevealOnScroll>
+            ))}
+          </div>
+
+          {/* Right: sticky preview panel — desktop only */}
+          <div className="hidden md:block flex-1 sticky top-[30vh]">
+            <RevealOnScroll delay={0.1} y={20}>
+            <div className="dashboard rounded-2xl border bg-card p-5 shadow-sm flex items-center justify-center h-[40vh]">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeIndex}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full"
+                >
+                  <ActivePreview />
+                </motion.div>
+              </AnimatePresence>
+            </div>
+            </RevealOnScroll>
+          </div>
         </div>
       </div>
+
+      {/*
+        200 px tail. Lives outside the wrapper above so the sticky
+        header's containing block doesn't include it — meaning the
+        header releases when the wrapper ends and this region scrolls
+        without it. `aria-hidden` because there's no semantic content
+        here; it's purely a layout buffer.
+      */}
+      <div aria-hidden className="h-[200px]" />
     </section>
   )
 }

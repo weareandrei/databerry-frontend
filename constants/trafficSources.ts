@@ -105,7 +105,26 @@ function pickFallbackColor(seed: string): string {
  *      back to the caller-supplied label (or the key itself), with a
  *      hash-picked colour.
  */
-export function sourceStyle(key: string, fallbackLabel?: string): NormalizedSource {
+export function sourceStyle(
+  key: string,
+  fallbackLabel?: string,
+  /**
+   * Optional caller-supplied colour. When provided AND the source key
+   * isn't in `SOURCE_STYLE` (i.e. we'd otherwise hash-pick a fallback),
+   * we use this colour instead of the hash result.
+   *
+   * Production callers (OverviewChart / OverviewSourcesPanel) pass the
+   * `color` field straight from each `bySource` entry — for known
+   * integrations this is ignored (the table entry wins, preserving the
+   * existing brand-controlled palette), so production rendering for
+   * `direct` / `google` / `reddit` / etc. is unchanged. Unknown keys
+   * (the demo's `organic`/`referral`/`social`, or backend's `unset`)
+   * now honour the data's colour instead of a hash-picked pastel —
+   * which is what lets the demo's brand-orange palette actually reach
+   * the screen.
+   */
+  preferredColor?: string,
+): NormalizedSource {
   // Special-case the 'other' catch-all FIRST. The backend collapses every
   // unrecognised domain into `key='other'` while keeping the original
   // domain in `label` (e.g. `key='other', label='tinylaunch.com'`). If we
@@ -126,7 +145,7 @@ export function sourceStyle(key: string, fallbackLabel?: string): NormalizedSour
     return {
       key,
       label: fallbackLabel,
-      color: pickFallbackColor(fallbackLabel),
+      color: preferredColor ?? pickFallbackColor(fallbackLabel),
     }
   }
 
@@ -138,10 +157,12 @@ export function sourceStyle(key: string, fallbackLabel?: string): NormalizedSour
   if (known) return known
 
   // Anything outside the table — e.g. `'unset'` (backend's label='Other'
-  // for "(not set)" referrers). Use the caller's label, hash-pick a colour.
+  // for "(not set)" referrers) or the demo's custom keys. Use the
+  // caller's label and prefer the caller's supplied colour over the
+  // hash-picked fallback.
   return {
     key,
     label: fallbackLabel ?? key,
-    color: pickFallbackColor(fallbackLabel ?? key),
+    color: preferredColor ?? pickFallbackColor(fallbackLabel ?? key),
   }
 }

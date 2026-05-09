@@ -29,9 +29,10 @@ import {
   ArrowsClockwise,
   CaretDown,
   CaretLeft,
-  Cube,
   DotsThreeVertical,
+  PencilSimple,
   Plus,
+  Trash,
 } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,6 +42,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
+import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
+import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
 import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
 import { ViewCardFunnel } from '@/app/hub/(components)/view/ViewCardFunnel'
@@ -179,54 +182,111 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
   const mockUsers = MOCK_OVERVIEW_USERS[project.id] ?? []
 
   return (
-    <article className="flex flex-col rounded-xl border bg-background shadow-card">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b bg-card rounded-t-xl">
-        <span className="flex items-center justify-center rounded-full bg-background border p-1.5 shrink-0">
-          <Cube size={14} weight="thin" className="text-muted-foreground" />
-        </span>
-        <h2 className="flex-1 min-w-0 truncate text-sm font-semibold text-foreground">
-          {project.name}
-        </h2>
-        <Button
-          size="sm"
-          className="rounded-full gap-1 px-3 h-7"
-          onClick={() => setCreateViewOpen(true)}
-        >
-          <Plus size={11} weight="bold" />
-          <span className="text-xs">Create view</span>
-        </Button>
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center justify-center w-7 h-7 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
-            <DotsThreeVertical size={14} weight="bold" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-32">
-            <DropdownMenuItem onClick={handleProjectMenuRename} className="text-sm">
-              Rename
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={handleProjectMenuDelete}
-              className="text-sm text-destructive focus:text-destructive"
+    /*
+      Mirror of the real `<ProjectView>` from
+      `app/hub/home/(components)/ProjectsGrid/ProjectView/ProjectView.tsx`.
+      The card has NO `bg` of its own — the white fill belongs to the
+      sticky `<SectionHeader>` (top) and the body wrapper (bottom).
+      That way the header's `rounded-t-xl` curves stay visible against
+      the demo page's cream background once the card has scrolled past
+      the sticky offset, instead of going invisible white-on-white.
+      No `overflow:hidden` here either: it would establish a containing
+      block for the sticky and break the "stick at scroll-container
+      top" behaviour.
+    */
+    <article className="relative flex flex-col rounded-xl border shadow-card">
+      <SectionHeader
+        // ProjectIcon at 26 px — slightly under the real app's 30 px so
+        // the header doesn't dominate the demo card's smaller frame.
+        // Same pill chrome as the real one (favicon when websiteUrl set,
+        // Cube fallback otherwise — demo projects have no websiteUrl so
+        // this always renders the Cube pill).
+        icon={<ProjectIcon websiteUrl={null} size={26} pill />}
+        title={project.name}
+        rightSlot={
+          <div className="flex items-center gap-1.5">
+            {/*
+              Same `<Button>` primitive the real header uses, scaled
+              down a notch (`size="sm"`, `h-8`, `px-3`, `text-xs`)
+              so the create-view CTA fits inside the demo card's
+              narrower header without overflowing on small screens.
+              Brand-orange fill keeps it as the primary action.
+            */}
+            <Button
+              size="sm"
+              onClick={() => setCreateViewOpen(true)}
+              className="rounded-full gap-1.5 px-3 h-8 bg-brand hover:bg-brand/90 text-white text-xs"
             >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <button
-          onClick={() => setCollapsed(c => !c)}
-          className="flex items-center justify-center w-7 h-7 rounded-full border bg-card text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <CaretDown
-            size={11}
-            weight="bold"
-            className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
-          />
-        </button>
-      </div>
+              <Plus size={12} weight="bold" />
+              Create view
+            </Button>
+            {/*
+              Demo's Project menu — mirrors `<ProjectMenu>` (rounded
+              white pill + DotsThreeVertical) at the same w-8 h-8 size.
+              Replaces the previous bare `bg-accent` icon-only button.
+            */}
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Project options"
+                className="flex items-center justify-center w-8 h-8 rounded-full border border-stroke bg-white text-grey-dark shadow-sm hover:bg-black/[0.04] transition-colors"
+              >
+                <DotsThreeVertical size={14} weight="bold" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-32">
+                <DropdownMenuItem onClick={handleProjectMenuRename} className="text-sm gap-2">
+                  <PencilSimple size={13} weight="bold" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleProjectMenuDelete}
+                  className="text-sm gap-2 text-destructive focus:text-destructive"
+                >
+                  <Trash size={13} weight="bold" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {/*
+              Collapse — same `<Button variant="outline" size="icon">`
+              pattern the real header uses, just sized to match the
+              kebab next to it (w-8 h-8). `rotate-180` on the chevron
+              when collapsed keeps the affordance familiar.
+            */}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setCollapsed(c => !c)}
+              className="rounded-full shadow-sm w-8 h-8"
+            >
+              <CaretDown
+                size={12}
+                weight="bold"
+                className={`transition-transform duration-200 ${collapsed ? 'rotate-180' : ''}`}
+              />
+            </Button>
+          </div>
+        }
+        // Sticky behaviour mirrors the real project header. The demo's
+        // scroll container is the page wrapper (`overflow-y-auto` on
+        // `DemoHomePage` / `DemoProjectPage`), so `top-0` is the right
+        // offset — there's no above-the-card sticky label to clear like
+        // there is in the real `/hub/home`. `rounded-xl` when collapsed
+        // (header alone fills the card) → `rounded-t-xl` when expanded
+        // (body covers the bottom).
+        className={`sticky top-0 left-0 z-20 bg-white ${
+          collapsed ? 'rounded-xl' : 'rounded-t-xl'
+        }`}
+      />
 
-      {/* Body — hidden when collapsed */}
+      {/* Body — hidden when collapsed.
+          `bg-white rounded-b-xl` lives here (not on the parent
+          `<article>`) so the sticky `<SectionHeader>` above can show its
+          rounded-top curves against cream when the card has scrolled
+          past the sticky offset — same pattern the real `<ProjectView>`
+          uses. Body height floor (`min-h-[260px]`) keeps the empty
+          state from collapsing into a sliver. */}
       {!collapsed && (
-        <div className="p-4 space-y-4">
+        <div className="p-4 pb-6 min-h-[260px] space-y-4 bg-white rounded-b-xl">
           {currentFolder && (
             <Button
               variant="ghost"
@@ -255,11 +315,28 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
 
           {/* Composite overview lane — chart + sources/users.
               Only renders at project root (overview is project-level,
-              not folder-scoped). Stacked vertically inside the demo
-              card; the real app shows them side-by-side on `xl:` but
-              we don't have that much horizontal room here. */}
+              not folder-scoped).
+
+              Layout mirrors the real `<ProjectBodyViews>` from
+              `app/hub/.../ProjectView.tsx`:
+                - Mobile (default)  → 1 column, stacked: chart on top,
+                                      sources below, horizontal divider
+                                      between them.
+                - md+ (≥ 768 px)   → 2 columns, chart fills `1fr` on
+                                      the left, sources panel fixed
+                                      `minmax(200px,260px)` on the
+                                      right, vertical divider between
+                                      them.
+              The breakpoint is `md` (vs the real app's `xl`) because
+              the demo card hits its `4xl` (896 px) width at `md`,
+              which is enough room for the side-by-side layout to
+              breathe. The shared chart component gets the new
+              `compact` prop so its height drops from
+              `h-[280px] xl:h-[340px]` → flat `h-[200px]`, fitting the
+              shorter row alongside the sources panel without
+              overwhelming the demo frame. */}
           {!currentFolderId && overviewChart && mockChart && (
-            <div className="rounded-xl border bg-background flex flex-col divide-y">
+            <div className="rounded-xl border bg-background grid grid-cols-1 md:grid-cols-[1fr_minmax(200px,260px)] divide-y divide-stroke md:divide-y-0 md:divide-x">
               <ViewCardOverviewChart
                 view={toRealOverviewView(overviewChart)}
                 dateFrom={globalDate.from}
@@ -274,6 +351,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                 onRefresh={() => {/* no-op in demo */}}
                 onPin={() => togglePin(overviewChart.id)}
                 chromeless
+                compact
               />
               {overviewSources && (
                 <ViewCardOverviewSources

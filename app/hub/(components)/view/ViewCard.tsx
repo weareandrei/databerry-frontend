@@ -139,6 +139,14 @@ export function ViewCard({
           onPin={onPin}
           isPinned={isPinned}
           dense={dense}
+          // `view` + `onUpdated` enable the convert-to-mode menu items
+          // for multi-mode view types. Reuses `onConnectionAssigned`
+          // as the generic "view was updated" callback — its shape
+          // (`(updated: View) => void`) matches; the prop name is
+          // legacy (predates display-mode conversion) but the
+          // upstream handler simply replaces the view in state.
+          view={view}
+          onUpdated={onConnectionAssigned}
         />
 
         <div className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">

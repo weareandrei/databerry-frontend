@@ -176,7 +176,7 @@ export function Hero() {
       <div className="pointer-events-none fixed bottom-0 left-0 right-0 h-[15vh] z-20 bg-gradient-to-t from-white to-transparent" />
 
       {/* Content */}
-      <div className="relative md:absolute md:inset-0 z-10 flex flex-col justify-center items-center text-center px-6 pt-28 pb-12 md:pt-0 md:pb-0">
+      <div className="relative md:absolute md:inset-0 z-10 flex flex-col justify-center items-center text-center px-6 pt-28 pb-12 md:pt-20 md:pb-0">
         {/* Badge */}
         <motion.div {...heroFade(0.9)} className="mb-6 rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-sm">
           Business Intelligence for founders
@@ -199,12 +199,10 @@ export function Hero() {
         {/* Subheader */}
         <motion.h4
           {...heroFade(1.2)}
-          className="mt-5 max-w-xl text-base md:text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
+          className="mt-8 max-w-2xl text-base md:text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
           style={{ fontFamily: 'var(--font-inter)' }}
         >
-          Connect Google Analytics, Stripe, PostHog and more .. Everything that founders use to
-          track their projects day-to-day. Multiple projects. Multiple dashboards. All living in
-          a harmony inside Databerry.
+          Built for founders that use too many tools. Connect Stripe, PostHog, Google Analytics, and the rest of your stack. All metrics that matter, side by side.
         </motion.h4>
 
         {/* CTA — mobile only */}
