@@ -52,7 +52,10 @@ import type { DemoProject, DemoView } from '../context/DemoContext'
 import { DemoViewCard } from '../DemoViewCard'
 import { DemoCreateViewModal } from '../DemoCreateViewModal'
 import {
-  MOCK_OVERVIEW_CHARTS,
+  // `MOCK_OVERVIEW_CHARTS` is no longer read here — the chart comes
+  // from `useDemoContext().overviewCharts`, which is the date-aware
+  // CSV-derived version (with the static map as its fallback while
+  // the CSV is still in flight).
   MOCK_OVERVIEW_SOURCES,
   MOCK_OVERVIEW_USERS,
 } from '../demoMocks'
@@ -106,6 +109,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
     folders,
     views,
     globalDate,
+    overviewCharts,
     deleteFolder,
     renameFolder,
     createFolder,
@@ -177,7 +181,14 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
   // Mock chart data + sources/users for THIS project — pulled from
   // `demoMocks.ts`. If the project doesn't have a mock entry, we
   // fall back to `null` so the tile shows its empty state.
-  const mockChart = MOCK_OVERVIEW_CHARTS[project.id] ?? null
+  // Overview chart is now date-aware — comes from the demo context's
+  // `overviewCharts` map (built from the CSV time series for the
+  // current `globalDate` range, falling back to the static
+  // `MOCK_OVERVIEW_CHARTS` snapshot until the CSV finishes loading).
+  // Sources / users panels stay static — they're list-shaped data
+  // where date filtering at the demo's tiny scale would either show
+  // the same thing or empty out entirely, neither being useful.
+  const mockChart = overviewCharts[project.id] ?? null
   const mockSources = MOCK_OVERVIEW_SOURCES[project.id] ?? []
   const mockUsers = MOCK_OVERVIEW_USERS[project.id] ?? []
 
@@ -382,43 +393,60 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
             </div>
           )}
 
-          {/* Wide PostHog lane — only the funnel for now (the user's
-              spec listed funnel as one of the views). Retention /
-              users widgets are wired up but not seeded for the demo. */}
-          {!currentFolderId && funnel && funnel.kind === 'funnel' && (
-            <ViewCardFunnel
-              view={{
-                id: funnel.id,
-                name: funnel.name,
-                projectId: funnel.projectId,
-                folderId: funnel.folderId,
-                connectionId: funnel.connectionId,
-                connectionType: funnel.connectionType,
-                type: 'posthog_funnel',
-                config: {},
-                value: null,
-                isPinned: funnel.pinned,
-                userId: 'demo',
-                createdAt: '',
-              }}
-              steps={funnel.steps}
-              loading={false}
-              error={null}
-              onUntrack={() => deleteView(funnel.id)}
-              onPin={() => togglePin(funnel.id)}
-              isPinned={funnel.pinned}
-            />
-          )}
-
           {/* Regular tile grid — `grid-cols-2 lg:grid-cols-3` mirrors
               the real project view's responsive grid, but rolled tighter
               so each tile sits comfortably in the demo's narrow
-              card width. */}
-          {regularViews.length > 0 && (
+              card width.
+
+              The funnel rides in this same grid (not a separate wide
+              lane like the real dashboard) so its width snaps to
+              EXACTLY two grid cells — `col-span-2 row-span-3`. The
+              real dashboard caps the funnel at 672 px via
+              `WidePosthogViewRenderer`'s wrapper; the demo uses grid
+              cells instead, which gives a more proportional shape
+              alongside the regular tiles. */}
+          {(regularViews.length > 0 || (!currentFolderId && funnel && funnel.kind === 'funnel')) && (
             <div
               className="grid grid-cols-2 lg:grid-cols-3 gap-3"
               style={{ gridAutoRows: '110px' }}
             >
+              {/*
+                Funnel renders DIRECTLY in the tile grid (no wrapper
+                div). `<ViewCardFunnel>` applies its own `col-span` /
+                `row-span` based on `view.config.displayMode`:
+                  - chart → `col-span-2 row-span-2` (2×2 like
+                    `<ViewCardChart>`)
+                  - value → no span (1×1 like the value tiles around it)
+                Same behaviour the real dashboard's
+                `<ViewCardRenderer>` applies — keeps the demo and real
+                modes visually identical.
+              */}
+              {!currentFolderId && funnel && funnel.kind === 'funnel' && (
+                <ViewCardFunnel
+                  view={{
+                    id: funnel.id,
+                    name: funnel.name,
+                    projectId: funnel.projectId,
+                    folderId: funnel.folderId,
+                    connectionId: funnel.connectionId,
+                    connectionType: funnel.connectionType,
+                    type: 'posthog_funnel',
+                    // Pass `displayMode` through `config` — same key
+                    // `<ViewCardFunnel>` reads in real-mode rows.
+                    config: { displayMode: funnel.displayMode ?? 'chart' },
+                    value: null,
+                    isPinned: funnel.pinned,
+                    userId: 'demo',
+                    createdAt: '',
+                  }}
+                  steps={funnel.steps}
+                  loading={false}
+                  error={null}
+                  onUntrack={() => deleteView(funnel.id)}
+                  onPin={() => togglePin(funnel.id)}
+                  isPinned={funnel.pinned}
+                />
+              )}
               {regularViews.map(v => (
                 <DemoViewCard
                   key={v.id}

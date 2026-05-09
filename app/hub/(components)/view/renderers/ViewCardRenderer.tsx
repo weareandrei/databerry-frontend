@@ -38,6 +38,7 @@ import {
   useCalendlyMeetings,
   useGAChart,
   usePosthogChart,
+  usePosthogFunnel,
   useStripeChart,
   useStripeTopCustomers,
   useViewLiveValue,
@@ -45,6 +46,7 @@ import {
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
+import { ViewCardFunnel } from '@/app/hub/(components)/view/ViewCardFunnel'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
 import { formatIsoDateRange } from '@/utils/dateHelpers'
 import type { View } from '@/types/view'
@@ -123,6 +125,13 @@ export function ViewCardRenderer({
   const posthogChart = usePosthogChart(view, { dateFrom, dateTo, tz })
   const meetings = useCalendlyMeetings(view, { dateFrom, dateTo, tz })
   const customers = useStripeTopCustomers(view, { dateFrom, dateTo, tz })
+  // `usePosthogFunnel` short-circuits when the view isn't a funnel
+  // (returns empty steps), so calling it unconditionally here is fine.
+  // Hooks must be called in the same order on every render — gating
+  // would violate the rules-of-hooks. Same approach the hooks above
+  // take: hook-of-hook-of-hook style, dispatch decides which result
+  // to actually render below.
+  const funnel = usePosthogFunnel(view, { dateFrom, dateTo, tz })
 
   // Compute the optional caption string for view types that benefit
   // from one (currently MRR). `formatIsoDateRange` returns null on
@@ -179,6 +188,28 @@ export function ViewCardRenderer({
         total={posthogChart.total}
         onRefresh={posthogChart.refresh}
         refreshing={posthogChart.loading}
+      />
+    )
+  }
+  // Funnel — slots into the regular tile grid. `<ViewCardFunnel>`
+  // owns its own `col-span` based on `view.config.displayMode`:
+  // chart mode → 2×2, value mode → 1×1. Used to render in a
+  // separate "wide PostHog" lane via `<WidePosthogViewRenderer>`;
+  // moved here so funnels share grid cells with everything else.
+  if (view.connectionType === 'posthog' && view.type === 'posthog_funnel') {
+    return (
+      <ViewCardFunnel
+        view={view}
+        steps={funnel.steps}
+        loading={funnel.loading}
+        error={funnel.error}
+        onUntrack={onUntrack}
+        onPin={handlePin}
+        isPinned={view.isPinned}
+        onRefresh={funnel.refresh}
+        refreshing={funnel.loading}
+        onConnectionAssigned={onConnectionAssigned}
+        chromeless={chromeless}
       />
     )
   }

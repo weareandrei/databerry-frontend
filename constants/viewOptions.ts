@@ -103,7 +103,12 @@ export const POSTHOG_VIEW_OPTIONS: ViewOption[] = [
     name: 'Funnel',
     desc: '2–5 ordered events with drop-off at each step',
     kind: 'chart',
-    modes: ['chart'],
+    // `value` mode renders a compact tile showing only the overall
+    // conversion: count of users who reached the LAST step + the
+    // start→end %, with a small "from / to" subtitle so the user
+    // knows which two events are being compared. The `chart` mode
+    // is the full step-by-step bar layout.
+    modes: ['chart', 'value'],
   },
   {
     type: 'posthog_retention',

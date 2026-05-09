@@ -23,11 +23,12 @@
  */
 
 import {
-  usePosthogFunnel,
+  // `usePosthogFunnel` no longer imported here — funnel dispatch
+  // moved to `<ViewCardRenderer>` so funnels can sit in the regular
+  // tile grid with proper `col-span` sizing.
   usePosthogRetention,
   usePosthogUsers,
 } from '../data'
-import { ViewCardFunnel } from '../ViewCardFunnel'
 import { ViewCardRetention } from '../ViewCardRetention'
 import { ViewCardUsers } from '../ViewCardUsers'
 import type { View } from '@/types/view'
@@ -68,29 +69,12 @@ interface WidePosthogProps {
   chromeless?: boolean
 }
 
-function PosthogFunnelRenderer(props: WidePosthogProps) {
-  const { view, dateFrom, dateTo } = props
-  const { steps, loading, error, refresh } = usePosthogFunnel(view, {
-    dateFrom,
-    dateTo,
-  })
-  return (
-    <ViewCardFunnel
-      view={view}
-      steps={steps}
-      loading={loading}
-      error={error}
-      projectName={props.projectName}
-      isPinned={props.pinned ?? view.isPinned}
-      onUntrack={props.onUntrack}
-      onPin={props.onPin ? () => props.onPin!(view.id) : undefined}
-      onRefresh={refresh}
-      refreshing={loading}
-      onConnectionAssigned={props.onConnectionAssigned}
-      chromeless={props.chromeless}
-    />
-  )
-}
+// `PosthogFunnelRenderer` is intentionally GONE from this file.
+// Funnels no longer ride in the wide-PostHog lane — they slot into
+// the regular tile grid (sized via `<ViewCardFunnel>`'s own
+// `col-span-2 row-span-2` / 1×1 wrapper). `<ViewCardRenderer>` in
+// `ViewCardRenderer.tsx` dispatches funnel views directly. This
+// keeps retention + users as the only "wide" types here.
 
 function PosthogRetentionRenderer(props: WidePosthogProps) {
   const { view, dateFrom, dateTo } = props
@@ -142,7 +126,9 @@ function PosthogUsersRenderer(props: WidePosthogProps) {
 }
 
 const WIDE_POSTHOG_TYPES = new Set([
-  'posthog_funnel',
+  // Funnel is NOT wide anymore — it slots into the regular tile grid
+  // via `<ViewCardRenderer>`, sized 2×2 (chart mode) or 1×1 (value
+  // mode) via `<ViewCardFunnel>`'s own `col-span` wrapper.
   'posthog_retention',
   'posthog_users',
 ])
@@ -159,8 +145,6 @@ export function isWidePosthogView(view: View): boolean {
  * expected to gate on `isWidePosthogView` first.
  */
 export function WidePosthogViewRenderer(props: WidePosthogProps) {
-  if (props.view.type === 'posthog_funnel')
-    return <PosthogFunnelRenderer {...props} />
   if (props.view.type === 'posthog_retention')
     return <PosthogRetentionRenderer {...props} />
   if (props.view.type === 'posthog_users')

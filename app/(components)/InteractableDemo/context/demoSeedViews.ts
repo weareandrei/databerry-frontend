@@ -74,7 +74,18 @@ export type DemoView =
     })
   | (DemoViewBase & { kind: 'meetings'; meetings: CalendlyMeeting[] })
   | (DemoViewBase & { kind: 'customers'; customers: StripeTopCustomer[] })
-  | (DemoViewBase & { kind: 'funnel'; steps: PosthogFunnelStep[] })
+  | (DemoViewBase & {
+      kind: 'funnel'
+      steps: PosthogFunnelStep[]
+      /**
+       * Mirror of `view.config.displayMode` for the polymorphic
+       * `posthog_funnel` view-type — `chart` renders the step-by-step
+       * bar layout, `value` collapses to a single-cell tile showing
+       * just the start→end conversion. Default `chart` for backwards
+       * compatibility with seed entries that pre-date this field.
+       */
+      displayMode?: 'chart' | 'value'
+    })
   | (DemoViewBase & { kind: 'overview-chart' })
   | (DemoViewBase & { kind: 'overview-sources' })
 
