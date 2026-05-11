@@ -135,6 +135,21 @@ export const WEBHOOK_VIEW_OPTIONS: ViewOption[] = [
   { type: 'webhook_append',  name: 'Timeline',      desc: 'Appends a new entry on every POST',  kind: 'list',  modes: ['list']  },
 ]
 
+// Sentry — single MVP view. Errors-list shows unresolved issues over
+// the selected period, sortable by recency or frequency. List-only;
+// no value / chart modes (Sentry's API gives counts per-issue, not
+// rolled-up totals — value mode would need a separate aggregation
+// endpoint and that's out of MVP scope).
+export const SENTRY_VIEW_OPTIONS: ViewOption[] = [
+  {
+    type: 'sentry_issues_list',
+    name: 'Errors',
+    desc: 'Unresolved issues over the selected period — sort by recency or frequency',
+    kind: 'list',
+    modes: ['list'],
+  },
+]
+
 /**
  * Returns the picker option matching a (`connectionType`, `viewType`)
  * pair, or `null` when none exists. Used by `ViewHeader` to figure out
@@ -162,6 +177,8 @@ export function getViewOption(
         return POSTHOG_VIEW_OPTIONS
       case 'webhook':
         return WEBHOOK_VIEW_OPTIONS
+      case 'sentry':
+        return SENTRY_VIEW_OPTIONS
       case 'composite':
         return COMPOSITE_VIEW_OPTIONS
       default:

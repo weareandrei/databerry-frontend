@@ -23,6 +23,7 @@ import type {
   OverviewSource,
   OverviewUser,
   PosthogFunnelStep,
+  SentryIssue,
   StripeTopCustomer,
 } from '@/lib/api'
 
@@ -88,6 +89,8 @@ export const INITIAL_CONNECTIONS: DemoConnection[] = [
   { id: 'conn-calendly', name: 'Calendly', type: 'calendly', projectId: null },
   { id: 'conn-ga-acme', name: 'Google Analytics · Acme', type: 'google_analytics', projectId: 'proj-acme' },
   { id: 'conn-ga-side', name: 'Google Analytics · Side', type: 'google_analytics', projectId: 'proj-side' },
+  { id: 'conn-sentry-acme', name: 'Sentry · Acme', type: 'sentry', projectId: 'proj-acme' },
+  { id: 'conn-sentry-side', name: 'Sentry · Side', type: 'sentry', projectId: 'proj-side' },
 ]
 
 // ─── Demo source palette ──────────────────────────────────────────────────
@@ -363,4 +366,119 @@ export const MOCK_POSTHOG_EVENTS: { name: string; mockValue: string; volume: num
   { name: 'payment_completed',    mockValue: '1293',  volume: 1293 },
   { name: 'onboarding_finished',  mockValue: '712',   volume: 712 },
   { name: 'feature_flag_called',  mockValue: '5621',  volume: 5621 },
+]
+
+// ─── Sentry issues (one set per project) ──────────────────────────────────
+//
+// Acme — a busier SaaS, so the list reads as a fuller picture: a
+// hot stripe-webhook payload bug at the top, a couple of warnings,
+// and a stale "info" row near the bottom. Counts span three orders
+// of magnitude because that's what a real Sentry issue list looks
+// like — one or two outlier errors dwarfing the long tail.
+//
+// Side — a leaner project, so fewer issues + smaller counts. Mix
+// of one fatal and a few warnings; designed to read at a glance.
+//
+// `lastSeen` / `firstSeen` are anchored relative to the demo's
+// `TODAY` (`2026-04-08`) so the in-tile "Xm ago" labels render
+// sensibly regardless of which demo `period` filter is active.
+// Counts are stringified (matching Sentry's actual wire shape —
+// the `count` field comes back as a string from `/issues/`).
+// `permalink` points to `#` — clicking the row opens a no-op
+// rather than navigating off the landing page.
+
+export const MOCK_SENTRY_ISSUES_ACME: SentryIssue[] = [
+  {
+    id: 'iss-acme-1',
+    title: "TypeError: Cannot read properties of undefined (reading 'amount')",
+    count: '2841',
+    level: 'error',
+    status: 'unresolved',
+    firstSeen: '2026-04-01T08:14:00Z',
+    lastSeen:  '2026-04-08T13:42:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-acme-2',
+    title: 'StripeInvalidRequestError: No such customer: cus_NoLongerExists',
+    count: '614',
+    level: 'error',
+    status: 'unresolved',
+    firstSeen: '2026-04-04T10:02:00Z',
+    lastSeen:  '2026-04-08T13:10:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-acme-3',
+    title: 'Webhook signature verification failed (stripe.charge.succeeded)',
+    count: '293',
+    level: 'warning',
+    status: 'unresolved',
+    firstSeen: '2026-04-06T09:21:00Z',
+    lastSeen:  '2026-04-08T12:58:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-acme-4',
+    title: 'ResizeObserver loop completed with undelivered notifications',
+    count: '128',
+    level: 'warning',
+    status: 'unresolved',
+    firstSeen: '2026-03-29T15:40:00Z',
+    lastSeen:  '2026-04-08T11:35:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-acme-5',
+    title: 'UnhandledPromiseRejection: Failed to fetch /api/billing/invoices',
+    count: '74',
+    level: 'error',
+    status: 'unresolved',
+    firstSeen: '2026-04-02T11:00:00Z',
+    lastSeen:  '2026-04-08T09:14:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-acme-6',
+    title: 'Slow query: select * from subscriptions where account_id = $1',
+    count: '41',
+    level: 'info',
+    status: 'unresolved',
+    firstSeen: '2026-04-05T07:55:00Z',
+    lastSeen:  '2026-04-07T16:08:00Z',
+    permalink: '#',
+  },
+]
+
+export const MOCK_SENTRY_ISSUES_SIDE: SentryIssue[] = [
+  {
+    id: 'iss-side-1',
+    title: "RangeError: Maximum call stack size exceeded in renderDashboard",
+    count: '38',
+    level: 'fatal',
+    status: 'unresolved',
+    firstSeen: '2026-04-08T05:12:00Z',
+    lastSeen:  '2026-04-08T13:21:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-side-2',
+    title: 'NetworkError: Failed to load chunk 4 (chunk-DPRX9.js)',
+    count: '17',
+    level: 'warning',
+    status: 'unresolved',
+    firstSeen: '2026-04-07T22:08:00Z',
+    lastSeen:  '2026-04-08T12:44:00Z',
+    permalink: '#',
+  },
+  {
+    id: 'iss-side-3',
+    title: 'Hydration mismatch: text content does not match server-rendered HTML',
+    count: '9',
+    level: 'warning',
+    status: 'unresolved',
+    firstSeen: '2026-04-06T18:20:00Z',
+    lastSeen:  '2026-04-08T10:02:00Z',
+    permalink: '#',
+  },
 ]

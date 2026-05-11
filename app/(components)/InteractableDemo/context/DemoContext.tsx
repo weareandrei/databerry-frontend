@@ -35,24 +35,27 @@ import {
   INITIAL_CONNECTIONS,
   INITIAL_FOLDERS,
   INITIAL_PROJECTS,
-  MOCK_OVERVIEW_CHARTS,
   type DemoConnection,
   type DemoFolder,
   type DemoProject,
 } from '../demoMocks'
 import { INITIAL_VIEWS, type DemoView } from './demoSeedViews'
 import {
-  avgColumn,
   chartPoints,
   chooseGranularity,
   groupRowsByGranularity,
   lastColumn,
   loadDemoTimeSeries,
+  rowsInRange,
   sumColumn,
   type DemoTimeSeriesRow,
 } from './demoTimeSeries'
 import { SOURCE_STYLE } from '@/constants/trafficSources'
 import type { OverviewChartResponse } from '@/lib/api'
+import type {
+  OverviewPrimaryMetric,
+  OverviewSecondaryMetric,
+} from '@/types/view'
 
 // ─── Types re-exported for callers ────────────────────────────────────────
 
@@ -211,88 +214,236 @@ const SOURCE_COLOR = (key: string): string =>
  * Wire shape stays identical to what the real backend produces, so
  * `<ViewCardOverviewChart>` consumes this verbatim.
  */
-function buildOverviewChart(
+/**
+ * Per-day source values for a given project. Always returned in the
+ * project's canonical source order so callers can iterate without
+ * worrying about Side vs Acme having different sets.
+ */
+interface DaySources {
+  total: number
+  sources: { key: string; label: string; value: number }[]
+}
+
+function visitorsForDay(r: DemoTimeSeriesRow, projectId: string): DaySources {
+  if (projectId === 'proj-acme') {
+    const organic     = r.acme_visitors_organic
+    const direct      = r.acme_visitors_direct
+    const reddit      = r.acme_visitors_reddit
+    const x           = r.acme_visitors_x
+    const producthunt = r.acme_visitors_producthunt
+    return {
+      total: organic + direct + reddit + x + producthunt,
+      sources: [
+        { key: 'organic',     label: 'Organic',     value: organic },
+        { key: 'direct',      label: 'Direct',      value: direct },
+        { key: 'reddit',      label: 'Reddit',      value: reddit },
+        { key: 'x',           label: 'x.com',       value: x },
+        { key: 'producthunt', label: 'ProductHunt', value: producthunt },
+      ],
+    }
+  }
+  // proj-side
+  const organic = r.side_visitors_organic
+  const direct  = r.side_visitors_direct
+  const reddit  = r.side_visitors_reddit
+  return {
+    total: organic + direct + reddit,
+    sources: [
+      { key: 'organic', label: 'Organic', value: organic },
+      { key: 'direct',  label: 'Direct',  value: direct },
+      { key: 'reddit',  label: 'Reddit',  value: reddit },
+    ],
+  }
+}
+
+/**
+ * Per-day primary metric value. The CSV only carries per-source data
+ * for `visitors`; the other three primaries (pageviews / conversions /
+ * revenue) get a single per-day total that the chart distributes
+ * across sources proportionally to the visitor split.
+ *
+ * Why distribute proportionally instead of leaving the bar
+ * un-stacked: keeping the same visual stack shape across primary
+ * choices means the chart re-skins on metric change instead of
+ * fundamentally changing layout, which is a much smoother UX.
+ * Source attribution for revenue / conversions in production
+ * comes from the backend (which has the real per-source data);
+ * the demo doesn't, so a proportional fake is the honest workaround.
+ */
+function primaryTotalForDay(
+  r: DemoTimeSeriesRow,
+  projectId: string,
+  metric: OverviewPrimaryMetric,
+): number {
+  const isAcme = projectId === 'proj-acme'
+  switch (metric) {
+    case 'visitors':
+      return visitorsForDay(r, projectId).total
+    case 'pageviews':
+      // Synthetic — visitor count × ~1.7 pages-per-session. The
+      // multiplier is just plausible-shape SaaS behaviour, not a
+      // hard claim. Side has a literal `side_pageviews` column we
+      // prefer when available.
+      if (!isAcme) return r.side_pageviews
+      return Math.round(visitorsForDay(r, projectId).total * 1.7)
+    case 'conversions':
+      // Acme has `payment_completed` events; Side reuses dashboard
+      // events as a proxy (the demo's Side project has no real
+      // conversion column — the picker's "Conversions" choice still
+      // needs to land on *something*).
+      return isAcme ? r.acme_payments : r.side_dashboard_events
+    case 'revenue':
+      return isAcme ? r.acme_gross_cents : r.side_gross_cents
+  }
+}
+
+/**
+ * Per-day secondary metric value (the overlay line on top of the
+ * stacked bars). Returns `null` for an unsupported (metric, project)
+ * combo so `<ViewCardOverviewChart>` hides the line cleanly.
+ */
+function secondaryValueForDay(
+  r: DemoTimeSeriesRow,
+  projectId: string,
+  metric: OverviewSecondaryMetric,
+): number | null {
+  if (metric === null) return null
+  const isAcme = projectId === 'proj-acme'
+  switch (metric) {
+    case 'conversion_rate':
+      // Acme has it directly; Side gets a synthetic value derived
+      // from events ÷ visitors so the line tracks something
+      // plausible (and doesn't sit at a flat 0).
+      if (isAcme) return r.acme_conversion_pct
+      {
+        const visitors = visitorsForDay(r, projectId).total
+        if (visitors === 0) return 0
+        const rate = (r.side_dashboard_events / visitors) * 100
+        return Math.round(rate * 10) / 10
+      }
+    case 'bounce_rate':
+      // Synthetic — bounce roughly anti-correlates with conversion,
+      // so we use `60 - conversion*4` clamped to a 25-55% band. Side
+      // gets a flatter synthetic line.
+      if (isAcme) {
+        const v = 60 - r.acme_conversion_pct * 4
+        return Math.max(25, Math.min(55, Math.round(v * 10) / 10))
+      }
+      return 48 + Math.round(((r.side_visitors_reddit % 7) - 3) * 10) / 10
+    case 'avg_session_sec':
+      // Synthetic — visitors lighten the per-session time when
+      // traffic spikes (more new visitors = lower dwell). Range
+      // 90-240s.
+      if (isAcme) {
+        const base = 160 - (r.acme_visitors_reddit / 30)
+        return Math.max(90, Math.min(240, Math.round(base)))
+      }
+      return Math.max(60, Math.min(180, 120 + (r.side_visitors_organic % 60) - 30))
+    case 'revenue':
+      return isAcme ? r.acme_gross_cents : r.side_gross_cents
+  }
+}
+
+export function buildOverviewChart(
   projectId: string,
   range: DemoGlobalDate,
   rows: DemoTimeSeriesRow[],
+  primary: OverviewPrimaryMetric,
+  secondary: OverviewSecondaryMetric,
 ): OverviewChartResponse | null {
   if (rows.length === 0) return null
+  if (projectId !== 'proj-acme' && projectId !== 'proj-side') return null
+
   const { from, to } = range
   const { groups } = groupRowsByGranularity(rows, from, to)
   if (groups.length === 0) return null
 
-  const sumOver = (rs: DemoTimeSeriesRow[], col: keyof DemoTimeSeriesRow): number =>
-    rs.reduce((s, r) => s + (typeof r[col] === 'number' ? (r[col] as number) : 0), 0)
-  const avgOver = (rs: DemoTimeSeriesRow[], col: keyof DemoTimeSeriesRow): number =>
-    rs.length === 0 ? 0 : sumOver(rs, col) / rs.length
+  const buckets = groups.map(g => {
+    // Bucket-wide primary total = sum of per-day primary values.
+    // Bucket-wide visitor split = sum of per-day source values.
+    // We then SCALE the per-source split to the primary total so
+    // `bySource` always sums exactly to `total` regardless of which
+    // primary metric the user picked.
+    const primaryTotal = g.rows.reduce(
+      (s, r) => s + primaryTotalForDay(r, projectId, primary),
+      0,
+    )
+    const visitorSplit = g.rows.reduce<Record<string, { label: string; value: number }>>(
+      (acc, r) => {
+        const day = visitorsForDay(r, projectId)
+        for (const s of day.sources) {
+          if (!acc[s.key]) acc[s.key] = { label: s.label, value: 0 }
+          acc[s.key].value += s.value
+        }
+        return acc
+      },
+      {},
+    )
+    const visitorsTotal = Object.values(visitorSplit).reduce((s, v) => s + v.value, 0)
 
-  if (projectId === 'proj-acme') {
-    // Acme has 5 sources — generic organic + direct, plus three
-    // branded referrers (Reddit / X / ProductHunt). Source keys
-    // match what production's `SOURCE_STYLE` table recognises so
-    // the renderers pick up brand colours + brand logos
-    // automatically.
-    const buckets = groups.map(g => {
-      const organic     = sumOver(g.rows, 'acme_visitors_organic')
-      const direct      = sumOver(g.rows, 'acme_visitors_direct')
-      const reddit      = sumOver(g.rows, 'acme_visitors_reddit')
-      const x           = sumOver(g.rows, 'acme_visitors_x')
-      const producthunt = sumOver(g.rows, 'acme_visitors_producthunt')
+    // Order matters — production renders bySource in array order, so
+    // we keep the canonical project order from `visitorsForDay`.
+    const sourceOrder = visitorsForDay(g.rows[0]!, projectId).sources.map(s => s.key)
+    const bySource = sourceOrder.map(key => {
+      const share = visitorsTotal > 0 ? visitorSplit[key]!.value / visitorsTotal : 0
       return {
-        label: g.label,
-        total: organic + direct + reddit + x + producthunt,
-        bySource: [
-          { source: 'organic',     label: 'Organic',     color: SOURCE_COLOR('organic'),     value: organic },
-          { source: 'direct',      label: 'Direct',      color: SOURCE_COLOR('direct'),      value: direct },
-          { source: 'reddit',      label: 'Reddit',      color: SOURCE_COLOR('reddit'),      value: reddit },
-          { source: 'x',           label: 'x.com',       color: SOURCE_COLOR('x'),           value: x },
-          { source: 'producthunt', label: 'ProductHunt', color: SOURCE_COLOR('producthunt'), value: producthunt },
-        ],
-        // Conversion is a rate — average across the bucket's days,
-        // not sum (summing percentages would be meaningless).
-        secondary: avgOver(g.rows, 'acme_conversion_pct'),
+        source: key,
+        label: visitorSplit[key]!.label,
+        color: SOURCE_COLOR(key),
+        // For `visitors`, this collapses to the original per-source
+        // count (share × total = original value). For other primaries,
+        // it's the proportional attribution explained in
+        // `primaryTotalForDay`.
+        value: Math.round(primaryTotal * share),
       }
     })
+
+    // Secondary value: rates / averages need to be AVG-over-bucket,
+    // not summed (summing a percentage across days is meaningless).
+    // Counts (revenue) are summed.
+    const secondaryValues = g.rows
+      .map(r => secondaryValueForDay(r, projectId, secondary))
+      .filter((v): v is number => v != null)
+    let secondaryBucket: number | null = null
+    if (secondaryValues.length > 0) {
+      if (secondary === 'revenue') {
+        secondaryBucket = secondaryValues.reduce((s, v) => s + v, 0)
+      } else {
+        secondaryBucket =
+          secondaryValues.reduce((s, v) => s + v, 0) / secondaryValues.length
+        secondaryBucket = Math.round(secondaryBucket * 10) / 10
+      }
+    }
+
     return {
-      buckets,
-      totalPrimary: buckets.reduce((s, b) => s + b.total, 0),
-      totalSecondary: avgColumn(rows, from, to, 'acme_conversion_pct'),
-      trafficProvider: 'posthog',
+      label: g.label,
+      total: primaryTotal,
+      bySource,
+      secondary: secondaryBucket,
+    }
+  })
+
+  // Top-level secondary total — same aggregation rule as the per-
+  // bucket value (sum for revenue, average for rates).
+  let totalSecondary: number | null = null
+  if (secondary !== null) {
+    const all = rowsInRange(rows, from, to)
+      .map(r => secondaryValueForDay(r, projectId, secondary))
+      .filter((v): v is number => v != null)
+    if (all.length > 0) {
+      totalSecondary =
+        secondary === 'revenue'
+          ? all.reduce((s, v) => s + v, 0)
+          : Math.round((all.reduce((s, v) => s + v, 0) / all.length) * 10) / 10
     }
   }
 
-  if (projectId === 'proj-side') {
-    // Side — leaner showcase, only 3 sources (organic / direct /
-    // reddit). Keeps the chart visually less busy than Acme's
-    // 5-source stack.
-    const buckets = groups.map(g => {
-      const organic = sumOver(g.rows, 'side_visitors_organic')
-      const direct  = sumOver(g.rows, 'side_visitors_direct')
-      const reddit  = sumOver(g.rows, 'side_visitors_reddit')
-      return {
-        label: g.label,
-        total: organic + direct + reddit,
-        bySource: [
-          { source: 'organic', label: 'Organic', color: SOURCE_COLOR('organic'), value: organic },
-          { source: 'direct',  label: 'Direct',  color: SOURCE_COLOR('direct'),  value: direct },
-          { source: 'reddit',  label: 'Reddit',  color: SOURCE_COLOR('reddit'),  value: reddit },
-        ],
-        // Side has no secondary metric in seed data — keep it `null`
-        // so `<ViewCardOverviewChart>` shows the secondary picker as
-        // "None" (matches real-mode behaviour for projects without a
-        // conversion-rate signal).
-        secondary: null,
-      }
-    })
-    return {
-      buckets,
-      totalPrimary: buckets.reduce((s, b) => s + b.total, 0),
-      totalSecondary: null,
-      trafficProvider: 'posthog',
-    }
+  return {
+    buckets,
+    totalPrimary: buckets.reduce((s, b) => s + b.total, 0),
+    totalSecondary,
+    trafficProvider: 'posthog',
   }
-
-  return null
 }
 
 // ─── Context shape ────────────────────────────────────────────────────────
@@ -324,13 +475,23 @@ interface DemoContextValue {
   connections: DemoConnection[]
   pinnedViewIds: string[]
   /**
-   * Per-project overview chart data, also derived from the CSV.
-   * Keyed by `projectId`; falls back to the static
-   * `MOCK_OVERVIEW_CHARTS` snapshot when the CSV hasn't loaded yet.
-   * `<DemoProjectView>` reads this instead of pulling the static
-   * mock directly.
+   * Raw demo time-series rows for the project, exposed so consumers
+   * (currently `<DemoProjectView>`) can build the overview chart
+   * inline with their own `primaryMetric` / `secondaryMetric` state.
+   * Empty array until the CSV finishes loading; callers should
+   * short-circuit on `timeSeries.length === 0` and fall back to a
+   * static snapshot (`MOCK_OVERVIEW_CHARTS`) for the brief load gap.
+   *
+   * This used to be a pre-computed `overviewCharts: Record<projectId,
+   * OverviewChartResponse>` here, built with fixed `'visitors' + null`
+   * metrics. Trouble: the metric pickers in
+   * `<ViewCardOverviewChart>` had nowhere to go — picking "Revenue"
+   * still showed visitor counts, because the context never saw the
+   * picker state. Moving the build to the consumer (via `useMemo`
+   * depending on the local picker state) fixes it: each project view
+   * computes the chart for its OWN picker selection.
    */
-  overviewCharts: Record<string, OverviewChartResponse | null>
+  timeSeries: DemoTimeSeriesRow[]
 
   // Mutations — projects
   createProject: (name: string) => string
@@ -605,23 +766,6 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     [rawViews],
   )
 
-  // Overview-chart data per project — derived from the same time
-  // series. Falls back to the static `MOCK_OVERVIEW_CHARTS` snapshot
-  // until the CSV resolves so consumers never see a flash of empty
-  // charts on first paint.
-  const overviewCharts = useMemo<Record<string, OverviewChartResponse | null>>(() => {
-    if (timeSeries.length === 0) {
-      return {
-        'proj-acme': MOCK_OVERVIEW_CHARTS['proj-acme'] ?? null,
-        'proj-side': MOCK_OVERVIEW_CHARTS['proj-side'] ?? null,
-      }
-    }
-    return {
-      'proj-acme': buildOverviewChart('proj-acme', globalDate, timeSeries),
-      'proj-side': buildOverviewChart('proj-side', globalDate, timeSeries),
-    }
-  }, [timeSeries, globalDate])
-
   const value: DemoContextValue = {
     pageOpen,
     currentProjectId,
@@ -634,7 +778,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     views,
     connections,
     pinnedViewIds,
-    overviewCharts,
+    timeSeries,
     createProject,
     renameProject,
     deleteProject,

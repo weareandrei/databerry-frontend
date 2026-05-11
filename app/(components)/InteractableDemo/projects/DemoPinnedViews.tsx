@@ -42,8 +42,12 @@ export function DemoPinnedViews() {
   const projectNameById = new Map(projects.map(p => [p.id, p.name]))
 
   return (
+    // Single column on mobile — same reasoning as `DemoProjectView`'s
+    // tile grid: the demo card is too narrow on phones for 2 cols to
+    // breathe. Steps up to 2 / 3 cols at `sm:` / `md:` so on a
+    // tablet+ the pinned row still reads as a row, not a stack.
     <div
-      className="grid grid-cols-2 md:grid-cols-3 gap-3"
+      className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"
       style={{ gridAutoRows: '110px' }}
     >
       {pinned.map(v => (

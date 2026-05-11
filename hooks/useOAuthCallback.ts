@@ -24,7 +24,7 @@ import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
 
-type Provider = 'stripe' | 'calendly' | 'google_analytics'
+type Provider = 'stripe' | 'calendly' | 'google_analytics' | 'sentry'
 
 // Per-provider message map. Missing keys fall back to `unknown` for
 // the same provider — never a generic "something went wrong".
@@ -71,16 +71,36 @@ const REASONS: Record<Provider, Record<string, string>> = {
     unknown:
       'Something went wrong connecting Google Analytics. Try again.',
   },
+  sentry: {
+    cancelled:
+      'You declined to install the Sentry integration. No connection was made.',
+    state_invalid:
+      'Your Sentry connection link expired. Start the connection again from the Connections page.',
+    token_exchange:
+      "Sentry rejected the connection. Make sure you're an admin of the org you tried to install into and try again.",
+    account_resolve:
+      "We installed into Sentry but couldn't read your org info. Try once more in a moment.",
+    credentials_save:
+      "Sentry authorized fine, but we couldn't save the connection on our end. Try again.",
+    unknown:
+      'Something went wrong connecting Sentry. Try again.',
+  },
 }
 
 const PROVIDER_LABELS: Record<Provider, string> = {
   stripe: 'Stripe',
   calendly: 'Calendly',
   google_analytics: 'Google Analytics',
+  sentry: 'Sentry',
 }
 
 function isProvider(p: string): p is Provider {
-  return p === 'stripe' || p === 'calendly' || p === 'google_analytics'
+  return (
+    p === 'stripe' ||
+    p === 'calendly' ||
+    p === 'google_analytics' ||
+    p === 'sentry'
+  )
 }
 
 export function useOAuthCallback(provider: string) {

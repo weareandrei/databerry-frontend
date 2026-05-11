@@ -17,6 +17,7 @@ import {
   WEBHOOK_VIEW_OPTIONS,
   COMPOSITE_VIEW_OPTIONS,
   POSTHOG_VIEW_OPTIONS,
+  SENTRY_VIEW_OPTIONS,
   type ViewOption,
   type ViewKind,
 } from '@/constants/viewOptions'
@@ -132,6 +133,8 @@ function iconTypeForIntegration(integration: string): string {
       return 'posthog'
     case 'webhook':
       return 'webhook'
+    case 'sentry':
+      return 'sentry'
     case 'composite':
       return 'composite'
     default:
@@ -146,6 +149,7 @@ const INTEGRATION_DISPLAY_ORDER = [
   'google_analytics',
   'posthog',
   'calendly',
+  'sentry',
   'webhook',
 ]
 
@@ -175,6 +179,8 @@ function viewOptionsForIntegration(integration: string): ViewOption[] {
       return POSTHOG_VIEW_OPTIONS
     case 'webhook':
       return WEBHOOK_VIEW_OPTIONS
+    case 'sentry':
+      return SENTRY_VIEW_OPTIONS
     case 'composite':
       // Project Overview is connection-less. Expose only the chart
       // entry — picking it creates the chart+sources pair under the hood.

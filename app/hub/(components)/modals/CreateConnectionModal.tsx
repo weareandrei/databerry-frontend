@@ -38,7 +38,7 @@ const INTEGRATIONS: IntegrationCard[] = [
     badge: 'In development',
   },
   { id: 'webhook', name: 'Custom Webhook', description: 'Accept POST requests from any source' },
-  { id: 'sentry', name: 'Sentry', description: 'Error monitoring & performance', disabled: true, badge: 'In development' },
+  { id: 'sentry', name: 'Sentry', description: 'Error monitoring & issues' },
   { id: 'github', name: 'GitHub', description: 'Repositories, PRs & issues', disabled: true, badge: 'In development' },
   { id: 'x', name: 'X (Twitter)', description: 'Followers, posts & engagement', disabled: true, badge: 'In development' },
   { id: 'reddit', name: 'Reddit', description: 'Subreddit stats & mentions', disabled: true, badge: 'In development' },
@@ -55,6 +55,7 @@ type View =
   | 'stripe-manual-form'
   | 'calendly-connecting'
   | 'google-analytics-connecting'
+  | 'sentry-connecting'
   | 'vercel-token'
   | 'vercel-project-select'
   | 'vercel-created'
@@ -635,6 +636,9 @@ export function CreateConnectionModal() {
     } else if (type === 'google_analytics') {
       setView('google-analytics-connecting')
       handleGoogleAnalyticsOAuth()
+    } else if (type === 'sentry') {
+      setView('sentry-connecting')
+      handleSentryOAuth()
     } else if (type === 'vercel') {
       setView('vercel-token')
     }
@@ -712,6 +716,16 @@ export function CreateConnectionModal() {
       window.location.href = data.url
     } catch {
       toast.error('Failed to start Google Analytics OAuth')
+      setView('list')
+    }
+  }
+
+  const handleSentryOAuth = async () => {
+    try {
+      const data = await ALGORITHM.getSentryOAuthUrl()
+      window.location.href = data.url
+    } catch {
+      toast.error('Failed to start Sentry OAuth')
       setView('list')
     }
   }
@@ -1039,6 +1053,14 @@ export function CreateConnectionModal() {
         <BottomDialog.Page title="Google Analytics" onBack={backToList}>
           <div className="flex items-center justify-center py-8">
             <p className="text-sm text-muted-foreground">Opening Google authorization…</p>
+          </div>
+        </BottomDialog.Page>
+      )}
+
+      {view === 'sentry-connecting' && (
+        <BottomDialog.Page title="Sentry" onBack={backToList}>
+          <div className="flex items-center justify-center py-8">
+            <p className="text-sm text-muted-foreground">Opening Sentry authorization…</p>
           </div>
         </BottomDialog.Page>
       )}

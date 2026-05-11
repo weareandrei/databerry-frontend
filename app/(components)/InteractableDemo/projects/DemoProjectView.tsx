@@ -24,7 +24,7 @@
  * was deemed out of scope for the demo.
  */
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ArrowsClockwise,
   CaretDown,
@@ -47,15 +47,18 @@ import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { ViewCardOverviewChart } from '@/app/hub/(components)/view/ViewCardOverviewChart'
 import { ViewCardOverviewSources } from '@/app/hub/(components)/view/ViewCardOverviewSources'
 import { ViewCardFunnel } from '@/app/hub/(components)/view/ViewCardFunnel'
-import { useDemoContext } from '../context/DemoContext'
+import { buildOverviewChart, useDemoContext } from '../context/DemoContext'
 import type { DemoProject, DemoView } from '../context/DemoContext'
 import { DemoViewCard } from '../DemoViewCard'
 import { DemoCreateViewModal } from '../DemoCreateViewModal'
 import {
-  // `MOCK_OVERVIEW_CHARTS` is no longer read here — the chart comes
-  // from `useDemoContext().overviewCharts`, which is the date-aware
-  // CSV-derived version (with the static map as its fallback while
-  // the CSV is still in flight).
+  // `MOCK_OVERVIEW_CHARTS` is the static (non-date-aware) snapshot
+  // we fall back to during the brief window between mount and the
+  // CSV time-series fetch resolving. After that, the chart comes
+  // from `buildOverviewChart(...)` over `timeSeries` — which now
+  // also takes the current `primaryMetric` / `secondaryMetric` so
+  // the in-card picker actually changes what's plotted.
+  MOCK_OVERVIEW_CHARTS,
   MOCK_OVERVIEW_SOURCES,
   MOCK_OVERVIEW_USERS,
 } from '../demoMocks'
@@ -109,7 +112,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
     folders,
     views,
     globalDate,
-    overviewCharts,
+    timeSeries,
     deleteFolder,
     renameFolder,
     createFolder,
@@ -178,34 +181,244 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
     }
   }
 
-  // Mock chart data + sources/users for THIS project — pulled from
-  // `demoMocks.ts`. If the project doesn't have a mock entry, we
-  // fall back to `null` so the tile shows its empty state.
-  // Overview chart is now date-aware — comes from the demo context's
-  // `overviewCharts` map (built from the CSV time series for the
-  // current `globalDate` range, falling back to the static
-  // `MOCK_OVERVIEW_CHARTS` snapshot until the CSV finishes loading).
+  // Overview chart — recomputed for THIS project whenever the
+  // picker (primary / secondary metric), the date range, or the CSV
+  // changes. The picker state lives locally above, so `useMemo`
+  // here is what makes the picker actually move the chart: switch
+  // primary from `visitors` → `revenue` and the bars + total
+  // re-render against `acme_gross_cents` instead of visitor counts.
+  //
+  // While the CSV is still loading (`timeSeries.length === 0`) we
+  // fall back to the static `MOCK_OVERVIEW_CHARTS` snapshot to
+  // avoid a flash of empty/null on first paint. The fallback isn't
+  // metric-aware, but that window is sub-second; the user can't
+  // poke the picker that fast.
+  //
   // Sources / users panels stay static — they're list-shaped data
   // where date filtering at the demo's tiny scale would either show
   // the same thing or empty out entirely, neither being useful.
-  const mockChart = overviewCharts[project.id] ?? null
+  const mockChart = useMemo(() => {
+    if (timeSeries.length === 0) return MOCK_OVERVIEW_CHARTS[project.id] ?? null
+    return buildOverviewChart(
+      project.id,
+      globalDate,
+      timeSeries,
+      primaryMetric,
+      secondaryMetric,
+    )
+  }, [project.id, globalDate, timeSeries, primaryMetric, secondaryMetric])
   const mockSources = MOCK_OVERVIEW_SOURCES[project.id] ?? []
   const mockUsers = MOCK_OVERVIEW_USERS[project.id] ?? []
 
+  // Shared FolderGrid handlers — same on both mobile + desktop, so we
+  // close over them once instead of inlining twice.
+  const handleCreateSubfolder = (parentId: string, projectId: string) =>
+    createFolder('New folder', projectId, parentId)
+  const handleCreateRootFolder = () =>
+    createFolder('New folder', project.id, currentFolder?.id ?? null)
+
   return (
-    /*
-      Mirror of the real `<ProjectView>` from
-      `app/hub/home/(components)/ProjectsGrid/ProjectView/ProjectView.tsx`.
-      The card has NO `bg` of its own — the white fill belongs to the
-      sticky `<SectionHeader>` (top) and the body wrapper (bottom).
-      That way the header's `rounded-t-xl` curves stay visible against
-      the demo page's cream background once the card has scrolled past
-      the sticky offset, instead of going invisible white-on-white.
-      No `overflow:hidden` here either: it would establish a containing
-      block for the sticky and break the "stick at scroll-container
-      top" behaviour.
-    */
-    <article className="relative flex flex-col rounded-xl border shadow-card">
+    <>
+      {/* ============================================================
+          MOBILE LAYOUT — mirrors `<MobileProjectBody>` in
+          `app/hub/(components)/mobile/MobileProjectBody.tsx`.
+          Section cards (Folders / Views) with `chromeless` tiles
+          stacked single-column under hairline `divide-y` dividers.
+          ============================================================ */}
+      <div className="flex flex-col gap-4 md:hidden">
+        {/* Project header row — minimal version of `<SectionHeader>`.
+            Cube icon + project name + icon-only Create-view button.
+            We skip the kebab + collapse from the desktop header: at
+            phone widths the controls are easier to mis-tap, and
+            collapse adds no value on a card-shaped scroll surface
+            this short. The shared modal at the end still drives
+            create-view; rename/delete are desktop-only affordances
+            for now. */}
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <ProjectIcon websiteUrl={null} size={22} pill />
+            <h1 className="truncate text-sm font-semibold text-grey-darkest">
+              {project.name}
+            </h1>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setCreateViewOpen(true)}
+            aria-label="Create view"
+            className="rounded-full px-0 h-8 w-8 bg-brand hover:bg-brand/90 text-white shrink-0"
+          >
+            <Plus size={12} weight="bold" />
+          </Button>
+        </div>
+
+        {/* Folder back-link — sits above the Folders section when the
+            user has drilled into a subfolder. Same affordance as
+            `<MobileProjectBody>`. */}
+        {currentFolder && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCurrentFolderId(currentFolder.parentId ?? null)}
+            className="-mb-2 -ml-2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground self-start"
+          >
+            <CaretLeft size={11} weight="bold" />
+            Back to {project.name}
+          </Button>
+        )}
+
+        {/* ── Folders section ─────────────────────────────────────
+            Always renders so the `+ New folder` slot inside
+            `<FolderGrid>` has a home — mirrors `<MobileProjectBody>`'s
+            "Card always renders" behaviour. */}
+        <section>
+          <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-grey-light">
+            Folders
+          </h2>
+          <div className="rounded-xl border border-stroke bg-white shadow-card p-3">
+            <FolderGrid
+              folders={subFolders.map(toRealFolder)}
+              onDeleteFolder={deleteFolder}
+              onRenameFolder={renameFolder}
+              onCreateSubfolder={handleCreateSubfolder}
+              onCreateFolder={handleCreateRootFolder}
+              onFolderClick={id => setCurrentFolderId(id)}
+            />
+          </div>
+        </section>
+
+        {/* ── Views section ───────────────────────────────────────
+            Composite overview card (chart + sources stacked with
+            hairline divider) + other-views card (funnel + every
+            regular tile in a single-column `divide-y` stack, each
+            `chromeless` so its own border doesn't nest inside the
+            outer card). */}
+        <section>
+          <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-grey-light">
+            Views
+          </h2>
+
+          {/* Composite overview card — only at project root, since
+              overview is project-level not folder-scoped. The two
+              tiles already opt into `<ViewWrapper variant='borderless'>`
+              themselves via the `chromeless` prop, so the outer card's
+              `divide-y` is what separates them visually. */}
+          {!currentFolderId && overviewChart && mockChart && (
+            <div className="rounded-xl border border-stroke bg-white shadow-card flex flex-col divide-y divide-stroke mb-3">
+              <ViewCardOverviewChart
+                view={toRealOverviewView(overviewChart)}
+                dateFrom={globalDate.from}
+                dateTo={globalDate.to}
+                mode={globalDate.mode}
+                primaryMetric={primaryMetric}
+                secondaryMetric={secondaryMetric}
+                onMetricChange={handleMetricChange}
+                chart={mockChart}
+                loading={false}
+                error={null}
+                onRefresh={() => {/* no-op in demo */}}
+                onPin={() => togglePin(overviewChart.id)}
+                chromeless
+                compact
+              />
+              {overviewSources && (
+                <ViewCardOverviewSources
+                  view={toRealOverviewView(overviewSources)}
+                  dateFrom={globalDate.from}
+                  dateTo={globalDate.to}
+                  tab={sourcesTab}
+                  onTabChange={setSourcesTab}
+                  sources={{
+                    data: mockSources,
+                    loading: false,
+                    error: null,
+                    fetched: true,
+                  }}
+                  users={{
+                    data: mockUsers,
+                    loading: false,
+                    error: null,
+                    fetched: true,
+                    provider: 'posthog',
+                  }}
+                  onRefreshSources={() => {/* no-op */}}
+                  onRefreshUsers={() => {/* no-op */}}
+                  onPin={() => togglePin(overviewSources.id)}
+                  chromeless
+                />
+              )}
+            </div>
+          )}
+
+          {/* Other-views card — single-column flat stack. The funnel
+              rides above the regular tiles (same order desktop uses).
+              Each tile is `chromeless`; `divide-y` between rows gives
+              the "stacked but related" feel `<MobileProjectBody>` has.
+
+              `flex flex-col` (not a grid) means each tile sizes to
+              its own content — sentry's `col-span-2 row-span-2`
+              classes are inert here, so the issue list renders at
+              its natural height instead of being clamped to 220 px. */}
+          {(regularViews.length > 0 || (!currentFolderId && funnel && funnel.kind === 'funnel')) && (
+            <div className="rounded-xl border border-stroke bg-white shadow-card flex flex-col divide-y divide-stroke">
+              {!currentFolderId && funnel && funnel.kind === 'funnel' && (
+                <ViewCardFunnel
+                  view={{
+                    id: funnel.id,
+                    name: funnel.name,
+                    projectId: funnel.projectId,
+                    folderId: funnel.folderId,
+                    connectionId: funnel.connectionId,
+                    connectionType: funnel.connectionType,
+                    type: 'posthog_funnel',
+                    config: { displayMode: funnel.displayMode ?? 'chart' },
+                    value: null,
+                    isPinned: funnel.pinned,
+                    userId: 'demo',
+                    createdAt: '',
+                  }}
+                  steps={funnel.steps}
+                  loading={false}
+                  error={null}
+                  onUntrack={() => deleteView(funnel.id)}
+                  onPin={() => togglePin(funnel.id)}
+                  isPinned={funnel.pinned}
+                  chromeless
+                />
+              )}
+              {regularViews.map(v => (
+                <DemoViewCard
+                  key={v.id}
+                  view={v}
+                  onUntrack={() => deleteView(v.id)}
+                  onPin={() => togglePin(v.id)}
+                  chromeless
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Empty-state copy — only when nothing renders inside Views. */}
+          {!overviewChart && !funnel && regularViews.length === 0 && (
+            <p className="text-xs text-muted-foreground py-3 px-1">
+              No views yet. Tap <span className="font-medium">+</span> above to add one.
+            </p>
+          )}
+        </section>
+      </div>
+
+      {/* ============================================================
+          DESKTOP LAYOUT — unchanged from before. Sticky
+          `<SectionHeader>` + body with overview lane + tile grid.
+          The card has NO `bg` of its own — the white fill belongs to
+          the sticky `<SectionHeader>` (top) and the body wrapper
+          (bottom). That way the header's `rounded-t-xl` curves stay
+          visible against the demo page's cream background once the
+          card has scrolled past the sticky offset, instead of going
+          invisible white-on-white. No `overflow:hidden` here either:
+          it would establish a containing block for the sticky and
+          break the "stick at scroll-container top" behaviour.
+          ============================================================ */}
+      <article className="relative hidden md:flex flex-col rounded-xl border shadow-card">
       <SectionHeader
         // ProjectIcon at 26 px — slightly under the real app's 30 px so
         // the header doesn't dominate the demo card's smaller frame.
@@ -222,14 +435,22 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
               so the create-view CTA fits inside the demo card's
               narrower header without overflowing on small screens.
               Brand-orange fill keeps it as the primary action.
+
+              On mobile the label collapses to just the `+` glyph
+              inside a circular button: the demo card's narrow
+              mobile width can't accommodate the full
+              `[icon-plus-label]` + kebab + collapse trio without
+              wrapping the row. Same affordance survives — the icon
+              alone is recognisable as "add" — only the text changes.
             */}
             <Button
               size="sm"
               onClick={() => setCreateViewOpen(true)}
-              className="rounded-full gap-1.5 px-3 h-8 bg-brand hover:bg-brand/90 text-white text-xs"
+              aria-label="Create view"
+              className="rounded-full gap-1.5 px-0 md:px-3 h-8 w-8 md:w-auto bg-brand hover:bg-brand/90 text-white text-xs"
             >
               <Plus size={12} weight="bold" />
-              Create view
+              <span className="hidden md:inline">Create view</span>
             </Button>
             {/*
               Demo's Project menu — mirrors `<ProjectMenu>` (rounded
@@ -393,10 +614,14 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
             </div>
           )}
 
-          {/* Regular tile grid — `grid-cols-2 lg:grid-cols-3` mirrors
-              the real project view's responsive grid, but rolled tighter
-              so each tile sits comfortably in the demo's narrow
-              card width.
+          {/* Regular tile grid — single column on mobile (the demo
+              card itself is only ~76vw on phones, so even 2 columns
+              would crunch each tile to ~135 px wide, dropping the
+              value text to a single squashed line). At `md:` and up
+              we step to 2 cols, then 3 cols at `lg:` — same
+              progression the real project body uses, just shifted one
+              tier earlier because the demo card is narrower than the
+              full dashboard.
 
               The funnel rides in this same grid (not a separate wide
               lane like the real dashboard) so its width snaps to
@@ -404,10 +629,16 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
               real dashboard caps the funnel at 672 px via
               `WidePosthogViewRenderer`'s wrapper; the demo uses grid
               cells instead, which gives a more proportional shape
-              alongside the regular tiles. */}
+              alongside the regular tiles.
+
+              A tile carrying `col-span-2` (funnel, sentry) inside a
+              single-column grid gracefully degrades — CSS Grid clips
+              the span to the available columns, so the tile becomes
+              full-width and `row-span-2` still applies. No mobile-
+              specific span overrides needed. */}
           {(regularViews.length > 0 || (!currentFolderId && funnel && funnel.kind === 'funnel')) && (
             <div
-              className="grid grid-cols-2 lg:grid-cols-3 gap-3"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
               style={{ gridAutoRows: '110px' }}
             >
               {/*
@@ -476,12 +707,18 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
         </div>
       )}
 
+      </article>
+
+      {/* Shared modal — one instance, driven by the same
+          `createViewOpen` state that both layouts (mobile + desktop)
+          set. Lives at the Fragment root so it isn't gated by either
+          layout's `hidden md:*` toggling. */}
       <DemoCreateViewModal
         open={createViewOpen}
         onOpenChange={setCreateViewOpen}
         projectId={project.id}
         folderId={currentFolder?.id ?? subFolders[0]?.id ?? `${project.id}-root`}
       />
-    </article>
+    </>
   )
 }

@@ -60,7 +60,15 @@ export function DemoAskAIPage() {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-background">
-      <ChatHeader hasMessages={chat.length > 0} onClear={clearChat} />
+      {/* On mobile the demo sidebar's burger button overlays the
+          top-left corner of the demo card — `pl-10` here pushes the
+          shared `<ChatHeader>` (which has no built-in left padding
+          since the real app's mobile chrome handles that via
+          `<MobileTopBar>`) out from under it. Desktop has no burger,
+          so the wrapper collapses back to no padding. */}
+      <div className="pl-10 md:pl-0">
+        <ChatHeader hasMessages={chat.length > 0} onClear={clearChat} />
+      </div>
 
       {/* Beta banner — same chrome as real, kept here so visitors
           see it on the demo too. */}

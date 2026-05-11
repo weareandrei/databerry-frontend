@@ -36,4 +36,11 @@ export type { PosthogRetentionResource } from './usePosthogRetention'
 export { usePosthogUsers } from './usePosthogUsers'
 export type { PosthogUsersResource } from './usePosthogUsers'
 
+export { useSentryIssues, readSentryFilters } from './useSentryIssues'
+export type {
+  SentryIssuesResource,
+  SentryIssuesPeriod,
+  SentryIssuesSort,
+} from './useSentryIssues'
+
 export type { PerViewHookOptions } from './types'

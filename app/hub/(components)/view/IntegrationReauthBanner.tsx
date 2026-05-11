@@ -28,10 +28,17 @@ export function IntegrationReauthBanner({
     if (busy) return
     setBusy(true)
     try {
-      const { url } =
-        error.integration === 'google_analytics'
-          ? await ALGORITHM.getGoogleAnalyticsOAuthUrl()
-          : await ALGORITHM.getCalendlyOAuthUrl()
+      // Per-provider OAuth-start dispatch. New OAuth integrations
+      // get added here. `IntegrationReauthBody` (in lib/api.ts) is
+      // the source of truth for which `integration` values can flow
+      // through to this banner — keep this switch in sync with that
+      // union.
+      const startFor: Record<typeof error.integration, () => Promise<{ url: string }>> = {
+        google_analytics: () => ALGORITHM.getGoogleAnalyticsOAuthUrl(),
+        calendly:         () => ALGORITHM.getCalendlyOAuthUrl(),
+        sentry:           () => ALGORITHM.getSentryOAuthUrl(),
+      }
+      const { url } = await startFor[error.integration]()
       window.location.href = url
     } catch {
       // If the OAuth-start endpoint itself fails we just clear `busy` —

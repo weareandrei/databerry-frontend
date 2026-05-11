@@ -21,6 +21,26 @@ export interface CalendlyMeeting {
   description: string | null
 }
 
+/**
+ * One row from the Sentry errors-list view. Matches the curated
+ * shape the backend returns from `/sentry/views/issues-list` —
+ * subset of Sentry's full issue payload, trimmed to the fields the
+ * tile actually renders.
+ */
+export interface SentryIssue {
+  id: string
+  /** Human-readable error title, e.g. `TypeError: Cannot read properties…`. */
+  title: string
+  /** Event count inside the requested period. Stringified by Sentry. */
+  count: string
+  level: 'error' | 'warning' | 'info' | 'debug' | 'fatal' | string
+  status: 'unresolved' | 'resolved' | 'ignored' | string
+  firstSeen: string
+  lastSeen: string
+  /** Direct URL into Sentry — opens the issue in a new tab. */
+  permalink: string
+}
+
 /** Top-customer row for the `stripe_top_customers` list tile. */
 export interface StripeTopCustomer {
   customerId: string
@@ -161,10 +181,19 @@ async function getAuthHeader(): Promise<string> {
  * Callers should let this propagate up to UI that can render a
  * "Reconnect <Integration>" prompt (see `IntegrationReauthBanner`).
  */
+/**
+ * Providers that can throw `INTEGRATION_NEEDS_REAUTH` — kept in sync
+ * with `IntegrationReauthBody['integration']` AND with the per-
+ * provider OAuth-start dispatch table in `IntegrationReauthBanner`.
+ * Adding a new OAuth provider that can need reauth = touching all
+ * three.
+ */
+export type IntegrationReauthProvider = 'google_analytics' | 'calendly' | 'sentry'
+
 export class IntegrationReauthError extends Error {
-  readonly integration: 'google_analytics' | 'calendly'
+  readonly integration: IntegrationReauthProvider
   readonly connectionId: string
-  constructor(integration: 'google_analytics' | 'calendly', connectionId: string, detail?: string) {
+  constructor(integration: IntegrationReauthProvider, connectionId: string, detail?: string) {
     super(detail ?? `Reauth required for ${integration}`)
     this.name = 'IntegrationReauthError'
     this.integration = integration
@@ -174,7 +203,7 @@ export class IntegrationReauthError extends Error {
 
 interface IntegrationReauthBody {
   error: 'INTEGRATION_NEEDS_REAUTH'
-  integration: 'google_analytics' | 'calendly'
+  integration: 'google_analytics' | 'calendly' | 'sentry'
   connectionId: string
   detail?: string
 }
@@ -184,7 +213,9 @@ function isReauthBody(body: unknown): body is IntegrationReauthBody {
   const b = body as Record<string, unknown>
   return (
     b.error === 'INTEGRATION_NEEDS_REAUTH' &&
-    (b.integration === 'google_analytics' || b.integration === 'calendly') &&
+    (b.integration === 'google_analytics' ||
+      b.integration === 'calendly' ||
+      b.integration === 'sentry') &&
     typeof b.connectionId === 'string'
   )
 }
@@ -375,6 +406,34 @@ export const ALGORITHM = {
   ) =>
     apiFetch<{ meetings: CalendlyMeeting[] }>(
       `/calendly/views/meetings-list?connectionId=${connectionId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
+    ),
+
+  // ── Sentry ─────────────────────────────────────────────────────────────
+  //
+  // Sentry's OAuth flow is a "Public Integration" install on Sentry's
+  // side. Frontend just hits `oauth/start`, which returns a URL to
+  // open in a popup / redirect to. After the user installs, Sentry
+  // redirects back to our backend's `oauth/callback`, which finalises
+  // the credentials + redirects the user to `/hub/connections?sentry=`.
+
+  getSentryOAuthUrl: (name?: string) =>
+    apiFetch<{ url: string }>(
+      `/sentry/oauth/start${name ? `?name=${encodeURIComponent(name)}` : ''}`,
+    ),
+
+  /**
+   * Errors-list view for a Sentry connection. `period` accepts
+   * `24h` / `7d` / `30d` / `90d`; `sort` accepts `recent` (= newly
+   * occurring) or `frequent` (= highest event count). Defaults match
+   * the backend's "what's broken in the last 24 h" zero-config read.
+   */
+  getSentryIssuesList: (
+    connectionId: string,
+    period: '24h' | '7d' | '30d' | '90d' = '24h',
+    sort: 'recent' | 'frequent' = 'recent',
+  ) =>
+    apiFetch<{ issues: SentryIssue[] }>(
+      `/sentry/views/issues-list?connectionId=${connectionId}&period=${period}&sort=${sort}`,
     ),
 
   // ── Google Analytics ─────────────────────────────────────────────────────

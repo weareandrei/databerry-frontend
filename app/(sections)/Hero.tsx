@@ -18,7 +18,7 @@ const LOGOS = [
   { src: '/landing/logos/posthog_logo.png', alt: 'PostHog' },
   { src: '/landing/logos/ga4_logo.png', alt: 'Google Analytics' },
   { src: '/landing/logos/gmail_logo.png', alt: 'Gmail' },
-  { src: '/landing/logos/mailchimp_logo.png', alt: 'Mailchimp' },
+  { src: '/landing/logos/sentry_logo.png', alt: 'Sentry' },
   { src: '/landing/logos/notion_logo.png', alt: 'Notion' },
 ]
 

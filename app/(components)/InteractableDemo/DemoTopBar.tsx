@@ -66,9 +66,20 @@ export function DemoTopBar() {
     // dashboard's `pt-6 pb-2 pr-6` because the demo card itself is
     // smaller and we want as much vertical room as possible for the
     // tile content below.
-    <div className="shrink-0 flex items-center gap-2 pt-3 pb-2 px-3 bg-background">
-      {/* Mock search — typing does nothing. Just visual. */}
-      <div className="flex-1 flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
+    //
+    // On mobile the burger button (rendered by `<DemoSidebar>`) sits
+    // absolute at top-2 / left-2 over this bar — `pl-10` on mobile
+    // keeps our row content from sliding under it. Desktop has the
+    // sidebar to the left of this bar, so the burger never appears
+    // and the padding can collapse back to the standard `px-3`.
+    <div className="shrink-0 flex items-center gap-2 pt-3 pb-2 pr-3 pl-10 md:pl-3 bg-background">
+      {/* Mock search — typing does nothing. Just visual. Hidden on
+          mobile: it's the lowest-value control here (read-only anyway)
+          and the demo card's mobile width can't fit search + both
+          dropdowns without crushing the dropdown labels. Real mobile
+          dashboard does the same — its `<MobileTopBar>` hides search
+          and exposes a date pill in the corner. */}
+      <div className="hidden md:flex flex-1 items-center gap-2 rounded-md border bg-card px-2.5 py-1.5">
         <MagnifyingGlass size={12} weight="thin" className="text-muted-foreground shrink-0" />
         <input
           type="text"
@@ -78,6 +89,12 @@ export function DemoTopBar() {
           readOnly
         />
       </div>
+
+      {/* Mobile-only spacer — claims the flex-1 slot the hidden search
+          would have eaten, so the two dropdowns push to the right edge
+          instead of huddling against the burger on the left. */}
+      <div className="flex-1 md:hidden" />
+
 
       {/* Date range pill */}
       <DropdownMenu>

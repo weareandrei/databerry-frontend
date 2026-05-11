@@ -2,7 +2,6 @@
 
 import Image from 'next/image'
 import {
-  Bug,
   GitBranch,
   XLogo,
   RedditLogo,
@@ -20,10 +19,10 @@ const TYPE_IMAGES: Record<string, string> = {
   calendly:         '/connections/calendly_icon.png',
   google_analytics: '/connections/ga_icon.png',
   vercel:           '/connections/vercel_icon.png',
+  sentry:           '/connections/sentry_icon.png',
 }
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
-  sentry: Bug,
   github: GitBranch,
   x: XLogo,
   reddit: RedditLogo,

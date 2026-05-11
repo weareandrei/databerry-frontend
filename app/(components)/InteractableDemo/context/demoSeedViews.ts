@@ -7,6 +7,7 @@
  *   - 'meetings'          → Calendly list → `<ViewCardList>`
  *   - 'customers'         → Stripe top customers → `<ViewCardCustomerList>`
  *   - 'funnel'            → PostHog funnel → `<ViewCardFunnel>`
+ *   - 'sentry-issues'     → Sentry errors list → `<ViewCardSentryIssues>`
  *   - 'overview-chart'    → composite project overview chart
  *   - 'overview-sources'  → composite project overview sources/users
  *
@@ -29,13 +30,20 @@
 import {
   MOCK_CALENDLY_MEETINGS,
   MOCK_POSTHOG_FUNNEL,
+  MOCK_SENTRY_ISSUES_ACME,
+  MOCK_SENTRY_ISSUES_SIDE,
   MOCK_STRIPE_GROSS,
   MOCK_STRIPE_TOP_CUSTOMERS,
   type DemoChartPoint,
 } from '../demoMocks'
 import type {
+  SentryIssuesPeriod,
+  SentryIssuesSort,
+} from '@/app/hub/(components)/view/data/useSentryIssues'
+import type {
   CalendlyMeeting,
   PosthogFunnelStep,
+  SentryIssue,
   StripeTopCustomer,
 } from '@/lib/api'
 
@@ -85,6 +93,29 @@ export type DemoView =
        * compatibility with seed entries that pre-date this field.
        */
       displayMode?: 'chart' | 'value'
+    })
+  | (DemoViewBase & {
+      kind: 'sentry-issues'
+      /**
+       * Frozen mock list — real mode pulls live from
+       * `/sentry/views/issues-list`, but the demo runs offline so
+       * the rows are baked in. Same shape (`SentryIssue[]`) the real
+       * fetcher returns, so `<ViewCardSentryIssues>` consumes it
+       * without a special demo-only branch.
+       */
+      mockIssues: SentryIssue[]
+      /**
+       * Seed values for the in-card filter dropdowns. The dropdowns
+       * still work in demo mode — they update local component state
+       * inside `<ViewCardSentryIssues>` — but the underlying mock
+       * list doesn't actually re-filter, so picking a different
+       * period/sort changes the badge label only. Acceptable for the
+       * demo's purpose (showing that filters EXIST); a "real" demo
+       * filter would require pre-computing the mock list under every
+       * possible filter combo, which isn't worth the churn.
+       */
+      period: SentryIssuesPeriod
+      sort: SentryIssuesSort
     })
   | (DemoViewBase & { kind: 'overview-chart' })
   | (DemoViewBase & { kind: 'overview-sources' })
@@ -218,6 +249,25 @@ export const INITIAL_VIEWS: DemoView[] = [
     mockValue: '14820',
     viewType: 'ga_sessions_today',
   },
+  {
+    // Sentry on Acme — bigger / louder project, so the seed view
+    // picks "Last 7 days" + sort by frequency to highlight the
+    // top recurring stripe-webhook bug at the top of the list. The
+    // 2×2 list tile lives at project root alongside the funnel and
+    // overview composite — no folder home, since errors aren't a
+    // Marketing or a Revenue concern.
+    id: 'view-acme-sentry',
+    kind: 'sentry-issues',
+    name: 'Errors',
+    projectId: 'proj-acme',
+    folderId: 'fld-acme-root',
+    connectionId: 'conn-sentry-acme',
+    connectionType: 'sentry',
+    pinned: false,
+    mockIssues: MOCK_SENTRY_ISSUES_ACME,
+    period: '7d',
+    sort: 'frequent',
+  },
 
   // ── Project B — Side Project ──────────────────────────────────────────
   {
@@ -307,5 +357,24 @@ export const INITIAL_VIEWS: DemoView[] = [
     pinned: false,
     mockValue: '2104',
     viewType: 'ga_users_today',
+  },
+  {
+    // Sentry on Side — leaner project, so the seed picks "Last 24
+    // hours" + sort by recency, framing the tile as "what's broken
+    // right now" rather than Acme's "what's been loudest this
+    // week". Two pickers, two flavours: the same component reads
+    // very differently with different defaults, which shows off
+    // the filter ergonomics on a single page.
+    id: 'view-side-sentry',
+    kind: 'sentry-issues',
+    name: 'Errors',
+    projectId: 'proj-side',
+    folderId: 'fld-side-root',
+    connectionId: 'conn-sentry-side',
+    connectionType: 'sentry',
+    pinned: false,
+    mockIssues: MOCK_SENTRY_ISSUES_SIDE,
+    period: '24h',
+    sort: 'recent',
   },
 ]

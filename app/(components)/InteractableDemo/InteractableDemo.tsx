@@ -11,7 +11,10 @@
  * sync, etc.
  */
 
+import { useEffect } from 'react'
+import { Warning, X } from '@phosphor-icons/react'
 import { DemoProvider, useDemoContext } from './context/DemoContext'
+import { DemoErrorBoundary } from './DemoErrorBoundary'
 import { DemoSidebar } from './DemoSidebar'
 import { DemoHomePage } from './pages/DemoHomePage'
 import { DemoConnectionsPage } from './pages/DemoConnectionsPage'
@@ -19,25 +22,70 @@ import { DemoSettingsPage } from './pages/DemoSettingsPage'
 import { DemoAskAIPage } from './pages/DemoAskAIPage'
 import { DemoProjectPage } from './pages/DemoProjectPage'
 
+const DEMO_UNSUPPORTED_NOTICE = "This feature isn't available in the demo."
+
+/**
+ * How long the snackbar stays visible before auto-dismissing.
+ * 3.5 s is the same window Sonner (the toast library used elsewhere
+ * in the app) defaults to — long enough to read a short sentence,
+ * short enough that it doesn't linger when the user moves on.
+ */
+const NOTICE_DURATION_MS = 3500
+
+/**
+ * Bottom-pinned snackbar — slides up when `notice` is set, auto-
+ * dismisses after `NOTICE_DURATION_MS`, can be manually dismissed
+ * via the X. Non-blocking (no backdrop dim, no click-outside trap)
+ * so the user can keep interacting with the demo while it's
+ * showing — same way real toast libraries (Sonner, etc.) work.
+ *
+ * Was previously a centered modal with a backdrop, which felt too
+ * heavy for "this feature isn't available" messaging — it stopped
+ * the user's flow entirely. A snackbar communicates the same
+ * "demo limitation" message without freezing the surface.
+ */
 function DemoNotice() {
   const { notice, dismissNotice } = useDemoContext()
+
+  // Auto-dismiss timer — restarts whenever `notice` changes (e.g.
+  // user triggered a second unsupported action before the first
+  // toast cleared, so the timer resets to give them the full
+  // window to read the new message). Cleared on unmount and on
+  // notice change.
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(dismissNotice, NOTICE_DURATION_MS)
+    return () => clearTimeout(timer)
+  }, [notice, dismissNotice])
+
   if (!notice) return null
 
   return (
+    // `absolute bottom-3` pins to the bottom of the demo card (the
+    // nearest positioned ancestor — `<DemoContent>`'s root has
+    // `relative`). `z-50` keeps it above the page content but below
+    // dialogs from the shared components. Width caps at `max-w-sm`
+    // to keep a single line of body text from stretching across the
+    // whole card on desktop.
     <div
-      className="absolute inset-0 z-50 flex items-center justify-center bg-black/10 backdrop-blur-sm rounded-xl"
-      onClick={dismissNotice}
+      role="status"
+      aria-live="polite"
+      className="absolute bottom-3 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[calc(100%-1.5rem)] pointer-events-auto"
     >
-      <div
-        className="bg-card border rounded-xl px-6 py-4 shadow-lg text-center max-w-[260px]"
-        onClick={e => e.stopPropagation()}
-      >
-        <p className="text-sm font-medium">{notice}</p>
+      <div className="flex items-center gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 shadow-lg">
+        <Warning
+          size={14}
+          weight="bold"
+          className="shrink-0 text-amber-700"
+        />
+        <p className="flex-1 text-xs font-medium text-amber-900">{notice}</p>
         <button
+          type="button"
           onClick={dismissNotice}
-          className="mt-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Dismiss notice"
+          className="shrink-0 -mr-1 flex items-center justify-center w-5 h-5 rounded text-amber-700 hover:text-amber-900 hover:bg-amber-100 transition-colors"
         >
-          Dismiss
+          <X size={12} weight="bold" />
         </button>
       </div>
     </div>
@@ -45,20 +93,31 @@ function DemoNotice() {
 }
 
 function DemoContent() {
-  const { pageOpen } = useDemoContext()
+  const { pageOpen, showNotice } = useDemoContext()
 
   // `text-left` resets the `text-center` the surrounding landing-page
   // `<DemoSection>` applies for its hero copy. Without this, every
   // demo heading (project name, "PROJECTS" label, etc.) renders
   // centered because the text-align cascades through.
+  //
+  // `<DemoErrorBoundary>` wraps just the page area — `<DemoSidebar>`
+  // + `<DemoNotice>` sit outside so a notice fired by the boundary
+  // can be rendered without being inside the failing subtree. The
+  // boundary catches any render-time throw (most commonly: a shared
+  // view-card opens a dialog whose body calls `useDashboard()`,
+  // which has no provider here), then `showNotice` paints the
+  // existing "not available in demo" overlay so the user sees an
+  // explanation instead of a crashed page.
   return (
     <div className="relative bg-background rounded-lg flex h-full text-left">
       <DemoSidebar />
-      {pageOpen === 'home' && <DemoHomePage />}
-      {pageOpen === 'project' && <DemoProjectPage />}
-      {pageOpen === 'connections' && <DemoConnectionsPage />}
-      {pageOpen === 'settings' && <DemoSettingsPage />}
-      {pageOpen === 'agent-chat' && <DemoAskAIPage />}
+      <DemoErrorBoundary onError={() => showNotice(DEMO_UNSUPPORTED_NOTICE)}>
+        {pageOpen === 'home' && <DemoHomePage />}
+        {pageOpen === 'project' && <DemoProjectPage />}
+        {pageOpen === 'connections' && <DemoConnectionsPage />}
+        {pageOpen === 'settings' && <DemoSettingsPage />}
+        {pageOpen === 'agent-chat' && <DemoAskAIPage />}
+      </DemoErrorBoundary>
       <DemoNotice />
     </div>
   )

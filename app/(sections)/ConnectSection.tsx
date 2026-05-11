@@ -17,7 +17,7 @@ const LOGOS = [
   { src: '/landing/logos/calendly_logo.png', alt: 'Calendly', comingSoon: false },
   { src: '/landing/logos/ga4_logo.png', alt: 'Google Analytics', comingSoon: true },
   { src: '/landing/logos/gmail_logo.png', alt: 'Gmail', comingSoon: true },
-  { src: '/landing/logos/mailchimp_logo.png', alt: 'Mailchimp', comingSoon: true },
+  { src: '/landing/logos/sentry_logo.png', alt: 'Sentry', comingSoon: false },
   { src: '/landing/logos/notion_logo.png', alt: 'Notion', comingSoon: true },
 ]
 
@@ -171,13 +171,17 @@ const PREVIEWS: React.FC[] = [
     />
   ),
   () => (
+    // Sentry preview — error / issue counters that read like the
+    // metrics a Databerry user would actually wire up once they
+    // connect Sentry. Numbers small enough to feel plausible for a
+    // mid-sized SaaS; high enough to be visible.
     <SimpleStatsPreview
-      connectionType="custom"
+      connectionType="sentry"
       stats={[
-        { name: 'Subscribers', value: '8420' },
-        { name: 'Open Rate', value: '31' },
-        { name: 'Clicks', value: '740' },
-        { name: 'Unsubscribes', value: '14' },
+        { name: 'Errors today', value: '142' },
+        { name: 'Unresolved', value: '38' },
+        { name: 'New issues', value: '6' },
+        { name: 'Crash-free rate', value: '99' },
       ]}
     />
   ),

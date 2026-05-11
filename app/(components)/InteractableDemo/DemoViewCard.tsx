@@ -22,6 +22,7 @@ import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
 import { ViewCardFunnel } from '@/app/hub/(components)/view/ViewCardFunnel'
+import { ViewCardSentryIssues } from '@/app/hub/(components)/view/ViewCardSentryIssues'
 import type { DemoView } from './context/demoSeedViews'
 import type { View as RealView } from '@/types/view'
 
@@ -39,6 +40,7 @@ function toRealView(v: DemoView): RealView {
   else if (v.kind === 'meetings') type = 'calendly_meetings_list'
   else if (v.kind === 'customers') type = 'stripe_top_customers'
   else if (v.kind === 'funnel') type = 'posthog_funnel'
+  else if (v.kind === 'sentry-issues') type = 'sentry_issues_list'
   else if (v.kind === 'value' && v.viewType) type = v.viewType
   else if (v.kind === 'overview-chart') type = 'project_overview'
   else if (v.kind === 'overview-sources') type = 'project_overview_sources'
@@ -75,9 +77,25 @@ interface DemoViewCardProps {
    * from the surrounding chrome — so the badge is omitted there.
    */
   projectName?: string
+  /**
+   * When true, the rendered tile drops its own border + shadow chrome
+   * (via `<ViewWrapper variant="borderless">`) so it can sit flat
+   * inside an outer white card. The mobile project body uses this
+   * to stack tiles single-column with `divide-y` hairlines between
+   * them — same pattern the real `<MobileProjectBody>` uses for
+   * its other-views card. Default false → desktop behaviour, tile
+   * paints its own border + shadow.
+   */
+  chromeless?: boolean
 }
 
-export function DemoViewCard({ view, onUntrack, onPin, projectName }: DemoViewCardProps) {
+export function DemoViewCard({
+  view,
+  onUntrack,
+  onPin,
+  projectName,
+  chromeless = false,
+}: DemoViewCardProps) {
   const realView = toRealView(view)
   const handlePin = () => onPin()
   // Every demo tile renders in dense mode — the demo card is much
@@ -101,6 +119,7 @@ export function DemoViewCard({ view, onUntrack, onPin, projectName }: DemoViewCa
           total={view.chartTotal}
           projectName={projectName}
           dense={dense}
+          chromeless={chromeless}
         />
       )
 
@@ -116,6 +135,7 @@ export function DemoViewCard({ view, onUntrack, onPin, projectName }: DemoViewCa
           error={null}
           projectName={projectName}
           dense={dense}
+          chromeless={chromeless}
         />
       )
 
@@ -131,6 +151,7 @@ export function DemoViewCard({ view, onUntrack, onPin, projectName }: DemoViewCa
           error={null}
           projectName={projectName}
           dense={dense}
+          chromeless={chromeless}
         />
       )
 
@@ -146,6 +167,33 @@ export function DemoViewCard({ view, onUntrack, onPin, projectName }: DemoViewCa
           error={null}
           projectName={projectName}
           dense={dense}
+          chromeless={chromeless}
+        />
+      )
+
+    case 'sentry-issues':
+      // 2×2 list tile — the wrapper inside `<ViewCardSentryIssues>`
+      // applies its own `col-span-2 row-span-2`, which is inert when
+      // the parent isn't a grid (e.g. the mobile body's `flex flex-col
+      // divide-y` stack), and gracefully clips when it is (e.g. the
+      // single-column desktop demo grid). `onFiltersChange` is a
+      // no-op: the dropdowns inside the card update local state
+      // (instant visual feedback) but the mock list doesn't actually
+      // re-filter — same trade-off the seed-data comment explains.
+      return (
+        <ViewCardSentryIssues
+          view={realView}
+          onUntrack={onUntrack}
+          issues={view.mockIssues}
+          loading={false}
+          error={null}
+          period={view.period}
+          sort={view.sort}
+          onPin={handlePin}
+          isPinned={view.pinned}
+          projectName={projectName}
+          dense={dense}
+          chromeless={chromeless}
         />
       )
 
@@ -163,6 +211,7 @@ export function DemoViewCard({ view, onUntrack, onPin, projectName }: DemoViewCa
           liveValue={view.kind === 'value' ? view.mockValue : null}
           projectName={projectName}
           dense={dense}
+          chromeless={chromeless}
         />
       )
   }

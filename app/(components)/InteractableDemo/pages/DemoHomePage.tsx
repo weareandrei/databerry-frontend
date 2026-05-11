@@ -13,6 +13,7 @@
 import { useDemoContext } from '../context/DemoContext'
 import { DemoTopBar } from '../DemoTopBar'
 import { DemoPinnedViews } from '../projects/DemoPinnedViews'
+import { DemoMobileProjectsList } from '../projects/DemoMobileProjectsList'
 import { DemoProjectView } from '../projects/DemoProjectView'
 
 export function DemoHomePage() {
@@ -46,7 +47,24 @@ export function DemoHomePage() {
           <h2 className="px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Projects
           </h2>
-          <div className="space-y-3">
+          {/* Mobile: flat list of project rows, each navigates to the
+              dedicated project page on tap. Same drill-down pattern
+              the real `<MobileHomeBody>` uses — stacking every full
+              `<DemoProjectView>` body in the narrow demo card means
+              the user can't see anything without scrolling several
+              screens, and they don't get a per-project landing they
+              can actually inspect. The flat list keeps the home
+              page glanceable and pushes detail to the dedicated
+              project page (`pageOpen === 'project'`). */}
+          <div className="block md:hidden">
+            <DemoMobileProjectsList projects={projects} />
+          </div>
+
+          {/* Desktop / tablet: keep the stacked project bodies — at
+              `md+` the demo card is wide enough that each body's
+              folder grid + overview lane + tile grid render
+              comfortably side-by-side within their own card. */}
+          <div className="hidden md:block space-y-3">
             {projects.map(project => (
               <DemoProjectView key={project.id} project={project} />
             ))}

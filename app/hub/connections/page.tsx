@@ -43,6 +43,7 @@ function OAuthCallbacks() {
   useOAuthCallback('stripe')
   useOAuthCallback('calendly')
   useOAuthCallback('google_analytics')
+  useOAuthCallback('sentry')
   return null
 }
 

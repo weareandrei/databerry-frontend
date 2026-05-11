@@ -35,19 +35,24 @@ import {
   isGAChartView,
   isPosthogChartView,
   isStripeChartView,
+  readSentryFilters,
   useCalendlyMeetings,
   useGAChart,
   usePosthogChart,
   usePosthogFunnel,
+  useSentryIssues,
   useStripeChart,
   useStripeTopCustomers,
   useViewLiveValue,
 } from '@/app/hub/(components)/view/data'
+import { toast } from 'sonner'
+import { ALGORITHM } from '@/lib/api'
 import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
 import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
 import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
 import { ViewCardFunnel } from '@/app/hub/(components)/view/ViewCardFunnel'
 import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
+import { ViewCardSentryIssues } from '@/app/hub/(components)/view/ViewCardSentryIssues'
 import { formatIsoDateRange } from '@/utils/dateHelpers'
 import type { View } from '@/types/view'
 
@@ -132,6 +137,12 @@ export function ViewCardRenderer({
   // take: hook-of-hook-of-hook style, dispatch decides which result
   // to actually render below.
   const funnel = usePosthogFunnel(view, { dateFrom, dateTo, tz })
+  // Sentry — filters live on the view's config, not on the global
+  // date range, so we pull period + sort from there for the hook
+  // call. `readSentryFilters` falls back to safe defaults when the
+  // view was just created and hasn't had its config touched yet.
+  const sentryFilters = readSentryFilters(view)
+  const sentry = useSentryIssues(view, sentryFilters)
 
   // Compute the optional caption string for view types that benefit
   // from one (currently MRR). `formatIsoDateRange` returns null on
@@ -208,6 +219,45 @@ export function ViewCardRenderer({
         isPinned={view.isPinned}
         onRefresh={funnel.refresh}
         refreshing={funnel.loading}
+        onConnectionAssigned={onConnectionAssigned}
+        chromeless={chromeless}
+      />
+    )
+  }
+  // Sentry errors-list — 2×2 list tile with its own period + sort
+  // dropdowns inside the card. Filters persist via
+  // `<ViewCardSentryIssues>` calling `ALGORITHM.updateView`.
+  if (view.connectionType === 'sentry' && view.type === 'sentry_issues_list') {
+    return (
+      <ViewCardSentryIssues
+        view={view}
+        issues={sentry.issues}
+        loading={sentry.loading}
+        error={sentry.error}
+        period={sentryFilters.period}
+        sort={sentryFilters.sort}
+        // Real-mode persistence — PATCH the view's `config` so the
+        // picker choice survives reload. Demo passes a no-op for this
+        // (the demo's `<DemoViewCard>` keeps the choice in local
+        // component state only).
+        onFiltersChange={async next => {
+          try {
+            await ALGORITHM.updateView(view.id, {
+              config: {
+                ...(view.config ?? {}),
+                period: next.period,
+                sort: next.sort,
+              },
+            })
+          } catch {
+            toast.error('Failed to save filter')
+          }
+        }}
+        onUntrack={onUntrack}
+        onPin={handlePin}
+        isPinned={view.isPinned}
+        onRefresh={sentry.refresh}
+        refreshing={sentry.loading}
         onConnectionAssigned={onConnectionAssigned}
         chromeless={chromeless}
       />
