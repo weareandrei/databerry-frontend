@@ -13,7 +13,7 @@ import {
   YAxis,
 } from 'recharts'
 import type { OverviewBucket, OverviewChartResponse } from '@/lib/api'
-import { sourceStyle } from '@/constants/trafficSources'
+import { assignChartColors, sourceStyle } from '@/constants/trafficSources'
 import type { OverviewPrimaryMetric, OverviewSecondaryMetric } from '@/types/view'
 
 interface OverviewChartProps {
@@ -41,6 +41,15 @@ interface SourceKeyMeta {
   label: string
   outlined?: boolean
   logo?: string
+  /**
+   * When this key is `'other'` AND the palette overflowed (5+ non-
+   * reserved sources), this lists the keys whose values got folded
+   * into `'other'`. The segment tooltip expands this list back into
+   * per-source rows so the user can see which long-tail domains are
+   * inside the "other" bar. Undefined for every key that isn't the
+   * merged-other slot.
+   */
+  mergedFrom?: string[]
 }
 
 // --- Hover state ---------------------------------------------------------------
@@ -56,40 +65,92 @@ type HoverState =
 
 // Flatten buckets into rows consumable by recharts stacked bars.
 // Each bucket becomes one data row: { label, secondary, src_<key>: value, ... }
+//
+// Colour assignment + stack order are driven by `assignChartColors`:
+//   - Reserved keys (reddit / direct / other) get fixed colours.
+//   - Everything else is ranked by total value across all buckets and
+//     assigned the red→orange→yellow gradient from the bottom up.
+// `sourceKeys` is returned in BOTTOM-TO-TOP render order — recharts
+// stacks `<Bar>` children in declaration order, so the consumer can
+// iterate `sourceKeys` and the first one ends up as the bottom
+// segment of every column.
 function buildRows(
   buckets: OverviewBucket[],
 ): { rows: Array<Record<string, string | number | null>>; sourceKeys: SourceKeyMeta[] } {
-  const keySet = new Map<string, SourceKeyMeta>()
+  const labelByKey = new Map<string, { label: string; outlined?: boolean; logo?: string }>()
+  const totalByKey = new Map<string, number>()
+
   for (const b of buckets) {
     for (const s of b.bySource) {
-      if (!keySet.has(s.source)) {
-        // Pass `s.color` so unknown sources (the demo's custom keys
-        // like `organic`/`referral`, or backend's `unset`) honour the
-        // data-supplied colour instead of falling through to the hash
-        // palette. Known integrations are returned verbatim from
-        // `SOURCE_STYLE` and ignore this hint, so production rendering
-        // for `direct` / `google` / `reddit` / etc. is unchanged.
+      if (!labelByKey.has(s.source)) {
+        // We only consult `sourceStyle` for non-colour metadata now
+        // (label / outlined / logo). The colour comes from the
+        // ranked palette below.
         const style = sourceStyle(s.source, s.label, s.color)
-        keySet.set(s.source, {
-          key: s.source,
-          color: style.color,
+        labelByKey.set(s.source, {
           label: style.label,
           outlined: style.outlined,
           logo: style.logo,
         })
       }
+      totalByKey.set(s.source, (totalByKey.get(s.source) ?? 0) + s.value)
     }
   }
-  const sourceKeys = Array.from(keySet.values())
+
+  const palette = assignChartColors(
+    Array.from(totalByKey, ([key, totalValue]) => ({ key, totalValue })),
+  )
+  // Fast lookup — same array used per-row to add overflow values
+  // into "other". Set vs Array because the per-row loop checks
+  // membership N×M times for M buckets.
+  const mergedSet = new Set(palette.mergedToOther)
+
+  // Iterate in the palette's bottom-to-top order so recharts stacks
+  // segments in the same order (palette.order[0] is the bottom).
+  // When the palette synthesised an `'other'` slot for overflow (no
+  // original "other" in data), `labelByKey` won't have an entry —
+  // we fall back to the conventional label/logo for that case.
+  const sourceKeys: SourceKeyMeta[] = palette.order.map(key => {
+    const meta = labelByKey.get(key) ?? {
+      label: sourceStyle(key).label,
+      outlined: sourceStyle(key).outlined,
+      logo: sourceStyle(key).logo,
+    }
+    const sk: SourceKeyMeta = {
+      key,
+      color: palette.colorByKey[key]!,
+      label: meta.label,
+      outlined: meta.outlined,
+      logo: meta.logo,
+    }
+    // Stamp the merged-source list onto the "other" key so the
+    // segment tooltip can expand it.
+    if (key === 'other' && mergedSet.size > 0) {
+      sk.mergedFrom = palette.mergedToOther
+    }
+    return sk
+  })
 
   const rows = buckets.map(b => {
     const row: Record<string, string | number | null> = {
       label: b.label,
       secondary: b.secondary,
     }
+    // Per-row overflow-into-other sum. The keys in `mergedSet`
+    // aren't rendered as their own segments; instead, their values
+    // for this bucket flow into `src_other` so the "other" segment
+    // grows by exactly the long-tail's contribution.
+    let mergedSumForRow = 0
+    if (mergedSet.size > 0) {
+      for (const s of b.bySource) {
+        if (mergedSet.has(s.source)) mergedSumForRow += s.value
+      }
+    }
     for (const sk of sourceKeys) {
       const match = b.bySource.find(x => x.source === sk.key)
-      row[`src_${sk.key}`] = match ? match.value : 0
+      const baseValue = match ? match.value : 0
+      row[`src_${sk.key}`] =
+        sk.key === 'other' ? baseValue + mergedSumForRow : baseValue
     }
     return row
   })
@@ -301,18 +362,49 @@ interface SegmentTooltipProps {
 }
 
 function SegmentTooltipCard({ bucket, sourceKey, sourceKeys }: SegmentTooltipProps) {
-  const source = bucket.bySource.find(s => s.source === sourceKey)
-  if (!source) return null
   const meta =
     sourceKeys.find(sk => sk.key === sourceKey) ?? {
       key: sourceKey,
-      label: source.label ?? sourceKey,
+      label:
+        bucket.bySource.find(s => s.source === sourceKey)?.label ?? sourceKey,
       color: sourceStyle(sourceKey).color,
       outlined: sourceStyle(sourceKey).outlined,
       logo: sourceStyle(sourceKey).logo,
     }
+
+  // Merged-other path: when this is the "other" segment AND the palette
+  // folded long-tail sources into it (5+ non-reserved sources), the
+  // segment's visual height = raw `other` value + sum of merged keys.
+  // We display the same total here AND list the breakdown underneath so
+  // users see what's inside the grey bar.
+  const isMergedOther =
+    sourceKey === 'other' && meta.mergedFrom != null && meta.mergedFrom.length > 0
+
+  const rawOther = bucket.bySource.find(s => s.source === 'other')
+  // Per-bucket components — skip merged keys with zero value here so the
+  // breakdown only lists sources that actually contributed to THIS column.
+  const mergedComponents = isMergedOther
+    ? meta.mergedFrom!
+        .map(key => bucket.bySource.find(s => s.source === key))
+        .filter((s): s is NonNullable<typeof s> => s != null && s.value > 0)
+        .sort((a, b) => b.value - a.value)
+    : []
+
+  const displayedValue = isMergedOther
+    ? (rawOther?.value ?? 0) +
+      mergedComponents.reduce((acc, s) => acc + s.value, 0)
+    : (bucket.bySource.find(s => s.source === sourceKey)?.value ?? 0)
+
+  // Non-merged segment with no matching row in this bucket — defensive
+  // null render (recharts can fire a segment hover for an empty cell
+  // during transitions).
+  if (!isMergedOther && displayedValue === 0) {
+    const exists = bucket.bySource.find(s => s.source === sourceKey)
+    if (!exists) return null
+  }
+
   const total = bucket.bySource.reduce((a, s) => a + s.value, 0)
-  const share = total > 0 ? source.value / total : 0
+  const share = total > 0 ? displayedValue / total : 0
 
   return (
     <div className="rounded-lg border border-stroke bg-white shadow-card overflow-hidden min-w-[200px] text-xs">
@@ -323,7 +415,7 @@ function SegmentTooltipCard({ bucket, sourceKey, sourceKeys }: SegmentTooltipPro
         <SourceSwatch meta={meta} size={14} />
         <span className="text-grey-darkest font-medium flex-1 truncate">{meta.label}</span>
         <span className="tabular-nums font-semibold text-grey-darkest">
-          {source.value.toLocaleString()}
+          {displayedValue.toLocaleString()}
         </span>
       </div>
       {share > 0 && (
@@ -331,6 +423,40 @@ function SegmentTooltipCard({ bucket, sourceKey, sourceKeys }: SegmentTooltipPro
           <p className="text-[11px] text-grey-light">
             {(share * 100).toFixed(1)}% of this period
           </p>
+        </div>
+      )}
+
+      {/* Merged-other breakdown — listed in descending value order so the
+          biggest long-tail source reads first. The raw "other" bucket
+          (if it had a value of its own) renders as a row too, labelled
+          'Other' to distinguish from the merged sources. */}
+      {isMergedOther && (mergedComponents.length > 0 || (rawOther?.value ?? 0) > 0) && (
+        <div className="border-t border-stroke px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wide text-grey-light mb-1">
+            Includes
+          </p>
+          <ul className="space-y-1">
+            {(rawOther?.value ?? 0) > 0 && (
+              <li className="flex items-center gap-2">
+                <span className="text-grey-dark flex-1 truncate">Other</span>
+                <span className="tabular-nums text-grey-darkest">
+                  {rawOther!.value.toLocaleString()}
+                </span>
+              </li>
+            )}
+            {mergedComponents.map(s => {
+              const componentLabel =
+                sourceStyle(s.source, s.label, s.color).label
+              return (
+                <li key={s.source} className="flex items-center gap-2">
+                  <span className="text-grey-dark flex-1 truncate">{componentLabel}</span>
+                  <span className="tabular-nums text-grey-darkest">
+                    {s.value.toLocaleString()}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
         </div>
       )}
     </div>

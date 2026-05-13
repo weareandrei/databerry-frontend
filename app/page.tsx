@@ -4,6 +4,7 @@ import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import FeaturesSection from '@/app/(sections)/Features'
 import DemoSection from '@/app/(sections)/DemoSection'
 import ConnectSection from '@/app/(sections)/ConnectSection'
+import Pricing from '@/app/(sections)/Pricing'
 import FAQ from '@/app/(sections)/FAQ'
 import Contact from '@/app/(sections)/Contact'
 import { Footer } from './(sections)/Footer'
@@ -19,6 +20,7 @@ export default function LandingPage() {
       <DemoSection />
       <ConnectSection />
       <FeaturesSection />
+      <Pricing />
       <FAQ />
       <Contact />
       <Footer />

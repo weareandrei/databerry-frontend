@@ -13,6 +13,7 @@ import { SidebarTimezone } from './SidebarTimezone'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { setProjectNavIntent } from '@/store/slices/uiSlice'
 import { useIsMobile } from '@/hooks/useMobileBreakpoint'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
 import type { AppDispatch } from '@/store'
 
 function SectionHeader({
@@ -69,6 +70,7 @@ export function SidebarContents({
   bounded?: boolean
 }) {
   const { folders: foldersCtx, projects: projectsCtx } = useDashboard()
+  const { enforceProjectLimit } = usePlanLimits()
   const router = useRouter()
   const dispatch = useDispatch<AppDispatch>()
   const isMobile = useIsMobile()
@@ -123,7 +125,14 @@ export function SidebarContents({
       }
       onClick={onNavigate}
     >
-      <div className="px-3 pt-3 pb-7">
+      {/* `px-2` matches the nav `<motion.nav>` wrapper below so the
+          profile button's hover-fill starts at the same left edge
+          as Home/Ask AI/Connections/Settings — and its right-edge
+          chevron lines up vertically with the Workspace / Projects
+          section-header chevrons (which sit at the section's
+          `pr-5` = 20 px from the sidebar's right edge; `px-2` outer
+          + `px-3` trigger inner = 20 px, identical offset). */}
+      <div className="px-2 pt-3 pb-7">
         <SidebarUserProfile />
       </div>
 
@@ -166,6 +175,10 @@ export function SidebarContents({
             <button
               onClick={e => {
                 e.stopPropagation()
+                // Gate behind plan limits — fires the upgrade toast
+                // and short-circuits when the user has hit their
+                // plan's `max_projects` ceiling.
+                if (!enforceProjectLimit()) return
                 projectsCtx.openModal()
               }}
               className="flex items-center justify-center w-5 h-5 rounded-full bg-white border border-stroke text-grey-dark hover:text-grey-darkest transition-colors"

@@ -3,6 +3,7 @@ import { StoreProvider } from '@/store/StoreProvider'
 import { DashboardProvider } from '@/contexts/DashboardContext'
 import { UserSettingsProvider } from '@/contexts/UserSettingsContext'
 import { Sidebar } from '@/app/hub/(components)/Sidebar/Sidebar'
+import { BillingReturnHandler } from '@/app/hub/(components)/BillingReturnHandler'
 import { CreateProjectModal } from '@/app/hub/(components)/modals/CreateProjectModal'
 import { CreateFolderModal } from '@/app/hub/(components)/modals/CreateFolderModal'
 import { CreateConnectionModal } from '@/app/hub/(components)/modals/CreateConnectionModal'
@@ -66,6 +67,12 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
             <CreateFolderModal />
             <CreateConnectionModal />
             <CreateViewModal />
+            {/* Reads `?upgraded=…` / `?upgrade_cancelled=1` from
+                the URL after a Stripe Checkout redirect and toasts
+                + polls the account row until the webhook lands.
+                Renders nothing of its own — sits at the layout
+                root so every navigation back into `/hub` sees it. */}
+            <BillingReturnHandler />
           </UserSettingsProvider>
         </DashboardProvider>
       </StoreProvider>

@@ -25,6 +25,7 @@ import { useSelector } from 'react-redux'
 import { CaretLeft, CaretRight } from '@phosphor-icons/react'
 import Link from 'next/link'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
 import type { RootState } from '@/store'
 import { ALGORITHM } from '@/lib/api'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
@@ -316,6 +317,7 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
     foldersCtx,
     viewsCtx,
   } = useFolderPage(folderId)
+  const { enforceViewLimit } = usePlanLimits()
 
   // Lifted Redux read — passed down to FolderViewsBody → ViewCardRouter
   // → per-view data hooks. The view tree itself stays provider-free.
@@ -334,7 +336,13 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
       <FolderHeader
         folder={folder}
         onNewFolder={() => foldersCtx.openModal(folderId, folder.projectId)}
-        onAddView={() => viewsCtx.openModal(folderId, folder.projectId)}
+        onAddView={() => {
+          const projectViewCount = viewsCtx.views.filter(
+            v => v.projectId === folder.projectId,
+          ).length
+          if (!enforceViewLimit(projectViewCount)) return
+          viewsCtx.openModal(folderId, folder.projectId)
+        }}
       />
 
       <div className="space-y-8">

@@ -706,6 +706,22 @@ export const ALGORITHM = {
     apiFetch<void>(`/views/${viewId}/unpin`, { method: 'POST' }),
 
   deleteView: (viewId: string) => apiFetch<void>(`/views/${viewId}`, { method: 'DELETE' }),
+
+  // ── Billing ──────────────────────────────────────────────────────────────
+  // Creates a Stripe Checkout Session for the chosen plan and
+  // returns the hosted-checkout URL. Frontend `window.location =
+  // url` redirects the browser; Stripe handles the rest of the
+  // flow + redirects back to /hub?upgraded=<planId> on success or
+  // /hub?upgrade_cancelled=1 on cancel.
+  //
+  // Backend resolves planId → stripe_price_id (and optional
+  // intro coupon) from the `subscriptions` table, then creates or
+  // reuses the Stripe Customer linked to this user.
+  createCheckoutSession: (planId: string) =>
+    apiFetch<{ url: string }>('/billing/checkout-session', {
+      method: 'POST',
+      body: JSON.stringify({ planId }),
+    }),
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

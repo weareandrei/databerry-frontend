@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Xarrow from 'react-xarrows'
 import { motion } from 'framer-motion'
+import { ArrowRight } from '@phosphor-icons/react'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 
 // Shared variant factory — hero elements animate in on mount, staggered
@@ -37,7 +38,14 @@ function DesktopLogos() {
         ))}
       </div>
 
-      <div className="flex justify-center mt-10">
+      {/* `mt-4` pulls the dot upward so it sits inside the visual
+          convergence of the converging Xarrow grid lines (previously
+          `mt-10` parked it below the convergence point — the lines
+          terminated *above* the dot and the dot read as floating).
+          `relative z-20` lifts the dot above the Xarrow SVGs (which
+          paint at their default DOM-order z-stack), so the line tips
+          tuck UNDER the dot rather than crossing through it. */}
+      <div className="flex justify-center mt-4 relative z-20">
         <div
           id="hub-dot"
           className="h-4 w-4 rounded-full bg-[#e85c20] border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
@@ -54,7 +62,10 @@ function DesktopLogos() {
           headSize={0}
           curveness={0.6}
           startAnchor="bottom"
-          endAnchor="top"
+          // Terminate lines at the dot's CENTER (not its top edge) so
+          // the convergence visually lives inside the dot and the
+          // line tips hide behind it thanks to the `z-20` above.
+          endAnchor="middle"
           path="grid"
         />
       ))}
@@ -205,14 +216,28 @@ export function Hero() {
           Built for founders that use too many tools. Connect Stripe, PostHog, Google Analytics, and the rest of your stack. All metrics that matter, side by side.
         </motion.h4>
 
-        {/* CTA — mobile only */}
-        <motion.div {...heroFade(1.35)} className="md:hidden mt-6">
-          <Link
-            href="/signup"
-            className="rounded-full bg-black px-16 py-3.5 text-base font-medium text-white hover:opacity-75 transition-opacity"
-          >
-            Start
-          </Link>
+        {/* CTA — black solid pill wrapped in a 25 %-opacity black
+            halo pill, the same "double pill" treatment the
+            `DemoBadge` ("Interactable demo") uses with white. The
+            outer ring softens the boundary against the saturated
+            orange hero and gives the CTA visual weight without a
+            heavy hard-edged shadow.
+            Shadow lives on the INNER pill, not the wrapper —
+            otherwise the shadow's dark spill sits behind the
+            halo and they merge into one indistinct dark blob.
+            Anchoring the shadow on the inner pill makes the halo
+            read as a clean ring with its own outline against the
+            shadow that radiates outward beyond it. */}
+        <motion.div {...heroFade(1.35)} className="mt-8">
+          <span className="inline-flex items-center rounded-2xl bg-black/25 p-1">
+            <Link
+              href="/signup"
+              className="inline-flex items-center gap-3 rounded-2xl bg-black px-16 py-3 text-base font-medium text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] hover:opacity-90 transition-opacity"
+            >
+              Get started
+              <ArrowRight size={18} weight="bold" />
+            </Link>
+          </span>
         </motion.div>
 
         <motion.div {...heroFade(1.5)} className="w-full flex flex-col items-center">

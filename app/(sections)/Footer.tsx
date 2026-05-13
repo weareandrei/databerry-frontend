@@ -19,7 +19,7 @@ export function Footer() {
               href="/signup"
               className="mt-1 self-start text-sm font-medium bg-white text-black px-5 py-2.5 rounded-lg hover:bg-white/90 transition-colors"
             >
-              Start
+              Get started
             </Link>
           </div>
         </RevealOnScroll>

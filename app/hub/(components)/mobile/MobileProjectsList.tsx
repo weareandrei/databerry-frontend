@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation'
 import { CaretRight, Plus } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
 import type { Project } from '@/types/project'
 
 interface MobileProjectsListProps {
@@ -30,6 +31,7 @@ interface MobileProjectsListProps {
 export function MobileProjectsList({ projects }: MobileProjectsListProps) {
   const router = useRouter()
   const { projects: projectsCtx } = useDashboard()
+  const { enforceProjectLimit } = usePlanLimits()
 
   return (
     <div className="rounded-xl border border-stroke bg-white shadow-card overflow-hidden">
@@ -59,7 +61,10 @@ export function MobileProjectsList({ projects }: MobileProjectsListProps) {
           button. Same modal the desktop sidebar `+` opens. */}
       <button
         type="button"
-        onClick={() => projectsCtx.openModal()}
+        onClick={() => {
+          if (!enforceProjectLimit()) return
+          projectsCtx.openModal()
+        }}
         className={`flex w-full items-center justify-center gap-2 px-4 py-4 text-sm font-medium text-grey-light transition-colors hover:bg-hover-fill hover:text-grey-darkest ${
           projects.length > 0 ? 'border-t border-dashed border-stroke' : ''
         }`}

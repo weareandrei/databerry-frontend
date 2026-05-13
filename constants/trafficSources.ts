@@ -94,6 +94,145 @@ function pickFallbackColor(seed: string): string {
   return FALLBACK_PALETTE[Math.abs(h) % FALLBACK_PALETTE.length]!
 }
 
+// ─── Chart palette (project-overview stacked bar + sources panel) ──────────
+//
+// The overview chart (and its sibling sources panel) use a FIXED gradient
+// palette rather than the per-source brand colours in `SOURCE_STYLE`. Two
+// reasons:
+//   1. The gradient (red → orange → yellow → grey) reads as "ranked
+//      importance" — biggest source at the bottom in red, smallest at
+//      the top in grey. That semantic doesn't translate from a
+//      collection of brand colours (Google's white, X's near-black, etc.)
+//      which would read as arbitrary noise.
+//   2. The palette stays stable when sources rotate — adding a new
+//      integration tomorrow doesn't reshuffle the chart's visual
+//      identity, just slots the new source into its rank position.
+//
+// Reserved colours:
+//   - Reddit  → `#FF4500` (Reddit's own brand orange — keeps reddit.com
+//     recognisable in both chart + panel)
+//   - direct, other → `#C6C6C6` (neutral grey — these are "no source"
+//     buckets, they should recede behind the named sources)
+//
+// All other sources are ranked by total value and assigned colours from
+// `RANKED_PALETTE` in order (biggest → first colour → bottom of stack).
+// Sources beyond the palette length re-use the last colour (FFD239).
+const CHART_RANKED_PALETTE: ReadonlyArray<string> = [
+  '#FF4852', // 1st (biggest)  — deep coral red, bottom of stack
+  '#FF834D', // 2nd            — warm orange
+  '#FFA446', // 3rd            — lighter orange
+  '#FFD239', // 4th (smallest) — yellow
+]
+const CHART_RESERVED: Record<string, string> = {
+  reddit: '#FF4500', // Reddit's brand orange, always slot-2 from bottom
+  direct: '#C6C6C6', // neutral grey, always at top
+  other:  '#C6C6C6', // same grey — direct + other read as one quiet block
+}
+
+/**
+ * Compute the chart's source-key colour assignment + render order.
+ *
+ * Pass each source's TOTAL value (sum across all buckets for the chart;
+ * the panel's `visitors` field for the sources panel). The function:
+ *   1. Pulls out reserved keys (reddit, direct, other) — they get fixed
+ *      colours regardless of value.
+ *   2. Sorts the rest by `totalValue` descending and assigns
+ *      `CHART_RANKED_PALETTE` colours in order.
+ *   3. Returns the keys in the order they should render BOTTOM-TO-TOP in
+ *      a stacked bar: biggest non-reserved first, then reddit (if any),
+ *      then 2nd biggest, 3rd, 4th, then direct/other at the top.
+ *
+ * Recharts respects the order of `<Bar>` children for stacking — the
+ * first `<Bar>` is the bottom segment — so the returned `order` array
+ * doubles as the iteration order at render time.
+ */
+export interface ChartSourceInput {
+  key: string
+  totalValue: number
+}
+export interface ChartSourcePalette {
+  /** `key → color` lookup. */
+  colorByKey: Record<string, string>
+  /** Keys in BOTTOM-TO-TOP render order. The biggest non-reserved
+   *  source is `order[0]`. Excludes any key in `mergedToOther`. */
+  order: string[]
+  /**
+   * Non-reserved source keys that exceed the ranked-palette length
+   * (4 slots). Callers must fold their per-row values into the
+   * `'other'` data column before handing rows to recharts — that's
+   * how the overflow surfaces visually (one quiet grey segment
+   * lumped into existing "other"). The tooltip can then expand
+   * `'other'` to list each merged source individually.
+   *
+   * Empty when the source count is ≤ palette length + reserved.
+   */
+  mergedToOther: string[]
+}
+
+export function assignChartColors(
+  sources: ChartSourceInput[],
+): ChartSourcePalette {
+  const colorByKey: Record<string, string> = {}
+  const ranked: ChartSourceInput[] = []
+  const reddit: ChartSourceInput[] = []
+  const directOther: ChartSourceInput[] = []
+
+  for (const s of sources) {
+    if (s.key === 'reddit') {
+      colorByKey[s.key] = CHART_RESERVED.reddit
+      reddit.push(s)
+    } else if (s.key === 'direct' || s.key === 'other') {
+      colorByKey[s.key] = CHART_RESERVED[s.key]
+      directOther.push(s)
+    } else {
+      ranked.push(s)
+    }
+  }
+
+  // Sort non-reserved by descending value. Stable enough: the secondary
+  // sort by key keeps the order deterministic when two sources tie.
+  ranked.sort((a, b) => {
+    if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue
+    return a.key.localeCompare(b.key)
+  })
+
+  // First N (= palette length) keep their own segment. Anything
+  // beyond N is folded into "other" — caller does the merging at
+  // the data-row level.
+  const N = CHART_RANKED_PALETTE.length
+  const kept = ranked.slice(0, N)
+  const overflow = ranked.slice(N)
+  const mergedToOther: string[] = overflow.map(o => o.key)
+
+  for (let i = 0; i < kept.length; i++) {
+    colorByKey[kept[i]!.key] = CHART_RANKED_PALETTE[i]!
+  }
+
+  // If there's overflow but the data didn't carry an `'other'`
+  // bucket of its own, synthesise one — the merged segment still
+  // needs a column to live in. Without this, callers would have
+  // overflow with nowhere to render. The merged value flows in at
+  // the row-build step.
+  if (mergedToOther.length > 0 && !('other' in colorByKey)) {
+    colorByKey.other = CHART_RESERVED.other
+    directOther.push({ key: 'other', totalValue: 0 })
+  }
+
+  // Build bottom-to-top render order:
+  //   biggest kept → reddit (if present) → rest of kept →
+  //   direct/other.
+  // direct + other order between each other follows whatever order
+  // they appeared in `sources` (usually backend-defined); both end up
+  // at the top so visually they're indistinguishable.
+  const order: string[] = []
+  if (kept.length > 0) order.push(kept[0]!.key)
+  for (const r of reddit) order.push(r.key)
+  for (let i = 1; i < kept.length; i++) order.push(kept[i]!.key)
+  for (const dz of directOther) order.push(dz.key)
+
+  return { colorByKey, order, mergedToOther }
+}
+
 /**
  * Resolve display style for a source.
  *

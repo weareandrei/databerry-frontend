@@ -19,7 +19,7 @@ import {
   type Icon as PhosphorIcon,
 } from '@phosphor-icons/react'
 import type { OverviewSource } from '@/lib/api'
-import { sourceStyle } from '@/constants/trafficSources'
+import { assignChartColors, sourceStyle } from '@/constants/trafficSources'
 import {
   Tooltip,
   TooltipContent,
@@ -252,6 +252,28 @@ export function OverviewSourcesPanel({
     [sources, barsSlotWidth],
   )
 
+  // Chart-palette colour assignment — same helper the overview bar
+  // chart uses, fed the same per-source totals (`visitors` here, sum-
+  // across-buckets there). Computing once over the full `sources` set
+  // gives every row a stable colour that matches its segment in the
+  // chart on the left: google.com is red in both, reddit is brand
+  // orange in both, direct/other are grey in both. `mergedSet`
+  // captures the long-tail sources that the chart folds into "other"
+  // — the panel still lists them individually (rows are cheap), but
+  // they render in the same grey as the merged "other" segment in
+  // the chart so the user can see why those sources got absorbed.
+  const palette = useMemo(
+    () =>
+      assignChartColors(
+        sources.map(s => ({ key: s.source, totalValue: s.visitors })),
+      ),
+    [sources],
+  )
+  const mergedSet = useMemo(
+    () => new Set(palette.mergedToOther),
+    [palette.mergedToOther],
+  )
+
   // Pagination state. Reset to page 1 whenever `sources` changes (date-range
   // refetch, refresh tick) so the user never lands on an empty page after
   // the dataset shrinks. Identity comparison via the array reference is fine
@@ -305,11 +327,21 @@ export function OverviewSourcesPanel({
         className="flex max-h-[360px] flex-col gap-1.5 overflow-y-auto pr-0.5"
       >
         {pageRows.map(s => {
-          // See `OverviewChart.buildRows` for the rationale on passing
-          // `s.color` here — known integrations ignore it (production
-          // unchanged), unknown keys (demo's `organic`/`referral`/etc.)
-          // now honour the data-supplied colour instead of hash-picking.
+          // Label / logo / outlined come from `sourceStyle` (the
+          // SOURCE_STYLE table still owns those — we kept the brand
+          // metadata even though we no longer use its colours). The
+          // bar colour comes from the ranked chart palette computed
+          // above so the row matches its segment in the chart.
           const style = sourceStyle(s.source, s.label, s.color)
+          // Overflow sources (5+ non-reserved) didn't earn a slot in
+          // the ranked palette — render them grey so the panel row
+          // matches the chart's merged "other" segment that absorbs
+          // their value. Fallback to `style.color` only for sources
+          // outside the palette logic entirely (shouldn't happen in
+          // practice; defensive).
+          const color =
+            palette.colorByKey[s.source] ??
+            (mergedSet.has(s.source) ? '#C6C6C6' : style.color)
           const barCount = barCounts.get(s.source) ?? BAR_MIN
           // Only the "Other" bucket gets a help tooltip — other rows are
           // self-explanatory (a domain or a recognised brand). Detected
@@ -321,7 +353,7 @@ export function OverviewSourcesPanel({
               key={s.source}
               source={s}
               barCount={barCount}
-              color={style.color}
+              color={color}
               outlined={style.outlined}
               logo={style.logo}
               label={style.label}

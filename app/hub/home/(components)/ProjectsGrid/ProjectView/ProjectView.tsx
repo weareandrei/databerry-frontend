@@ -37,6 +37,7 @@ import { ViewCardRenderer } from '@/app/hub/(components)/view/renderers/ViewCard
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
 import { useStripeSyncOnMount } from '@/lib/hooks/useStripeSyncOnMount'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { periodBoundariesInTz, todayInTz } from '@/utils/dateHelpers'
 import type { RootState } from '@/store'
 import type { Project } from '@/types/project'
@@ -76,6 +77,7 @@ export function useProjectView(
   navNonce: number,
 ) {
   const { folders: foldersCtx, views: viewsCtx, pins: pinsCtx } = useDashboard()
+  const { enforceViewLimit } = usePlanLimits()
   const globalDateMode = useSelector((s: RootState) => s.ui.globalDateMode)
   const globalDateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const globalDateTo = useSelector((s: RootState) => s.ui.globalDateTo)
@@ -188,7 +190,20 @@ export function useProjectView(
     setViews([])
   }
 
-  const openCreateViewModal = () => viewsCtx.openModal(currentFolderId, project.id)
+  const openCreateViewModal = () => {
+    // Gate the create flow behind the plan's per-project view limit.
+    // We count from the live Redux store — accurate when the user
+    // has just navigated the project (typical case: the project
+    // page just loaded its views). Edge case: a fresh page where
+    // the user clicks "Create view" before any fetch lands shows
+    // count=0 and lets the click through; the server should
+    // separately enforce the cap (out of scope for this v1 wire-up).
+    const projectViewCount = viewsCtx.views.filter(
+      v => v.projectId === project.id,
+    ).length
+    if (!enforceViewLimit(projectViewCount)) return
+    viewsCtx.openModal(currentFolderId, project.id)
+  }
 
   const isEmpty = !loading && subFolders.length === 0 && views.length === 0
 

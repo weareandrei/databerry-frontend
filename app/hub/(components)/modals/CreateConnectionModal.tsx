@@ -6,8 +6,9 @@ import { Copy, Check, Info, Cube, CaretDown } from '@phosphor-icons/react'
 import { InlineErrorBanner } from './InlineErrorBanner'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { usePlanLimits } from '@/hooks/usePlanLimits'
 import { ALGORITHM } from '@/lib/api'
-import type { Connection } from '@/types/connection'
+import type { Connection, ConnectionType } from '@/types/connection'
 import type { Project } from '@/types/project'
 import {
   BottomDialog,
@@ -547,6 +548,7 @@ function ProjectPicker({
 
 export function CreateConnectionModal() {
   const { connections, projects: projectsCtx } = useDashboard()
+  const { enforceConnectionLimit } = usePlanLimits()
   const router = useRouter()
   const [view, setView] = useState<View>('list')
   const [projectId, setProjectId] = useState<string | null>(null)
@@ -624,6 +626,19 @@ export function CreateConnectionModal() {
   }
 
   const handleConnect = async (type: string) => {
+    // Gate behind plan limits before the user starts a flow they
+    // can't finish. Two failure modes inside `enforceConnectionLimit`:
+    //   1. The type isn't on the user's plan (Free + Calendly,
+    //      Sentry, Vercel) → "Your Free plan doesn't include …"
+    //   2. The user already has the per-type maximum
+    //      (`max_connections_per_type` from the subscriptions row) →
+    //      "You've hit your … plan's limit of N connection(s) of
+    //      this type".
+    // Either fires the limit toast (with the underlined "upgrade
+    // your plan" link) and short-circuits before we route into the
+    // OAuth / form flows below.
+    if (!enforceConnectionLimit(type as ConnectionType)) return
+
     if (type === 'posthog') {
       setView('posthog-form')
     } else if (type === 'stripe') {

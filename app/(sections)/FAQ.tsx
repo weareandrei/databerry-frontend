@@ -220,7 +220,7 @@ function FAQCard({ q, a }: { q: string; a: ReactNode }) {
 
 export default function FAQ() {
   return (
-    <section id="faq" className="relative px-[10vw] py-42 bg-white">
+    <section id="faq" className="relative px-[10vw] py-32 bg-white">
       {/*
         Schema.org FAQPage JSON-LD. Goes inside the section so it
         ships with this component (no need to plumb it through the
