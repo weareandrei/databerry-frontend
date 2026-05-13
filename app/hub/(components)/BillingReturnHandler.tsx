@@ -30,7 +30,7 @@
  * to "as fast as the webhook actually lands".
  */
 
-import { useEffect, useRef } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { broadcastAccountRefresh } from '@/hooks/useAccount'
@@ -40,7 +40,25 @@ import { useAccount } from '@/hooks/useAccount'
 // More frequent at first (webhook usually lands fast) then sparser.
 const POLL_DELAYS_MS = [500, 1000, 1500, 2000, 2000, 2000, 1000]
 
+/**
+ * Self-wrapping Suspense — `useSearchParams` (used in the inner
+ * `<BillingReturnHandlerInner>`) is a CSR-only hook in the App
+ * Router and Next.js refuses to prerender any page where it's
+ * called outside a Suspense boundary. Without this wrapper, every
+ * `/hub/**` route fails the build (`pages/api/all-folders` first
+ * to surface it). Keeping the boundary inside this file means
+ * callers (currently just the hub layout) can `<BillingReturnHandler />`
+ * directly without remembering the build-time gotcha.
+ */
 export function BillingReturnHandler() {
+  return (
+    <Suspense fallback={null}>
+      <BillingReturnHandlerInner />
+    </Suspense>
+  )
+}
+
+function BillingReturnHandlerInner() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
