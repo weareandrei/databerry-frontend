@@ -70,8 +70,16 @@ function DesktopLogos() {
         />
       ))}
 
+      {/* Vertical connecting line between the hub-dot and the demo
+          card below. The demo card is absolutely positioned at the
+          anchor's bottom (see `DemoSection`'s `topOffset` math), so
+          this line's HEIGHT directly controls the gap between the
+          icons row and the top of the demo card. We grow it at xl+
+          because the demo card scales to 84vw on wide screens — much
+          wider than the `max-w-3xl` icons row — and the original 32px
+          gap reads as overlap once the card dwarfs the icons. */}
       <div className="flex justify-center">
-        <div className="h-8 w-0.5 bg-white/70" />
+        <div className="h-8 xl:h-12 3xl:h-16 w-0.5 bg-white/70" />
       </div>
 
       <div id="demo-anchor" />

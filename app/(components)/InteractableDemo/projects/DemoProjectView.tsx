@@ -318,7 +318,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                 onRefresh={() => {/* no-op in demo */}}
                 onPin={() => togglePin(overviewChart.id)}
                 chromeless
-                compact
+                // compact
               />
               {overviewSources && (
                 <ViewCardOverviewSources
@@ -583,7 +583,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                 onRefresh={() => {/* no-op in demo */}}
                 onPin={() => togglePin(overviewChart.id)}
                 chromeless
-                compact
+                // compact
               />
               {overviewSources && (
                 <ViewCardOverviewSources

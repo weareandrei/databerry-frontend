@@ -6,7 +6,13 @@
 
 @theme inline {
   /* ── Custom breakpoints ── */
+  --breakpoint-3xl: 112rem; /* 1792px — handoff point where the landing demo card switches from 84vw to its fixed `w-8xl` cap */
   --breakpoint-5xl: 120rem; /* 1920px — 3-column project grid threshold */
+
+  /* ── Custom container widths ──
+     Tailwind's built-in scale runs 5xl=64rem → 6xl=72rem → 7xl=80rem (+8rem each).
+     8xl=88rem continues that pattern. */
+  --container-8xl: 88rem; /* 1408px — landing demo card max-width on ultra-wide displays */
 
   /* ── Dashboard palette (active only inside .dashboard) ── */
   --color-main: var(--c-main);           /* bg F4F1F1 — dashboard surface      */
