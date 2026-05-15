@@ -29,8 +29,10 @@
 
 import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
 import {
   ArrowsClockwise,
+  ArrowsLeftRight,
   CaretDown,
   Check,
   Cube,
@@ -82,50 +84,49 @@ function readConfig(view: View): ProjectOverviewChartConfig {
   }
 }
 
+/**
+ * Metric picker rendered as a single pill: a chart-type icon (bar vs line,
+ * SVG from `/public/icons/`) on the left, the current metric label in the
+ * middle, a caret on the right. The old textual "Primary" / "Overlay"
+ * labels were dropped — the icon now indicates whether the metric is
+ * plotted as bars or as the overlay line.
+ */
 function MetricDropdown<T extends string | null>({
-  label,
+  iconSrc,
+  iconAlt,
   value,
   options,
   onChange,
-  colorDot,
 }: {
-  label: string
+  iconSrc: string
+  iconAlt: string
   value: T
   options: { value: T; label: string }[]
   onChange: (next: T) => void
-  colorDot?: string
 }) {
   const current = options.find(o => o.value === value) ?? options[0]
   return (
-    <div className="flex items-center gap-2">
-      <p className="text-[11px] uppercase tracking-wider text-grey-light font-medium">{label}</p>
-      <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer">
-          {colorDot && (
-            <span
-              className="inline-block w-2 h-2 rounded-full shrink-0"
-              style={{ backgroundColor: colorDot }}
-            />
-          )}
-          <span>{current.label}</span>
-          <CaretDown size={9} weight="bold" className="text-muted-foreground" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[160px]">
-          {options.map(o => (
-            <DropdownMenuItem
-              key={String(o.value)}
-              onClick={() => onChange(o.value)}
-              className="gap-2 text-sm"
-            >
-              <span className="w-4 shrink-0">
-                {o.value === value && <Check size={12} weight="bold" />}
-              </span>
-              <span>{o.label}</span>
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer">
+        <Image src={iconSrc} alt={iconAlt} width={14} height={14} className="shrink-0" />
+        <span>{current.label}</span>
+        <CaretDown size={9} weight="bold" className="text-muted-foreground" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-[160px]">
+        {options.map(o => (
+          <DropdownMenuItem
+            key={String(o.value)}
+            onClick={() => onChange(o.value)}
+            className="gap-2 text-sm"
+          >
+            <span className="w-4 shrink-0">
+              {o.value === value && <Check size={12} weight="bold" />}
+            </span>
+            <span>{o.label}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -219,6 +220,13 @@ export function ViewCardOverviewChart({
   // requiring a refetch. Purely visual — this is the only state the
   // component owns; data + selected metrics live above.
   const [nowTick, setNowTick] = useState(0)
+  // Toggles which dropdown shows the bar-chart icon vs the line-chart icon.
+  // The chart's data rendering is unchanged for now (primary still drives
+  // the bars, secondary still drives the line) — this just visually flips
+  // the icons so the swap button has feedback. Wiring it to an actual
+  // bars/line data swap is a follow-up: needs a unified metric type since
+  // primary/secondary today have disjoint option sets.
+  const [iconsSwapped, setIconsSwapped] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(t => t + 1), 60_000)
@@ -253,19 +261,32 @@ export function ViewCardOverviewChart({
           `chromeless` — this composite tile has its own bespoke layout that
           doesn't use the standard view-card border + shadow chrome. The prop
           is accepted for API uniformity with the rest of the tile components. */}
-      <div className="px-4 pt-3.5 pb-3 flex items-center gap-4 flex-wrap shrink-0">
+      <div className="px-4 pt-3.5 pb-3 flex items-center gap-2 flex-wrap shrink-0">
         <MetricDropdown
-          label="Primary"
+          iconSrc={iconsSwapped ? '/icons/line_chart.svg' : '/icons/bar_chart.svg'}
+          iconAlt={iconsSwapped ? 'Line chart' : 'Bar chart'}
           value={primaryMetric}
           options={PRIMARY_OPTIONS}
           onChange={onPrimaryChange}
         />
+        {/* Swap button — flips which dropdown wears the bar icon vs the
+            line icon. Sits between the two pills as a small icon-only
+            button. Visual feedback only for now (chart data unchanged);
+            wiring it to an actual bar/line data swap is a follow-up. */}
+        <button
+          type="button"
+          onClick={() => setIconsSwapped(s => !s)}
+          aria-label="Swap bar and line charts"
+          className="flex items-center justify-center w-6 h-6 rounded text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors cursor-pointer"
+        >
+          <ArrowsLeftRight size={13} weight="bold" />
+        </button>
         <MetricDropdown
-          label="Overlay"
+          iconSrc={iconsSwapped ? '/icons/bar_chart.svg' : '/icons/line_chart.svg'}
+          iconAlt={iconsSwapped ? 'Bar chart' : 'Line chart'}
           value={secondaryMetric}
           options={SECONDARY_OPTIONS}
           onChange={onSecondaryChange}
-          colorDot={secondaryMetric ? '#F46719' : undefined}
         />
         {projectName && (
           <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">

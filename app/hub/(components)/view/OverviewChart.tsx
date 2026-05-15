@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import {
+  Area,
   Bar,
   ComposedChart,
   Line,
@@ -30,8 +31,12 @@ interface OverviewChartProps {
 }
 
 const SECONDARY_COLOR = '#F46719' // brand orange — overlay line
-const SEGMENT_GAP_Y = 3 // vertical gap (px) between stacked segments
-const SEGMENT_RADIUS = 3 // corner radius (px) for each rounded rectangle
+const AXIS_TICK_COLOR = '#838385'  // c-grey-light — keeps numeric labels neutral, not black
+// Stacked segments now sit flush against each other (no gap) and only the
+// TOP of the topmost non-zero segment in each bucket is rounded — the rest
+// share square edges with their neighbours, and the bottom segment butts
+// up against the X-axis line.
+const TOP_SEGMENT_RADIUS = 4
 const TOOLTIP_WIDTH_ESTIMATE = 240 // used for edge-clamping; the actual card may be wider but this is a safe minimum.
 
 // --- Source key metadata attached to each stacked Bar --------------------------
@@ -481,6 +486,19 @@ export function OverviewChart({
 }: OverviewChartProps) {
   const { rows, sourceKeys } = useMemo(() => buildRows(data.buckets), [data.buckets])
   const yMax = useMemo(() => computeYMax(rows, sourceKeys), [rows, sourceKeys])
+  // For each bucket, which sourceKey is the visually topmost (non-zero) segment?
+  // Used by the bar `shape` callback to round ONLY the top corners of that one
+  // segment — every segment below it stays square so the stack reads as a single
+  // bar instead of a stack of pill-shaped rectangles.
+  const topmostByBucket = useMemo(() => {
+    return rows.map(row => {
+      for (let i = sourceKeys.length - 1; i >= 0; i--) {
+        const v = row[`src_${sourceKeys[i].key}`]
+        if (typeof v === 'number' && v > 0) return sourceKeys[i].key
+      }
+      return null
+    })
+  }, [rows, sourceKeys])
   const hasSecondaryLine = secondaryMetric && !data.secondaryUnavailable
   const yAxisFormatter = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))
 
@@ -577,13 +595,26 @@ export function OverviewChart({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={rows}
-          margin={{ top: 6, right: hasSecondaryLine ? 8 : 0, left: -12, bottom: 0 }}
+          margin={{ top: 6, right: hasSecondaryLine ? 8 : 0, left: 0, bottom: 0 }}
           onMouseMove={handleChartMouseMove}
           onMouseLeave={handleChartMouseLeave}
         >
+          {/* Gradient backdrop for the secondary-metric area chart.
+              Goes top → bottom: bright orange at the line, fading
+              through a warmer orange, down to a near-transparent red
+              at the chart floor. Declared once at the chart level so
+              the SVG ids don't multiply per render. */}
+          <defs>
+            <linearGradient id="overviewSecondaryGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stopColor="#FFA446" stopOpacity={1} />
+              <stop offset="40%" stopColor="#FF834D" stopOpacity={0.25} />
+              <stop offset="80%" stopColor="#FF4852" stopOpacity={0.05} />
+              <stop offset="100%" stopColor="#FF4852" stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <XAxis
             dataKey="label"
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fontSize: 11, fill: AXIS_TICK_COLOR }}
             // Thin baseline that matches the dashed gridlines above. The
             // pre-existing `axisLine={false}` left the chart visually
             // hanging — bars looked like they were floating above the
@@ -591,10 +622,22 @@ export function OverviewChart({
             axisLine={{ stroke: '#E1E1E1', strokeWidth: 1 }}
             tickLine={false}
             interval="preserveStartEnd"
+            // Pads the leftmost + rightmost bar away from the axis edges
+            // so they don't hug the Y-axis line / right edge of the
+            // plot area. The Y-axis tick labels (which sit inside the
+            // axis area, not in this padding region) stay tight to the
+            // chart — see `width={36}` + `tickMargin={2}` on the YAxis.
+            padding={{ left: 18, right: 18 }}
           />
           <YAxis
             yAxisId="left"
-            tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }}
+            // Narrow axis area so tick labels ($120, $80, $0) sit close
+            // to the bars instead of floating in a wide gutter. The
+            // `tickMargin={2}` keeps a hairline gap between the label
+            // text and the plot.
+            width={36}
+            tickMargin={2}
+            tick={{ fontSize: 11, fill: AXIS_TICK_COLOR }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v: number) =>
@@ -607,7 +650,9 @@ export function OverviewChart({
             <YAxis
               yAxisId="right"
               orientation="right"
-              tick={{ fontSize: 11, fill: SECONDARY_COLOR }}
+              width={36}
+              tickMargin={2}
+              tick={{ fontSize: 11, fill: AXIS_TICK_COLOR }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => {
@@ -659,6 +704,23 @@ export function OverviewChart({
             wrapperStyle={{ display: 'none' }}
           />
 
+          {/* Gradient AREA backdrop for the secondary line. Declared BEFORE
+              the bars so it paints behind them; the matching `<Line>` is
+              declared AFTER the bars so the stroke + dot circles sit on
+              top. Re-using `dataKey="secondary"` so both the area and the
+              line trace the same data. */}
+          {hasSecondaryLine && (
+            <Area
+              yAxisId="right"
+              dataKey="secondary"
+              type="monotone"
+              stroke="none"
+              fill="url(#overviewSecondaryGradient)"
+              isAnimationActive={false}
+              connectNulls
+            />
+          )}
+
           {sourceKeys.map(sk => (
             <Bar
               key={sk.key}
@@ -686,7 +748,6 @@ export function OverviewChart({
                   return <rect x={0} y={0} width={0} height={0} fill="none" />
                 }
                 const bucketIndex = p.index ?? -1
-                const h = Math.max(1, p.height - SEGMENT_GAP_Y)
 
                 // Datafast-style dim/highlight:
                 //  - bar mode:      segments in the hovered bucket stay lit;
@@ -711,34 +772,55 @@ export function OverviewChart({
                 // not a generic black drop-shadow. `color-mix` is widely
                 // supported in evergreen browsers (Chrome/Safari/Firefox 2023+).
                 const glow = `color-mix(in srgb, ${p.fill} 55%, white)`
-                return (
-                  <rect
-                    x={p.x}
-                    y={p.y + SEGMENT_GAP_Y / 2}
-                    width={p.width}
-                    height={h}
-                    rx={SEGMENT_RADIUS}
-                    ry={SEGMENT_RADIUS}
-                    fill={p.fill}
-                    stroke={p.stroke ?? 'transparent'}
-                    strokeWidth={p.strokeWidth ?? 0}
-                    // Data attributes read by the chart-level mousemove
-                    // handler via `elementsFromPoint`. No per-rect JS
-                    // listeners — they don't survive the re-renders that
-                    // follow every setHover call.
-                    data-overview-segment="true"
-                    data-source-key={sk.key}
-                    style={{
-                      cursor: 'pointer',
-                      opacity: isDimmed ? 0.32 : 1,
-                      filter: isActiveSegment
-                        ? `drop-shadow(0 0 8px ${glow}) drop-shadow(0 0 2px ${glow})`
-                        : undefined,
-                      // No CSS transitions — instant in/out matches the
-                      // tooltip's behaviour.
-                    }}
-                  />
-                )
+
+                // Only the topmost non-zero segment in this bucket rounds its
+                // TOP corners. Every segment below it (and the topmost's
+                // bottom edge) stays square so the stack reads as a single
+                // bar whose bottom sits flush on the X-axis. Cap radius at
+                // half the segment height for the case where the topmost
+                // segment is shorter than 2 × radius.
+                const isTopmost = topmostByBucket[bucketIndex] === sk.key
+                const r = isTopmost ? Math.min(TOP_SEGMENT_RADIUS, p.height / 2) : 0
+
+                const commonProps = {
+                  fill: p.fill,
+                  stroke: p.stroke ?? 'transparent',
+                  strokeWidth: p.strokeWidth ?? 0,
+                  // Data attributes read by the chart-level mousemove
+                  // handler via `elementsFromPoint`. No per-rect JS
+                  // listeners — they don't survive the re-renders that
+                  // follow every setHover call.
+                  'data-overview-segment': 'true',
+                  'data-source-key': sk.key,
+                  style: {
+                    cursor: 'pointer',
+                    opacity: isDimmed ? 0.32 : 1,
+                    filter: isActiveSegment
+                      ? `drop-shadow(0 0 8px ${glow}) drop-shadow(0 0 2px ${glow})`
+                      : undefined,
+                  },
+                }
+
+                if (r === 0) {
+                  return (
+                    <rect
+                      x={p.x}
+                      y={p.y}
+                      width={p.width}
+                      height={p.height}
+                      {...commonProps}
+                    />
+                  )
+                }
+
+                // Rect with rounded top corners only — drawn as a path so
+                // the BOTTOM edge stays square (sitting flush against the
+                // next segment below or the X-axis line). SVG `<rect rx>`
+                // rounds all four corners, which is why we drop down to
+                // path geometry here.
+                const { x, y, width, height } = p
+                const d = `M ${x},${y + r} A ${r},${r} 0 0 1 ${x + r},${y} L ${x + width - r},${y} A ${r},${r} 0 0 1 ${x + width},${y + r} L ${x + width},${y + height} L ${x},${y + height} Z`
+                return <path d={d} {...commonProps} />
               }}
             />
           ))}
@@ -749,10 +831,25 @@ export function OverviewChart({
               dataKey="secondary"
               stroke={SECONDARY_COLOR}
               strokeWidth={2}
-              dot={false}
               type="monotone"
               isAnimationActive={false}
               connectNulls
+              // Visible markers at every bucket — white centre ringed by a
+              // thick primary-color border. Each circle sits at the
+              // horizontal centre of its bucket (recharts handles that),
+              // i.e. centred over the bar in the same column.
+              dot={{
+                r: 4,
+                fill: 'white',
+                stroke: SECONDARY_COLOR,
+                strokeWidth: 2.5,
+              }}
+              activeDot={{
+                r: 5,
+                fill: 'white',
+                stroke: SECONDARY_COLOR,
+                strokeWidth: 2.5,
+              }}
             />
           )}
         </ComposedChart>
