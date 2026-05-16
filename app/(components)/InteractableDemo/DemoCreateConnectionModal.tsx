@@ -10,17 +10,15 @@
  * No backend hit. No API key field. No OAuth. The user explicitly
  * asked for create-connection to work in the demo, but without any
  * way to enter real credentials.
+ *
+ * Uses the same `BottomDialog` primitive the real dashboard uses, so
+ * the demo's bottom-sheet UX matches what users will see once they
+ * sign up. Same `Page` slot pattern, same `headerRight` save/cancel
+ * cluster — only the underlying logic is mocked.
  */
 
 import { useState } from 'react'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog'
+import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
@@ -48,7 +46,7 @@ interface Props {
 }
 
 export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
-  const { createConnection } = useDemoContext()
+  const { createConnection, dialogContainer } = useDemoContext()
   const [pickedType, setPickedType] = useState<string | null>(null)
   const [name, setName] = useState('')
 
@@ -75,19 +73,19 @@ export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-base font-medium">Add connection</DialogTitle>
-          <DialogDescription>
-            Pick an integration and give it a name. The demo skips OAuth and API
-            keys — connections are mock-only.
-          </DialogDescription>
-        </DialogHeader>
+    <BottomDialog open={open} onOpenChange={handleClose} container={dialogContainer}>
+      <BottomDialog.Page
+        title="Add a connection"
+        bodyMaxWidth="42rem"
+      >
+        <p className="text-sm text-muted-foreground -mt-1 mb-4">
+          Pick an integration and give it a name. The demo skips OAuth and API
+          keys — connections are mock-only.
+        </p>
 
         {/* Integration picker — radio-style cards, two columns to fit
             the dialog width comfortably. */}
-        <div className="grid grid-cols-2 gap-2 mt-1">
+        <div className="grid grid-cols-2 gap-2">
           {INTEGRATIONS.map(int => {
             const isSelected = pickedType === int.type
             return (
@@ -96,7 +94,7 @@ export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
                 type="button"
                 onClick={() => setPickedType(int.type)}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-lg border p-3 text-left transition-colors',
+                  'flex items-center gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer',
                   isSelected
                     ? 'border-foreground bg-foreground/5'
                     : 'bg-card hover:border-foreground/20',
@@ -118,7 +116,7 @@ export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
             picked, so the dialog feels natural to skim ("first pick,
             then name"). */}
         {pickedType && (
-          <div className="mt-2">
+          <div className="mt-4">
             <label className="block text-xs font-medium mb-1.5 text-foreground">
               Connection name
             </label>
@@ -137,15 +135,20 @@ export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
           </div>
         )}
 
-        <DialogFooter>
+        {/* Action row pinned at the bottom of the body. The real modal
+            puts these in `headerRight`; for a single-page demo dialog
+            having them inline at the bottom of the form reads more
+            naturally and matches the user's mental "fill in form →
+            click confirm at bottom" flow. */}
+        <div className="mt-6 flex items-center justify-end gap-2">
           <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
             Cancel
           </Button>
           <Button size="sm" onClick={handleAdd} disabled={!pickedType}>
             Add
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </BottomDialog.Page>
+    </BottomDialog>
   )
 }

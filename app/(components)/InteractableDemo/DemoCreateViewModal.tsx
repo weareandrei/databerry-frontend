@@ -1,17 +1,26 @@
 'use client'
 
+/**
+ * Demo create-view modal.
+ *
+ * Single-page picker (matches the real `<CreateViewModal>` shape): a
+ * grid of `<ViewPickerBar>` elements grouped by integration. Click a
+ * bar → the demo immediately creates that view using the first
+ * available connection of the matching integration type. The one
+ * exception is PostHog's "Track an event", which needs an event to
+ * be picked first — that bar pushes a second `BottomDialog.Page`
+ * with the event grid.
+ *
+ * All data is mock; no API calls. Uses the same `BottomDialog`
+ * primitive as the real dashboard, and now the same `ViewPickerBar`
+ * picker primitive — so the demo bottom-sheet looks/feels identical
+ * to what users land in after signup.
+ */
+
 import { useState } from 'react'
-import { ArrowLeft, CaretRight } from '@phosphor-icons/react'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { Button } from '@/components/ui/button'
-import { Separator } from '@/components/ui/separator'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/Dialog'
+import { ViewPickerBar } from '@/app/hub/(components)/modals/ViewPickerBar'
 import { cn } from '@/lib/utils'
 import { useDemoContext } from './context/DemoContext'
 import type { DemoConnection } from './context/DemoContext'
@@ -21,21 +30,32 @@ import {
   MOCK_CALENDLY_MEETINGS,
   MOCK_STRIPE_TOP_CUSTOMERS,
 } from './demoMocks'
-import { STRIPE_VIEW_OPTIONS, CALENDLY_VIEW_OPTIONS } from '@/constants/viewOptions'
+import {
+  STRIPE_VIEW_OPTIONS,
+  CALENDLY_VIEW_OPTIONS,
+  POSTHOG_VIEW_OPTIONS,
+  SENTRY_VIEW_OPTIONS,
+  type ViewOption,
+} from '@/constants/viewOptions'
 
-const INTEGRATIONS: { type: string; label: string; description: string }[] = [
-  { type: 'stripe_manual', label: 'Stripe', description: 'Gross volume & revenue' },
-  { type: 'posthog', label: 'PostHog', description: 'Product analytics & event tracking' },
-  { type: 'calendly', label: 'Calendly', description: 'Scheduled meetings & booking links' },
-  { type: 'github', label: 'GitHub', description: 'Repositories, PRs & issues' },
-  { type: 'sentry', label: 'Sentry', description: 'Error monitoring & performance' },
+// Integration groups in display order — mirrors the real
+// CreateViewModal's section ordering (Stripe → PostHog → Calendly →
+// Sentry). The demo doesn't surface GA/webhook/composite in this
+// picker; they aren't in the demo's seed connection set.
+const VIEW_GROUPS: Array<{
+  integration: string
+  label: string
+  options: ViewOption[]
+}> = [
+  { integration: 'stripe_manual', label: 'Stripe',   options: STRIPE_VIEW_OPTIONS   },
+  { integration: 'posthog',       label: 'PostHog',  options: POSTHOG_VIEW_OPTIONS  },
+  { integration: 'calendly',      label: 'Calendly', options: CALENDLY_VIEW_OPTIONS },
+  { integration: 'sentry',        label: 'Sentry',   options: SENTRY_VIEW_OPTIONS   },
 ]
 
 type Step =
   | { kind: 'list' }
   | { kind: 'posthog'; conn: DemoConnection; selected: Set<string> }
-  | { kind: 'stripe'; conn: DemoConnection; viewType: string | null }
-  | { kind: 'calendly'; conn: DemoConnection; viewType: string | null }
 
 interface Props {
   open: boolean
@@ -47,13 +67,11 @@ interface Props {
 }
 
 export function DemoCreateViewModal({ open, onOpenChange, projectId, folderId }: Props) {
-  const { connections, createView } = useDemoContext()
+  const { connections, createView, dialogContainer } = useDemoContext()
   const [step, setStep] = useState<Step>({ kind: 'list' })
-  const [expandedType, setExpandedType] = useState<string | null>(null)
 
   function reset() {
     setStep({ kind: 'list' })
-    setExpandedType(null)
   }
 
   function handleClose(v: boolean) {
@@ -61,11 +79,15 @@ export function DemoCreateViewModal({ open, onOpenChange, projectId, folderId }:
     onOpenChange(v)
   }
 
-  // Construct a typed `DemoView` discriminated-union member per
-  // integration. Each handler returns a payload that satisfies the
-  // right `kind` variant — `createView` then assigns the `id`.
+  const backToList = () => setStep({ kind: 'list' })
 
-  function handleCreatePosthog(conn: DemoConnection, eventNames: string[]) {
+  // ── Per-integration view creators ──────────────────────────────────────
+  // Each takes the (auto-picked) connection plus the picked ViewOption
+  // and writes the appropriate `DemoView` discriminated-union member
+  // through `createView`. The shapes mirror the real backend's view
+  // payloads as closely as the mock data allows.
+
+  function createPosthogTrackedEvents(conn: DemoConnection, eventNames: string[]) {
     eventNames.forEach(name => {
       const event = MOCK_POSTHOG_EVENTS.find(e => e.name === name)
       createView({
@@ -82,9 +104,8 @@ export function DemoCreateViewModal({ open, onOpenChange, projectId, folderId }:
     handleClose(false)
   }
 
-  function handleCreateStripe(conn: DemoConnection, viewType: string) {
-    const opt = STRIPE_VIEW_OPTIONS.find(o => o.type === viewType)!
-    if (viewType === 'stripe_top_customers') {
+  function createStripeView(conn: DemoConnection, opt: ViewOption) {
+    if (opt.type === 'stripe_top_customers') {
       createView({
         kind: 'customers',
         name: opt.name,
@@ -95,42 +116,46 @@ export function DemoCreateViewModal({ open, onOpenChange, projectId, folderId }:
         pinned: false,
         customers: MOCK_STRIPE_TOP_CUSTOMERS,
       })
-    } else {
-      const chart = MOCK_STRIPE_CHARTS[viewType]
-      if (chart) {
-        createView({
-          kind: 'chart',
-          name: opt.name,
-          projectId,
-          folderId,
-          connectionId: conn.id,
-          connectionType: 'stripe_manual',
-          pinned: false,
-          mockValue: String(chart.chartTotal),
-          chartTotal: chart.chartTotal,
-          chartPoints: chart.chartPoints,
-          viewType,
-        })
-      } else {
-        createView({
-          kind: 'value',
-          name: opt.name,
-          projectId,
-          folderId,
-          connectionId: conn.id,
-          connectionType: 'stripe_manual',
-          pinned: false,
-          mockValue: '192000',
-          viewType,
-        })
-      }
+      return
     }
-    handleClose(false)
+    // For chart-capable Stripe types we look up a mock series. The
+    // demo's mock map is keyed by the older `stripe_gross_week` /
+    // `stripe_gross_today` view types; the real STRIPE_VIEW_OPTIONS
+    // collapsed those into a polymorphic `stripe_gross`. We fall back
+    // to the week series when the option matches `stripe_gross`.
+    const mockKey = opt.type === 'stripe_gross' ? 'stripe_gross_week' : opt.type
+    const chart = MOCK_STRIPE_CHARTS[mockKey]
+    if (chart) {
+      createView({
+        kind: 'chart',
+        name: opt.name,
+        projectId,
+        folderId,
+        connectionId: conn.id,
+        connectionType: 'stripe_manual',
+        pinned: false,
+        mockValue: String(chart.chartTotal),
+        chartTotal: chart.chartTotal,
+        chartPoints: chart.chartPoints,
+        viewType: opt.type,
+      })
+    } else {
+      createView({
+        kind: 'value',
+        name: opt.name,
+        projectId,
+        folderId,
+        connectionId: conn.id,
+        connectionType: 'stripe_manual',
+        pinned: false,
+        mockValue: '192000',
+        viewType: opt.type,
+      })
+    }
   }
 
-  function handleCreateCalendly(conn: DemoConnection, viewType: string) {
-    const opt = CALENDLY_VIEW_OPTIONS.find(o => o.type === viewType)!
-    if (viewType === 'calendly_meetings_list') {
+  function createCalendlyView(conn: DemoConnection, opt: ViewOption) {
+    if (opt.type === 'calendly_meetings_list') {
       createView({
         kind: 'meetings',
         name: opt.name,
@@ -153,272 +178,161 @@ export function DemoCreateViewModal({ open, onOpenChange, projectId, folderId }:
         mockValue: '2',
       })
     }
-    handleClose(false)
   }
 
-  function handleCreateDirect(conn: DemoConnection, connectionType: string) {
-    const nameMap: Record<string, string> = { github: 'Stars', sentry: 'Open Issues' }
-    const fallbackValue =
-      connectionType === 'github' ? '892'
-      : connectionType === 'sentry' ? '7'
-      : '42'
+  function createSimpleValueView(conn: DemoConnection, opt: ViewOption, fallbackValue: string) {
     createView({
       kind: 'value',
-      name: nameMap[connectionType] ?? conn.name,
+      name: opt.name,
       projectId,
       folderId,
       connectionId: conn.id,
-      connectionType,
+      connectionType: conn.type,
       pinned: false,
       mockValue: fallbackValue,
+      viewType: opt.type,
     })
+  }
+
+  // Click handler for any bar in the grid. Auto-picks the first
+  // connection of the matching integration type (same approach as
+  // the real picker shows under its section header when there are
+  // multiple connections: "saves to <first connection>").
+  function handlePickOption(integration: string, opt: ViewOption) {
+    const conn = connections.find(c => c.type === integration)
+    if (!conn) return // shouldn't happen — the bar is disabled in this case
+
+    // PostHog's "Track an event" needs an event picked first — push
+    // the second page. Every other PostHog option (funnel, retention,
+    // recent users) creates immediately with mock seed data.
+    if (integration === 'posthog' && opt.type === 'daily_counter') {
+      setStep({ kind: 'posthog', conn, selected: new Set() })
+      return
+    }
+
+    if (integration === 'stripe_manual') {
+      createStripeView(conn, opt)
+    } else if (integration === 'calendly') {
+      createCalendlyView(conn, opt)
+    } else if (integration === 'sentry') {
+      createSimpleValueView(conn, opt, '7')
+    } else if (integration === 'posthog') {
+      createSimpleValueView(conn, opt, '42')
+    } else {
+      createSimpleValueView(conn, opt, '42')
+    }
     handleClose(false)
   }
 
-  const renderHeader = () => {
-    if (step.kind === 'posthog')
-      return (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStep({ kind: 'list' })}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={16} weight="thin" />
-          </button>
-          <div>
-            <DialogTitle className="text-base font-medium">{step.conn.name} — Events</DialogTitle>
-            <DialogDescription>Select events to track</DialogDescription>
-          </div>
-        </div>
-      )
-    if (step.kind === 'stripe')
-      return (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStep({ kind: 'list' })}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={16} weight="thin" />
-          </button>
-          <div>
-            <DialogTitle className="text-base font-medium">
-              {step.conn.name} — Choose a view
-            </DialogTitle>
-            <DialogDescription>Select which Stripe metric to display</DialogDescription>
-          </div>
-        </div>
-      )
-    if (step.kind === 'calendly')
-      return (
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setStep({ kind: 'list' })}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft size={16} weight="thin" />
-          </button>
-          <div>
-            <DialogTitle className="text-base font-medium">
-              {step.conn.name} — Choose a view
-            </DialogTitle>
-            <DialogDescription>Select which Calendly data to display</DialogDescription>
-          </div>
-        </div>
-      )
-    return (
-      <>
-        <DialogTitle className="text-base font-medium">Add a view</DialogTitle>
-        <DialogDescription>Pick a connection to display in this folder.</DialogDescription>
-      </>
-    )
-  }
-
-  const renderBody = () => {
-    if (step.kind === 'posthog') {
-      const selected = step.selected
-      return (
-        <div className="flex flex-col flex-1 min-h-0 mt-1">
-          <div className="overflow-y-auto flex-1">
-            <div className="grid grid-cols-2 gap-2 pb-2">
-              {MOCK_POSTHOG_EVENTS.map(ev => {
-                const isSelected = selected.has(ev.name)
-                return (
+  return (
+    <BottomDialog open={open} onOpenChange={handleClose} container={dialogContainer}>
+      {/* Page 1: the bar-per-view-option grid grouped by integration.
+          Single page (no per-integration sub-step) — same shape as
+          the real CreateViewModal's first page. */}
+      {step.kind === 'list' && (
+        <BottomDialog.Page title="Add a view" bodyMaxWidth="42rem">
+          <div className="space-y-5">
+            {VIEW_GROUPS.map(group => {
+              if (group.options.length === 0) return null
+              const conn = connections.find(c => c.type === group.integration)
+              const integrationAvailable = !!conn
+              return (
+                <section key={group.integration}>
+                  <p className="mb-2 text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {group.label}
+                    {!integrationAvailable && (
+                      <span className="ml-2 normal-case font-normal text-foreground/60">
+                        — connect {group.label} to enable
+                      </span>
+                    )}
+                  </p>
+                  {/* Bar grid — column count mirrors the real picker's
+                      responsive breakpoints, capped at 2 here because
+                      the demo card is narrower than the full
+                      hub-dashboard surface. */}
                   <div
-                    key={ev.name}
-                    onClick={() => {
-                      const next = new Set(selected)
-                      isSelected ? next.delete(ev.name) : next.add(ev.name)
-                      setStep({ ...step, selected: next })
-                    }}
                     className={cn(
-                      'rounded-lg border p-3 flex flex-col gap-2 cursor-pointer transition-all select-none',
-                      isSelected
-                        ? 'border-foreground bg-foreground/5'
-                        : 'bg-card hover:border-foreground/20',
+                      'grid gap-2',
+                      'grid-cols-1 sm:grid-cols-2',
                     )}
                   >
-                    <p className="text-sm font-medium truncate">{ev.name}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">30d volume</span>
-                      <span className="text-xs font-medium">{ev.volume.toLocaleString()}</span>
-                    </div>
+                    {group.options.map(opt => (
+                      <ViewPickerBar
+                        key={`${group.integration}:${opt.type}`}
+                        id={`${group.integration}:${opt.type}`}
+                        iconType={group.integration}
+                        name={opt.name}
+                        description={opt.desc}
+                        modes={opt.modes}
+                        disabled={!integrationAvailable}
+                        disabledReason={
+                          !integrationAvailable
+                            ? `No ${group.label} connection in the demo yet`
+                            : undefined
+                        }
+                        onSelect={() => handlePickOption(group.integration, opt)}
+                      />
+                    ))}
                   </div>
-                )
-              })}
-            </div>
+                </section>
+              )
+            })}
           </div>
-          <div className="pt-3 border-t mt-2">
+        </BottomDialog.Page>
+      )}
+
+      {/* Page 2: PostHog event picker (only the "Track an event" path
+          opens this; every other view-type creates directly). */}
+      {step.kind === 'posthog' && (
+        <BottomDialog.Page
+          title={`${step.conn.name} — Events`}
+          pageKey="demo-create-view-posthog"
+          onBack={backToList}
+          bodyMaxWidth="42rem"
+        >
+          <p className="text-sm text-muted-foreground -mt-1 mb-3">
+            Select events to track
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {MOCK_POSTHOG_EVENTS.map(ev => {
+              const isSelected = step.selected.has(ev.name)
+              return (
+                <div
+                  key={ev.name}
+                  onClick={() => {
+                    const next = new Set(step.selected)
+                    isSelected ? next.delete(ev.name) : next.add(ev.name)
+                    setStep({ ...step, selected: next })
+                  }}
+                  className={cn(
+                    'rounded-lg border p-3 flex flex-col gap-2 cursor-pointer transition-all select-none',
+                    isSelected
+                      ? 'border-foreground bg-foreground/5'
+                      : 'bg-card hover:border-foreground/20',
+                  )}
+                >
+                  <p className="text-sm font-medium truncate">{ev.name}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">30d volume</span>
+                    <span className="text-xs font-medium">{ev.volume.toLocaleString()}</span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="pt-4 mt-4 border-t">
             <Button
               className="w-full"
-              disabled={selected.size === 0}
-              onClick={() => handleCreatePosthog(step.conn, Array.from(selected))}
+              disabled={step.selected.size === 0}
+              onClick={() => createPosthogTrackedEvents(step.conn, Array.from(step.selected))}
             >
-              {selected.size === 0
+              {step.selected.size === 0
                 ? 'Select events to track'
-                : `Track ${selected.size} event${selected.size > 1 ? 's' : ''}`}
+                : `Track ${step.selected.size} event${step.selected.size > 1 ? 's' : ''}`}
             </Button>
           </div>
-        </div>
-      )
-    }
-
-    if (step.kind === 'stripe') {
-      return (
-        <div className="mt-1 space-y-3">
-          {STRIPE_VIEW_OPTIONS.map(opt => (
-            <div
-              key={opt.type}
-              onClick={() => setStep({ ...step, viewType: opt.type })}
-              className={cn(
-                'rounded-lg border p-3 cursor-pointer transition-all select-none',
-                step.viewType === opt.type
-                  ? 'border-foreground bg-foreground/5'
-                  : 'hover:border-foreground/20',
-              )}
-            >
-              <p className="text-sm font-medium">{opt.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
-            </div>
-          ))}
-          <Button
-            className="w-full"
-            disabled={!step.viewType}
-            onClick={() => step.viewType && handleCreateStripe(step.conn, step.viewType)}
-          >
-            Create view
-          </Button>
-        </div>
-      )
-    }
-
-    if (step.kind === 'calendly') {
-      return (
-        <div className="mt-1 space-y-3">
-          {CALENDLY_VIEW_OPTIONS.map(opt => (
-            <div
-              key={opt.type}
-              onClick={() => setStep({ ...step, viewType: opt.type })}
-              className={cn(
-                'rounded-lg border p-3 cursor-pointer transition-all select-none',
-                step.viewType === opt.type
-                  ? 'border-foreground bg-foreground/5'
-                  : 'hover:border-foreground/20',
-              )}
-            >
-              <p className="text-sm font-medium">{opt.name}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{opt.desc}</p>
-            </div>
-          ))}
-          <Button
-            className="w-full"
-            disabled={!step.viewType}
-            onClick={() => step.viewType && handleCreateCalendly(step.conn, step.viewType)}
-          >
-            Create view
-          </Button>
-        </div>
-      )
-    }
-
-    // Default: integration list
-    return (
-      <div className="mt-1">
-        {INTEGRATIONS.map((integration, index) => {
-          const conns = connections.filter(c => c.type === integration.type)
-          const isExpanded = expandedType === integration.type
-          return (
-            <div key={integration.type}>
-              <button
-                className="w-full flex items-center justify-between py-3 hover:bg-accent/40 rounded-md px-1 -mx-1 transition-colors"
-                onClick={() =>
-                  setExpandedType(prev => (prev === integration.type ? null : integration.type))
-                }
-              >
-                <div className="flex items-center gap-3">
-                  <ConnectionIcon
-                    type={integration.type}
-                    size={24}
-                    className="text-muted-foreground"
-                  />
-                  <div className="text-left">
-                    <p className="text-sm font-medium">{integration.label}</p>
-                    <p className="text-xs text-muted-foreground">{integration.description}</p>
-                  </div>
-                </div>
-                <CaretRight
-                  size={14}
-                  weight="thin"
-                  className={cn(
-                    'text-muted-foreground transition-transform duration-150 shrink-0',
-                    isExpanded && 'rotate-90',
-                  )}
-                />
-              </button>
-
-              {isExpanded && (
-                <div className="mb-2 ml-11 space-y-1">
-                  {conns.map(conn => (
-                    <div key={conn.id} className="flex items-center justify-between py-1.5">
-                      <p className="text-sm">{conn.name}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          if (integration.type === 'posthog')
-                            setStep({ kind: 'posthog', conn, selected: new Set() })
-                          else if (integration.type === 'stripe_manual')
-                            setStep({ kind: 'stripe', conn, viewType: null })
-                          else if (integration.type === 'calendly')
-                            setStep({ kind: 'calendly', conn, viewType: null })
-                          else handleCreateDirect(conn, integration.type)
-                        }}
-                      >
-                        Select
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {index < INTEGRATIONS.length - 1 && <Separator />}
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent
-        className={cn(
-          'max-h-[80vh] flex flex-col',
-          step.kind === 'posthog' ? 'sm:max-w-2xl' : 'sm:max-w-md',
-        )}
-      >
-        <DialogHeader>{renderHeader()}</DialogHeader>
-        {renderBody()}
-      </DialogContent>
-    </Dialog>
+        </BottomDialog.Page>
+      )}
+    </BottomDialog>
   )
 }

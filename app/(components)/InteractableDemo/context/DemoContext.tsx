@@ -449,6 +449,16 @@ export function buildOverviewChart(
 // ─── Context shape ────────────────────────────────────────────────────────
 
 interface DemoContextValue {
+  /**
+   * The demo's outer container element. Used as the portal target for
+   * `<BottomDialog container={…} />` so the demo's bottom-sheets render
+   * inside the demo surface instead of escaping to the actual viewport
+   * bottom. Set via a callback ref from `<DemoContent>`'s root div;
+   * null until that ref runs on first mount, then stable.
+   */
+  dialogContainer: HTMLElement | null
+  setDialogContainer: (el: HTMLElement | null) => void
+
   // Navigation
   pageOpen: DemoPage
   currentProjectId: string | null
@@ -539,6 +549,11 @@ function uid(prefix: string): string {
 // ─── Provider ─────────────────────────────────────────────────────────────
 
 export function DemoProvider({ children }: { children: React.ReactNode }) {
+  // The demo's outer container element — populated by <DemoContent>'s
+  // callback ref. Lives in state (not a useRef) so consumers like
+  // <BottomDialog container={…}> re-render once the ref resolves.
+  const [dialogContainer, setDialogContainer] = useState<HTMLElement | null>(null)
+
   // Navigation
   const [pageOpen, setPageOpen] = useState<DemoPage>('home')
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
@@ -767,6 +782,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   )
 
   const value: DemoContextValue = {
+    dialogContainer,
+    setDialogContainer,
     pageOpen,
     currentProjectId,
     goToPage,

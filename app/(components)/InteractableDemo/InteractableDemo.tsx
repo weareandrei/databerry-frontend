@@ -93,7 +93,7 @@ function DemoNotice() {
 }
 
 function DemoContent() {
-  const { pageOpen, showNotice } = useDemoContext()
+  const { pageOpen, showNotice, setDialogContainer } = useDemoContext()
 
   // `text-left` resets the `text-center` the surrounding landing-page
   // `<DemoSection>` applies for its hero copy. Without this, every
@@ -109,7 +109,17 @@ function DemoContent() {
   // existing "not available in demo" overlay so the user sees an
   // explanation instead of a crashed page.
   return (
-    <div className="relative bg-background rounded-lg flex h-full text-left">
+    // `ref={setDialogContainer}` exposes this element to demo modals so
+    // <BottomDialog container={dialogContainer} /> can portal its sheet
+    // into THIS surface instead of the page <body>, keeping the bottom
+    // sheet inside the demo card on the landing page.
+    // `overflow-hidden` clips the dialog's rounded-top corners to the
+    // demo card's rounded-lg, and stops the sheet's slide-in transform
+    // from briefly bleeding outside the card.
+    <div
+      ref={setDialogContainer}
+      className="relative overflow-hidden bg-background rounded-lg flex h-full text-left"
+    >
       <DemoSidebar />
       <DemoErrorBoundary onError={() => showNotice(DEMO_UNSUPPORTED_NOTICE)}>
         {pageOpen === 'home' && <DemoHomePage />}

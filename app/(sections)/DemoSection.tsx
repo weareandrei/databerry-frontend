@@ -93,7 +93,11 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
                 card stays comfortably shorter than vh at every breakpoint — the
                 scroll-driven `scale` animation grows the card to 1.25× and we
                 need room above/below for that without overflowing the viewport. */}
-            <div className="dashboard h-[440px] xl:h-[500px] 2xl:h-[560px] 3xl:h-[620px] p-4 pt-0">
+            {/* Mobile base height bumped from 440px → 506px (+15%) so
+                the phone preview reads as a substantial surface; xl+
+                tiers untouched since they were already sized off the
+                wider viewport. */}
+            <div className="dashboard h-[506px] xl:h-[500px] 2xl:h-[560px] 3xl:h-[620px] p-4 pt-0">
               <InteractableDemo />
             </div>
           </motion.div>

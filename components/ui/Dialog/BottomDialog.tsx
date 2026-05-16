@@ -82,6 +82,21 @@ interface BottomDialogProps {
   dirty?: boolean
   /** Optional className merged into the sheet container. */
   className?: string
+  /**
+   * Optional positioned ancestor to contain the dialog inside.
+   *   - **Omitted (default)**: the dialog portals to `<body>` and uses
+   *     `fixed` positioning with `vh`-based sizing — fills the bottom
+   *     of the actual viewport.
+   *   - **Provided**: the dialog portals into this element and uses
+   *     `absolute` positioning with `%`-based sizing — fills the bottom
+   *     of this element instead. Use this when embedding the dialog
+   *     inside a constrained surface (e.g. the landing-page
+   *     `InteractableDemo` card) so the dialog doesn't escape the
+   *     surface. The element MUST be `position: relative` (or any
+   *     non-static) and ideally `overflow: hidden` so the rounded
+   *     bottom of the sheet is clipped cleanly.
+   */
+  container?: HTMLElement | null
 }
 
 /**
@@ -148,10 +163,16 @@ function Page(_props: BottomDialogPageProps): null {
   return null
 }
 
-const BACKDROP_CLASS =
-  'fixed inset-0 z-50 bg-black/40 supports-backdrop-filter:backdrop-blur-xs ' +
+// Two class variants depending on whether the dialog is contained in a
+// custom element. Default (full viewport): `fixed` + `vh`-based sizing.
+// Contained: `absolute` + `%`-based sizing so the dialog respects its
+// parent's bounds instead of the viewport's.
+const BACKDROP_CLASS_BASE =
+  'inset-0 z-50 bg-black/40 supports-backdrop-filter:backdrop-blur-xs ' +
   'transition-opacity duration-300 ease-out ' +
   'data-starting-style:opacity-0 data-ending-style:opacity-0'
+const BACKDROP_CLASS_FIXED = `fixed ${BACKDROP_CLASS_BASE}`
+const BACKDROP_CLASS_CONTAINED = `absolute ${BACKDROP_CLASS_BASE}`
 
 // `min-h-[50vh]` floors the sheet so a sparsely-populated dialog (e.g. a
 // connection with only one product, or a freshly-loaded view picker) still
@@ -166,11 +187,15 @@ const BACKDROP_CLASS =
 // the sheet reads as "the dashboard, slid up" rather than a separate UI
 // element. The white-card variant lives inside the body, not on the popup
 // itself, mirroring how dashboard cards sit on the dashboard.
-const POPUP_CLASS =
-  'fixed inset-x-0 bottom-0 z-50 flex min-h-[50vh] max-h-[92vh] flex-col rounded-t-2xl ' +
+const POPUP_CLASS_BASE =
+  'inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl ' +
   'bg-main text-foreground ring-1 ring-foreground/10 outline-none ' +
   'transition-transform ease-out duration-300 ' +
   'data-starting-style:translate-y-full data-ending-style:translate-y-full'
+const POPUP_CLASS_FIXED = `fixed min-h-[50vh] max-h-[92vh] ${POPUP_CLASS_BASE}`
+// Contained variant uses `%` of the containing element. Same proportions
+// (~50% min, ~92% max) so the visual weight tracks the parent surface.
+const POPUP_CLASS_CONTAINED = `absolute min-h-[50%] max-h-[92%] ${POPUP_CLASS_BASE}`
 
 function resolveSlot(slot: PageSlot | undefined, ctx: PageSlotContext): ReactNode {
   if (slot == null) return null
@@ -184,6 +209,7 @@ function BottomDialog({
   children,
   dirty = false,
   className,
+  container,
 }: BottomDialogProps) {
   // Pick the first Page child whose host condition rendered. Callers
   // typically write `{view === 'list' && <Page …/>}` for each step; only the
@@ -236,9 +262,13 @@ function BottomDialog({
       // pill, no swipe transform) — interactions still work because base-ui
       // skips swipe tracking on interactive children.
     >
-      <DrawerPrimitive.Portal>
-        <DrawerPrimitive.Backdrop className={BACKDROP_CLASS} />
-        <DrawerPrimitive.Popup className={cn(POPUP_CLASS, className)}>
+      <DrawerPrimitive.Portal container={container ?? undefined}>
+        <DrawerPrimitive.Backdrop
+          className={container ? BACKDROP_CLASS_CONTAINED : BACKDROP_CLASS_FIXED}
+        />
+        <DrawerPrimitive.Popup
+          className={cn(container ? POPUP_CLASS_CONTAINED : POPUP_CLASS_FIXED, className)}
+        >
           {/* Header row. No background — it sits on the popup's `bg-main`
               directly. Three slots: optional back arrow, headerLeft (or
               fallback title), headerRight (or fallback close button). */}
