@@ -176,7 +176,7 @@ export function ViewPickerBar({
         // pr-14 reserves room for the absolute-positioned mode-chip row.
         'group relative flex w-full items-center gap-3 overflow-hidden rounded-xl bg-card pl-3 pr-14 py-2.5 text-left shadow-[0_0_0_1px_color-mix(in_srgb,var(--foreground)_4%,transparent)] transition-all duration-150 ease-out',
         !disabled &&
-          'hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
+          'cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
         disabled && 'cursor-not-allowed opacity-55 hover:translate-y-0',
       )}
     >

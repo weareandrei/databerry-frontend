@@ -324,7 +324,7 @@ export function CreateViewModal() {
         connectionType: 'composite',
         type: 'project_overview',
         name: COMPOSITE_VIEW_OPTIONS[0].name,
-        config: { primaryMetric: 'visitors', secondaryMetric: null },
+        config: { primaryMetric: 'visitors', secondaryMetric: 'revenue' },
       },
       {
         connectionId: null,

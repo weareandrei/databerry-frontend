@@ -113,7 +113,7 @@ function IntegrationGridCard({
         // over from the old card so the picker still feels tactile —
         // there's just no longer a giant grey rectangle on top.
         'group relative flex w-full items-center gap-3 overflow-hidden rounded-xl bg-card px-3 py-2.5 text-left shadow-[0_0_0_1px_color-mix(in_srgb,var(--foreground)_4%,transparent)] transition-all duration-150 ease-out',
-        !card.disabled && 'hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
+        !card.disabled && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
         selected && 'shadow-[0_0_0_2px_var(--foreground)]',
         card.disabled && 'cursor-not-allowed opacity-55 hover:translate-y-0',
       )}

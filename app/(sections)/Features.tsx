@@ -82,7 +82,11 @@ function SalesPreview() {
           error={null}
         />
       </div>
-      <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '90px' }}>
+      {/* Cards size to their natural height now (no `gridAutoRows` forcing
+          90 px) — ViewCard expects header (~50 px) + value (~50 px) +
+          its own `px-4 pb-4` padding to all coexist, so any rigid sub-
+          100 px row clips the value text against the bottom edge. */}
+      <div className="grid grid-cols-2 gap-3">
         <ViewCard
           view={fakeView('s2', 'New Customers', 'stripe_manual', '38')}
           onUntrack={() => {}}
@@ -435,23 +439,40 @@ const FeaturesSection = () => {
             ))}
           </div>
 
-          {/* Right: sticky preview panel — desktop only */}
+          {/* Right: sticky preview panel — desktop only.
+              The card sizes to its current preview's NATURAL height
+              (no fixed `h-…`, no min-height, no flex centering — those
+              all forced previews of different heights into the same
+              box and clipped the bigger ones like Sales, which is 220 px
+              chart + 12 px gap + 90 px tile row = 322 px content).
+              `motion.div layout` on the wrapper tweens its height
+              between previews. `AnimatePresence mode="popLayout"` pulls
+              the exiting child out of the layout flow (position:
+              absolute) the moment a new one enters, so the wrapper's
+              height collapses to the new child's natural size instead
+              of summing both during the cross-fade. The new child's
+              own `layout` lets it animate into its natural size while
+              the wrapper tweens to match. */}
           <div className="hidden md:block flex-1 sticky top-[30vh]">
             <RevealOnScroll delay={0.1} y={20}>
-            <div className="dashboard rounded-2xl border bg-card p-5 shadow-sm flex items-center justify-center h-[40vh]">
-              <AnimatePresence mode="wait">
+            <motion.div
+              layout
+              transition={{ layout: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
+              className="dashboard rounded-2xl border bg-card p-5 shadow-sm overflow-hidden"
+            >
+              <AnimatePresence mode="popLayout" initial={false}>
                 <motion.div
                   key={activeIndex}
+                  layout
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full"
+                  transition={{ duration: 0.25, ease: 'easeOut' }}
                 >
                   <ActivePreview />
                 </motion.div>
               </AnimatePresence>
-            </div>
+            </motion.div>
             </RevealOnScroll>
           </div>
         </div>

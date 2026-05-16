@@ -90,7 +90,7 @@ function DisplayModeCard({
         // visually consistent. The colored chip on the left signals
         // which mode this card is for.
         'group flex w-full items-center gap-3 overflow-hidden rounded-xl bg-card px-3 py-3 text-left shadow-[0_0_0_1px_color-mix(in_srgb,var(--foreground)_4%,transparent)] transition-all duration-150 ease-out',
-        'hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
+        'cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
       )}
     >
       <ModeChip mode={mode} size="md" />

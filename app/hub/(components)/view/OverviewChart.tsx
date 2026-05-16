@@ -28,6 +28,15 @@ interface OverviewChartProps {
    * for categorical axes). Unknown labels silently no-op.
    */
   nowLabel?: string | null
+  /**
+   * When true, the visual encoding of the two metrics is swapped:
+   *   - bars now plot the SECONDARY metric (single non-stacked bar per
+   *     bucket, brand-orange, using the right Y-axis)
+   *   - the line + gradient now plot the PRIMARY total (per-bucket sum
+   *     across sources, using the left Y-axis)
+   * Use case: the chart-type swap button in `ViewCardOverviewChart`.
+   */
+  swapped?: boolean
 }
 
 const SECONDARY_COLOR = '#F46719' // brand orange — overlay line
@@ -140,6 +149,10 @@ function buildRows(
     const row: Record<string, string | number | null> = {
       label: b.label,
       secondary: b.secondary,
+      // Per-bucket primary aggregate (sum across sources). Carried on the
+      // row so the chart can plot it as a `<Line>` / `<Area>` when the
+      // user toggles the bar/line swap.
+      total: b.total,
     }
     // Per-row overflow-into-other sum. The keys in `mergedSet`
     // aren't rendered as their own segments; instead, their values
@@ -483,6 +496,7 @@ export function OverviewChart({
   primaryMetric,
   secondaryMetric,
   nowLabel,
+  swapped = false,
 }: OverviewChartProps) {
   const { rows, sourceKeys } = useMemo(() => buildRows(data.buckets), [data.buckets])
   const yMax = useMemo(() => computeYMax(rows, sourceKeys), [rows, sourceKeys])
@@ -499,8 +513,33 @@ export function OverviewChart({
       return null
     })
   }, [rows, sourceKeys])
-  const hasSecondaryLine = secondaryMetric && !data.secondaryUnavailable
+  // Overlay = the line/gradient series. When swapped it plots the primary
+  // total (always available if there's any data), so it's unconditionally
+  // visible. When not swapped, it plots the secondary metric — same
+  // availability check as before.
+  const hasOverlay = swapped ? true : Boolean(secondaryMetric && !data.secondaryUnavailable)
   const yAxisFormatter = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))
+
+  // Bars render in one of two modes:
+  //   - STACKED (multi-segment): bars split into colored sub-bars per
+  //     traffic source. Only meaningful when there are >1 sources to
+  //     visualise. Today this is the visitors/pageviews/conversions
+  //     primary case with non-trivial source breakdown.
+  //   - SINGLE (gradient): one solid bar per bucket, filled with the
+  //     red→orange vertical gradient (#FF4852 → #FF764C → #FFA446
+  //     bottom→top). Used when:
+  //       • swapped mode (bars plot the secondary metric — never has
+  //         a source breakdown)
+  //       • non-swapped mode where the primary's data has ≤1 source
+  //         (e.g. revenue from Stripe — there are no "sources" to
+  //         split into segments)
+  const useStackedBars = !swapped && sourceKeys.length > 1
+  const singleBarDataKey = swapped ? 'secondary' : 'total'
+  const singleBarAxisId = swapped ? 'right' : 'left'
+  // Overlay always lives on the OPPOSITE Y-axis from the bars so the
+  // two scales don't fight each other.
+  const overlayDataKey = swapped ? 'total' : 'secondary'
+  const overlayAxisId = swapped ? 'left' : 'right'
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const [hover, setHover] = useState<HoverState>(null)
@@ -595,7 +634,7 @@ export function OverviewChart({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={rows}
-          margin={{ top: 6, right: hasSecondaryLine ? 8 : 0, left: 0, bottom: 0 }}
+          margin={{ top: 6, right: hasOverlay ? 8 : 0, left: 0, bottom: 0 }}
           onMouseMove={handleChartMouseMove}
           onMouseLeave={handleChartMouseLeave}
         >
@@ -610,6 +649,14 @@ export function OverviewChart({
               <stop offset="40%" stopColor="#FF834D" stopOpacity={0.25} />
               <stop offset="80%" stopColor="#FF4852" stopOpacity={0.05} />
               <stop offset="100%" stopColor="#FF4852" stopOpacity={0} />
+            </linearGradient>
+            {/* Vertical gradient for single (non-stacked) bars — bottom
+                #FF4852 → middle #FF764C → top #FFA446. SVG gradients run
+                top-to-bottom with y1=0/y2=1, so 0% is the top stop. */}
+            <linearGradient id="overviewBarGradient" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor="#FFA446" />
+              <stop offset="50%"  stopColor="#FF764C" />
+              <stop offset="100%" stopColor="#FF4852" />
             </linearGradient>
           </defs>
           <XAxis
@@ -646,7 +693,7 @@ export function OverviewChart({
             domain={[0, yMax]}
             ticks={[0, yMax / 4, yMax / 2, (yMax * 3) / 4, yMax]}
           />
-          {hasSecondaryLine && (
+          {hasOverlay && (
             <YAxis
               yAxisId="right"
               orientation="right"
@@ -709,10 +756,10 @@ export function OverviewChart({
               declared AFTER the bars so the stroke + dot circles sit on
               top. Re-using `dataKey="secondary"` so both the area and the
               line trace the same data. */}
-          {hasSecondaryLine && (
+          {hasOverlay && (
             <Area
-              yAxisId="right"
-              dataKey="secondary"
+              yAxisId={overlayAxisId}
+              dataKey={overlayDataKey}
               type="monotone"
               stroke="none"
               fill="url(#overviewSecondaryGradient)"
@@ -721,7 +768,24 @@ export function OverviewChart({
             />
           )}
 
-          {sourceKeys.map(sk => (
+          {!useStackedBars && (
+            // Single (non-stacked) bar per bucket — filled with the
+            // bar gradient so the visual identity is consistent across
+            // every non-segmented case (swapped mode, revenue, etc.).
+            // Recharts' native `radius` prop handles top-rounded
+            // corners; no custom path renderer needed without a stack
+            // to manage.
+            <Bar
+              yAxisId={singleBarAxisId}
+              dataKey={singleBarDataKey}
+              fill="url(#overviewBarGradient)"
+              maxBarSize={28}
+              isAnimationActive={false}
+              radius={[TOP_SEGMENT_RADIUS, TOP_SEGMENT_RADIUS, 0, 0]}
+            />
+          )}
+
+          {useStackedBars && sourceKeys.map(sk => (
             <Bar
               key={sk.key}
               yAxisId="left"
@@ -825,10 +889,10 @@ export function OverviewChart({
             />
           ))}
 
-          {hasSecondaryLine && (
+          {hasOverlay && (
             <Line
-              yAxisId="right"
-              dataKey="secondary"
+              yAxisId={overlayAxisId}
+              dataKey={overlayDataKey}
               stroke={SECONDARY_COLOR}
               strokeWidth={2}
               type="monotone"

@@ -46,7 +46,7 @@ export function LoadingScreen() {
             className="flex items-center gap-3"
           >
             <Image
-              src="/Databerry_icon.svg"
+              src="/databerry_logo_v2.svg"
               alt="DataBerry"
               width={40}
               height={40}

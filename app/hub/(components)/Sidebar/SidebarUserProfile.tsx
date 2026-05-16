@@ -18,7 +18,7 @@ import { TierPickerSheet } from './TierPickerSheet'
 
 export function SidebarUserProfile() {
   const { user, signOut } = useAuth()
-  const { planId } = useAccount()
+  const { planId, loading: accountLoading } = useAccount()
   const { plansById } = usePlans()
 
   // Local state for the tier picker bottom-sheet. Lives here (not
@@ -56,7 +56,7 @@ export function SidebarUserProfile() {
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-1.5 w-full px-3 py-1.5 rounded-md hover:bg-hover-fill transition-colors text-left">
           <div className="h-7 w-7 rounded-md overflow-hidden shrink-0 border border-stroke">
-            <Image src="/Databerry_icon.svg" alt="Logo" width={28} height={28} className="h-full w-full object-cover" />
+            <Image src="/databerry_logo_v2.svg" alt="Logo" width={28} height={28} className="h-full w-full object-cover" />
           </div>
           {/* Email + plan subheader stack. `min-w-0` is the flex
               truncation trick — without it, a long email would push
@@ -76,6 +76,15 @@ export function SidebarUserProfile() {
                 e.preventDefault()
                 setTierSheetOpen(true)
               }}
+              disabled={accountLoading}
+              // `visibility: hidden` (vs `display: none`) reserves the
+              // button's height while the account loads, so the email
+              // above doesn't jump downward when the label appears.
+              // `useAccount` initialises `planId='free'` as its default
+              // state before the fetch resolves, so without this gate
+              // every upgraded user sees a brief "Upgrade" flash on the
+              // first paint of the dashboard.
+              style={accountLoading ? { visibility: 'hidden' } : undefined}
               className={
                 isFree
                   ? 'self-start mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-brand hover:underline'

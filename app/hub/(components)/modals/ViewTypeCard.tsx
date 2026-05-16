@@ -60,7 +60,7 @@ export function ViewTypeCard({
         // (soft outer ring, hover-lift) so the picker feels cohesive even
         // though the card body is taller than the connection cards.
         'group relative flex w-full flex-col overflow-hidden rounded-xl bg-card text-left shadow-[0_0_0_1px_color-mix(in_srgb,var(--foreground)_4%,transparent)] transition-all duration-150 ease-out',
-        !disabled && 'hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
+        !disabled && 'cursor-pointer hover:-translate-y-0.5 hover:shadow-[0_4px_14px_-4px_color-mix(in_srgb,var(--foreground)_18%,transparent),0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]',
         disabled && 'cursor-not-allowed opacity-55 hover:translate-y-0',
       )}
     >

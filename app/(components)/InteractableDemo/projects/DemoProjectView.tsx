@@ -161,7 +161,10 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
   // project, so this is fine). Real mode persists; demo just keeps
   // the picked metrics in component state.
   const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric>('visitors')
-  const [secondaryMetric, setSecondaryMetric] = useState<OverviewSecondaryMetric>(null)
+  // Default secondary to 'revenue' — same default as the real dashboard's
+  // CreateViewModal so the demo's first paint shows the same chart shape
+  // a user gets when they create this view for real.
+  const [secondaryMetric, setSecondaryMetric] = useState<OverviewSecondaryMetric>('revenue')
   const handleMetricChange = (next: ProjectOverviewChartConfig) => {
     setPrimaryMetric(next.primaryMetric)
     setSecondaryMetric(next.secondaryMetric)

@@ -31,6 +31,8 @@ const INTEGRATIONS: IntegrationCard[] = [
   { id: 'stripe', name: 'Stripe', description: 'Payments, revenue & subscriptions' },
   { id: 'calendly', name: 'Calendly', description: 'Scheduled meetings & booking links' },
   { id: 'google_analytics', name: 'Google Analytics', description: 'Website traffic & user behavior' },
+  { id: 'sentry', name: 'Sentry', description: 'Error monitoring & issues' },
+  { id: 'webhook', name: 'Custom Webhook', description: 'Accept POST requests from any source' },
   {
     id: 'vercel',
     name: 'Vercel',
@@ -38,8 +40,6 @@ const INTEGRATIONS: IntegrationCard[] = [
     disabled: true,
     badge: 'In development',
   },
-  { id: 'webhook', name: 'Custom Webhook', description: 'Accept POST requests from any source' },
-  { id: 'sentry', name: 'Sentry', description: 'Error monitoring & issues' },
   { id: 'github', name: 'GitHub', description: 'Repositories, PRs & issues', disabled: true, badge: 'In development' },
   { id: 'x', name: 'X (Twitter)', description: 'Followers, posts & engagement', disabled: true, badge: 'In development' },
   { id: 'reddit', name: 'Reddit', description: 'Subreddit stats & mentions', disabled: true, badge: 'In development' },

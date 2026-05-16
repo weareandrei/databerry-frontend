@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     'The terms governing use of Databerry. Plain-English description of what you can do with the service and what we promise (and don’t).',
 }
 
-const LAST_UPDATED = 'May 7, 2026'
+const LAST_UPDATED = 'May 16, 2026'
 
 export default function TermsPage() {
   return (
@@ -56,8 +56,9 @@ export default function TermsPage() {
       <LegalSection id="service" title="3. What the Service does">
         <p>
           Databerry connects to third&#8209;party tools you authorise (e.g.
-          Stripe, Google&nbsp;Analytics, PostHog, Calendly), pulls a limited
-          subset of your data, and presents it in a unified dashboard.
+          Stripe, Google&nbsp;Analytics, PostHog, Calendly, Sentry), pulls a
+          limited subset of your data, and presents it in a unified
+          dashboard.
         </p>
         <p>
           The Service is read&#8209;only with respect to your third&#8209;party

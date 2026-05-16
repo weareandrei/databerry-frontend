@@ -87,7 +87,7 @@ const Navbar = () => {
         <div className="flex flex-row items-center justify-between h-[54px] md:h-[65px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[34px] md:rounded-b-[42px] px-5 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 md:gap-3 mx-auto md:mx-0">
-            <Image src="/Databerry_icon.svg" alt="DataBerry" width={24} height={24} className="md:w-[30px] md:h-[30px] rounded-lg" />
+            <Image src="/databerry_logo_v2.svg" alt="DataBerry" width={24} height={24} className="md:w-[30px] md:h-[30px] rounded-lg" />
             <span
               className="text-lg md:text-2xl font-bold text-[#E96021]"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '0.05em' }}

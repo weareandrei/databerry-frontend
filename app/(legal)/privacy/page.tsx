@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     'How Databerry collects, uses, stores, and shares data — including data accessed via Google APIs and other third-party integrations.',
 }
 
-const LAST_UPDATED = 'May 8, 2026'
+const LAST_UPDATED = 'May 16, 2026'
 
 export default function PrivacyPage() {
   return (
@@ -56,9 +56,9 @@ export default function PrivacyPage() {
         </LegalSubheading>
         <p>
           When you connect a third&#8209;party tool — Stripe,
-          Google&nbsp;Analytics, PostHog, Calendly, or custom webhooks —
-          we store the credential needed to access that tool on your
-          behalf. Depending on the tool, this is either an
+          Google&nbsp;Analytics, PostHog, Calendly, Sentry, or custom
+          webhooks — we store the credential needed to access that tool
+          on your behalf. Depending on the tool, this is either an
           OAuth&nbsp;access&nbsp;token + refresh&nbsp;token (revocable
           from your account at the provider) or an API key you paste in.
           Credentials are scoped read&#8209;only wherever the third party
@@ -98,6 +98,17 @@ export default function PrivacyPage() {
           <li>
             <strong>Calendly</strong> — meeting counts and basic meeting
             metadata. Live every render.
+          </li>
+          <li>
+            <strong>Sentry</strong> — the list of unresolved issues in the
+            Sentry organisation you authorise, for the period you select
+            (title, occurrence count, last&#8209;seen timestamp, and a
+            deep&#8209;link back into Sentry). Read&#8209;only via Sentry&apos;s
+            public&#8209;integration OAuth flow. Live every render;{' '}
+            <strong>never persisted</strong>. We never receive your
+            users&apos; raw error payloads (stack traces, breadcrumbs,
+            request bodies) — only the issue summaries the Sentry API
+            returns for an org&#8209;level issues list.
           </li>
         </LegalList>
         <p>
@@ -511,8 +522,9 @@ export default function PrivacyPage() {
       <LegalSection id="security" title="5. Security of stored credentials">
         <p>
           Every credential we store — OAuth tokens (Stripe, Calendly,
-          Google&nbsp;Analytics) and API keys (Stripe Manual, PostHog) —
-          is protected with the same multi&#8209;layer scheme described
+          Google&nbsp;Analytics, Sentry) and API keys (Stripe Manual,
+          PostHog) — is protected with the same multi&#8209;layer scheme
+          described
           in §2.4: AES&#8209;256&#8209;GCM application&#8209;layer
           encryption with a per&#8209;user derived key, on top of TLS in
           transit and AES&#8209;256 disk encryption at rest in Supabase.

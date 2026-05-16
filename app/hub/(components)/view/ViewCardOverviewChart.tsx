@@ -220,13 +220,14 @@ export function ViewCardOverviewChart({
   // requiring a refetch. Purely visual — this is the only state the
   // component owns; data + selected metrics live above.
   const [nowTick, setNowTick] = useState(0)
-  // Toggles which dropdown shows the bar-chart icon vs the line-chart icon.
-  // The chart's data rendering is unchanged for now (primary still drives
-  // the bars, secondary still drives the line) — this just visually flips
-  // the icons so the swap button has feedback. Wiring it to an actual
-  // bars/line data swap is a follow-up: needs a unified metric type since
-  // primary/secondary today have disjoint option sets.
-  const [iconsSwapped, setIconsSwapped] = useState(false)
+  // Bar/line swap state. When true:
+  //   - bars plot the SECONDARY metric (single non-stacked bar, brand orange)
+  //   - the line + gradient plot the PRIMARY total
+  //   - the dropdown icons swap (bar ↔ line) so the pills still match the
+  //     visual encoding their metric currently has
+  // The dropdown SELECTIONS (which primary metric, which secondary metric)
+  // are unchanged — only their visual roles swap.
+  const [swapped, setSwapped] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(t => t + 1), 60_000)
@@ -263,27 +264,26 @@ export function ViewCardOverviewChart({
           is accepted for API uniformity with the rest of the tile components. */}
       <div className="px-4 pt-3.5 pb-3 flex items-center gap-2 flex-wrap shrink-0">
         <MetricDropdown
-          iconSrc={iconsSwapped ? '/icons/line_chart.svg' : '/icons/bar_chart.svg'}
-          iconAlt={iconsSwapped ? 'Line chart' : 'Bar chart'}
+          iconSrc={swapped ? '/icons/line_chart.svg' : '/icons/bar_chart.svg'}
+          iconAlt={swapped ? 'Line chart' : 'Bar chart'}
           value={primaryMetric}
           options={PRIMARY_OPTIONS}
           onChange={onPrimaryChange}
         />
-        {/* Swap button — flips which dropdown wears the bar icon vs the
-            line icon. Sits between the two pills as a small icon-only
-            button. Visual feedback only for now (chart data unchanged);
-            wiring it to an actual bar/line data swap is a follow-up. */}
+        {/* Swap button — toggles the bar/line visual encoding. After click,
+            the bars plot the secondary metric and the line plots the primary
+            total (and vice versa). The dropdown icons flip to match. */}
         <button
           type="button"
-          onClick={() => setIconsSwapped(s => !s)}
+          onClick={() => setSwapped(s => !s)}
           aria-label="Swap bar and line charts"
           className="flex items-center justify-center w-6 h-6 rounded text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors cursor-pointer"
         >
           <ArrowsLeftRight size={13} weight="bold" />
         </button>
         <MetricDropdown
-          iconSrc={iconsSwapped ? '/icons/bar_chart.svg' : '/icons/line_chart.svg'}
-          iconAlt={iconsSwapped ? 'Bar chart' : 'Line chart'}
+          iconSrc={swapped ? '/icons/bar_chart.svg' : '/icons/line_chart.svg'}
+          iconAlt={swapped ? 'Bar chart' : 'Line chart'}
           value={secondaryMetric}
           options={SECONDARY_OPTIONS}
           onChange={onSecondaryChange}
@@ -425,6 +425,7 @@ export function ViewCardOverviewChart({
                     primaryMetric={primaryMetric}
                     secondaryMetric={secondaryMetric}
                     nowLabel={nowLabel}
+                    swapped={swapped}
                   />
                 </div>
               </div>
