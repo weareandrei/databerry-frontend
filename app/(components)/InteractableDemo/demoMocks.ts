@@ -22,6 +22,7 @@ import type {
   OverviewChartResponse,
   OverviewSource,
   OverviewUser,
+  OverviewCountry,
   PosthogFunnelStep,
   SentryIssue,
   StripeTopCustomer,
@@ -248,6 +249,40 @@ export const MOCK_OVERVIEW_SOURCES: Record<string, OverviewSource[]> = {
 export const MOCK_OVERVIEW_USERS: Record<string, OverviewUser[]> = {
   'proj-acme': acmeUsers,
   'proj-side': sideUsers,
+}
+
+// ─── Countries (overview tab — replaced Users) ────────────────────────────
+// ISO 3166-1 alpha-2 codes — required for `country-flag-icons` to render
+// the right flag. Shares are precomputed so the panel matches what the
+// real backend serves.
+const acmeCountries: OverviewCountry[] = [
+  { countryCode: 'US', countryName: 'United States',   visitors: 5240, share: 0.46 },
+  { countryCode: 'GB', countryName: 'United Kingdom',  visitors: 1480, share: 0.13 },
+  { countryCode: 'DE', countryName: 'Germany',         visitors: 1120, share: 0.10 },
+  { countryCode: 'CA', countryName: 'Canada',          visitors:  890, share: 0.08 },
+  { countryCode: 'FR', countryName: 'France',          visitors:  640, share: 0.06 },
+  { countryCode: 'AU', countryName: 'Australia',       visitors:  530, share: 0.05 },
+  { countryCode: 'NL', countryName: 'Netherlands',     visitors:  380, share: 0.03 },
+  { countryCode: 'IN', countryName: 'India',           visitors:  310, share: 0.03 },
+  { countryCode: 'BR', countryName: 'Brazil',          visitors:  220, share: 0.02 },
+  { countryCode: 'JP', countryName: 'Japan',           visitors:  180, share: 0.02 },
+  { countryCode: 'SE', countryName: 'Sweden',          visitors:  150, share: 0.01 },
+  { countryCode: 'ES', countryName: 'Spain',           visitors:  130, share: 0.01 },
+]
+
+const sideCountries: OverviewCountry[] = [
+  { countryCode: 'US', countryName: 'United States',  visitors: 1280, share: 0.49 },
+  { countryCode: 'GB', countryName: 'United Kingdom', visitors:  410, share: 0.16 },
+  { countryCode: 'DE', countryName: 'Germany',        visitors:  290, share: 0.11 },
+  { countryCode: 'CA', countryName: 'Canada',         visitors:  220, share: 0.08 },
+  { countryCode: 'AU', countryName: 'Australia',      visitors:  170, share: 0.06 },
+  { countryCode: 'NL', countryName: 'Netherlands',    visitors:  140, share: 0.05 },
+  { countryCode: 'FR', countryName: 'France',         visitors:  100, share: 0.04 },
+]
+
+export const MOCK_OVERVIEW_COUNTRIES: Record<string, OverviewCountry[]> = {
+  'proj-acme': acmeCountries,
+  'proj-side': sideCountries,
 }
 
 // ─── Stripe gross-volume charts (per project) ─────────────────────────────

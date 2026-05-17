@@ -216,10 +216,23 @@ function formatDollars(v: number): string {
   return `$${v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 }
 
-/** Short-form dollars for axis ticks: "$30", "$1.5k". */
+/** Short-form dollars for axis ticks: "$30", "$1.5k", "$1.2M". */
 function formatDollarsShort(v: number): string {
+  if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
   if (v >= 1000) return `$${(v / 1000).toFixed(1)}k`
   return `$${Math.round(v)}`
+}
+
+/**
+ * Short-form session duration for axis ticks. Compact (no trailing
+ * seconds in the minutes range) so labels stay narrow enough not to
+ * push the chart's plot area: "42s", "5m", "1h".
+ */
+function formatSecondsShort(v: number): string {
+  if (!Number.isFinite(v) || v <= 0) return '0s'
+  if (v < 60) return `${Math.round(v)}s`
+  if (v < 3600) return `${Math.floor(v / 60)}m`
+  return `${Math.floor(v / 3600)}h`
 }
 
 function secondaryLabel(m: Exclude<OverviewSecondaryMetric, null>): string {
@@ -518,7 +531,17 @@ export function OverviewChart({
   // visible. When not swapped, it plots the secondary metric — same
   // availability check as before.
   const hasOverlay = swapped ? true : Boolean(secondaryMetric && !data.secondaryUnavailable)
-  const yAxisFormatter = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v))
+  /**
+   * Counts axis (visitors/pageviews/conversions). Compact suffixes so
+   * "1500" reads as "1.5k", "2400000" as "2.4M" — keeps axis labels
+   * narrow and the bars don't lose horizontal real estate to a wide
+   * tick gutter.
+   */
+  const yAxisFormatter = (v: number) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`
+    if (v >= 1000) return `${(v / 1000).toFixed(1)}k`
+    return String(v)
+  }
 
   // Bars render in one of two modes:
   //   - STACKED (multi-segment): bars split into colored sub-bars per
@@ -631,7 +654,14 @@ export function OverviewChart({
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      {/* `minHeight={1}` / `minWidth={1}` stop recharts from logging
+          "width(0) and height(0) of chart should be greater than 0"
+          + emitting NaN-bearing `<path d>` values during the brief
+          window where the ResponsiveContainer's parent measures 0×0
+          (initial layout pass, AnimatePresence cross-fades, etc.).
+          1px is enough to satisfy recharts' guard; the actual chart
+          still snaps to `100%` once the parent has real dimensions. */}
+      <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
         <ComposedChart
           data={rows}
           margin={{ top: 6, right: hasOverlay ? 8 : 0, left: 0, bottom: 0 }}
@@ -707,6 +737,11 @@ export function OverviewChart({
                   return `${Math.round(v * 100)}%`
                 }
                 if (secondaryMetric === 'revenue') return formatDollarsShort(v)
+                // `avg_session_sec` ticks read as raw seconds without
+                // a unit suffix → 120, 240, 360… looks like a count
+                // when it's really session length. Format as 30s/5m/1h
+                // so the axis self-documents.
+                if (secondaryMetric === 'avg_session_sec') return formatSecondsShort(v)
                 return yAxisFormatter(v)
               }}
             />

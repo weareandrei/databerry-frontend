@@ -19,7 +19,7 @@ import { ViewCardOverviewSources } from './ViewCardOverviewSources'
 import { useOverviewSourcesData } from './data/useOverviewSourcesData'
 import type { View } from '@/types/view'
 
-type Tab = 'sources' | 'users'
+type Tab = 'sources' | 'countries'
 
 interface ViewCardOverviewSourcesConnectedProps {
   view: View
@@ -41,7 +41,7 @@ export function ViewCardOverviewSourcesConnected({
   chromeless,
 }: ViewCardOverviewSourcesConnectedProps) {
   const [tab, setTab] = useState<Tab>('sources')
-  const { sources, users, refreshSources, refreshUsers } = useOverviewSourcesData(
+  const { sources, countries, refreshSources, refreshCountries } = useOverviewSourcesData(
     view.projectId,
     { tab, dateFrom, dateTo },
   )
@@ -54,9 +54,9 @@ export function ViewCardOverviewSourcesConnected({
       tab={tab}
       onTabChange={setTab}
       sources={sources}
-      users={users}
+      countries={countries}
       onRefreshSources={refreshSources}
-      onRefreshUsers={refreshUsers}
+      onRefreshCountries={refreshCountries}
       projectName={projectName}
       onUntrack={onUntrack}
       onPin={onPin}

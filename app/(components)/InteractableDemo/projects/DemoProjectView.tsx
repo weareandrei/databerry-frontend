@@ -60,7 +60,7 @@ import {
   // the in-card picker actually changes what's plotted.
   MOCK_OVERVIEW_CHARTS,
   MOCK_OVERVIEW_SOURCES,
-  MOCK_OVERVIEW_USERS,
+  MOCK_OVERVIEW_COUNTRIES,
 } from '../demoMocks'
 import type { Folder as RealFolder } from '@/types/folder'
 import type { View as RealView } from '@/types/view'
@@ -170,9 +170,9 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
     setSecondaryMetric(next.secondaryMetric)
   }
 
-  // Sources/users tab state — same pattern as `useOverviewSourcesData`,
+  // Sources/countries tab state — same pattern as `useOverviewSourcesData`,
   // just static mock data + caller-owned tab.
-  const [sourcesTab, setSourcesTab] = useState<'sources' | 'users'>('sources')
+  const [sourcesTab, setSourcesTab] = useState<'sources' | 'countries'>('sources')
 
   const handleProjectMenuRename = () => {
     const next = window.prompt('Rename project', project.name)?.trim()
@@ -211,7 +211,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
     )
   }, [project.id, globalDate, timeSeries, primaryMetric, secondaryMetric])
   const mockSources = MOCK_OVERVIEW_SOURCES[project.id] ?? []
-  const mockUsers = MOCK_OVERVIEW_USERS[project.id] ?? []
+  const mockCountries = MOCK_OVERVIEW_COUNTRIES[project.id] ?? []
 
   // Shared FolderGrid handlers — same on both mobile + desktop, so we
   // close over them once instead of inlining twice.
@@ -336,15 +336,15 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                     error: null,
                     fetched: true,
                   }}
-                  users={{
-                    data: mockUsers,
+                  countries={{
+                    data: mockCountries,
                     loading: false,
                     error: null,
                     fetched: true,
                     provider: 'posthog',
                   }}
                   onRefreshSources={() => {/* no-op */}}
-                  onRefreshUsers={() => {/* no-op */}}
+                  onRefreshCountries={() => {/* no-op */}}
                   onPin={() => togglePin(overviewSources.id)}
                   chromeless
                 />
@@ -601,15 +601,15 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                     error: null,
                     fetched: true,
                   }}
-                  users={{
-                    data: mockUsers,
+                  countries={{
+                    data: mockCountries,
                     loading: false,
                     error: null,
                     fetched: true,
                     provider: 'posthog',
                   }}
                   onRefreshSources={() => {/* no-op */}}
-                  onRefreshUsers={() => {/* no-op */}}
+                  onRefreshCountries={() => {/* no-op */}}
                   onPin={() => togglePin(overviewSources.id)}
                   chromeless
                 />

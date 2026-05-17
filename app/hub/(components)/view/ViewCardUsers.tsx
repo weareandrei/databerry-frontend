@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowsClockwise, User } from '@phosphor-icons/react'
+import { ArrowsClockwise, User, Globe } from '@phosphor-icons/react'
+import * as Flags from 'country-flag-icons/react/3x2'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
@@ -82,6 +83,39 @@ function initialsFor(pseudoId: string): string | null {
   return null
 }
 
+/**
+ * Avg session length from total active span ÷ session count. PostHog's
+ * `$session_id` rotates every 30 min of inactivity, so `sessionCount`
+ * is a "visits" proxy and `sessionSec / sessionCount` is a workable
+ * average. Falls back to total span when session count is 0 (e.g. for
+ * users seen in a single session with no `$session_id` set).
+ */
+function avgSessionSec(user: PosthogUserRow): number {
+  if (user.sessionCount > 0) return user.sessionSec / user.sessionCount
+  return user.sessionSec
+}
+
+/**
+ * Small country flag — falls back to a globe glyph when the code is
+ * missing or country-flag-icons doesn't have an entry. 20×~14px so it
+ * lines up cleanly with the avatar height in `UserRow`.
+ */
+function CountryFlag({ code, name }: { code: string; name: string }) {
+  if (!code) return null
+  const FlagComp = (Flags as Record<string, React.ComponentType<{ title?: string; className?: string }>>)[
+    code.toUpperCase()
+  ]
+  if (!FlagComp) {
+    return <Globe size={14} weight="regular" className="text-muted-foreground shrink-0" />
+  }
+  return (
+    <FlagComp
+      title={name || code}
+      className="w-[18px] h-auto rounded-[2px] shrink-0 ring-1 ring-black/[0.06]"
+    />
+  )
+}
+
 // Mirror of `CustomerRow` in `ViewCardCustomerList.tsx`. Same shell
 // (avatar + primary line + breadcrumb subline + right-aligned scalar)
 // — different fields. Keeping the two files structurally identical
@@ -96,14 +130,28 @@ function UserRow({ user }: { user: PosthogUserRow }) {
     ? user.pseudoId
     : shortPseudoId(user.pseudoId)
 
-  // Subline pieces. Order: source → active time → full pseudo-id.
-  // Each separated by " · ", same separator + truncation behaviour
-  // as the Stripe customer subline.
+  // Location: city + country name if both, country alone if only one,
+  // empty when geoip didn't resolve. Joined here so the subline
+  // formatting code below stays uniform.
+  const locationParts: string[] = []
+  if (user.city) locationParts.push(user.city)
+  if (user.countryName) locationParts.push(user.countryName)
+  const locationLabel = locationParts.join(', ')
+
+  // Subline pieces. Order: location → source → sessions count →
+  // avg session length → full pseudo-id. Each separated by " · ",
+  // same separator + truncation behaviour as the Stripe customer
+  // subline.
   const sourceLabel = user.source ? user.source : 'direct'
-  const sublineSegments: string[] = [
-    `via ${sourceLabel}`,
-    `${formatSessionTime(user.sessionSec)} active`,
-  ]
+  const sublineSegments: string[] = []
+  if (locationLabel) sublineSegments.push(locationLabel)
+  sublineSegments.push(`via ${sourceLabel}`)
+  if (user.sessionCount > 0) {
+    sublineSegments.push(
+      user.sessionCount === 1 ? '1 session' : `${user.sessionCount} sessions`,
+    )
+  }
+  sublineSegments.push(`${formatSessionTime(avgSessionSec(user))} avg`)
   // Always include the full distinct_id so the user can cross-
   // reference in PostHog. When primary is an email, the id is
   // distinct from the primary; when primary is a short id, this
@@ -130,9 +178,12 @@ function UserRow({ user }: { user: PosthogUserRow }) {
         </AvatarFallback>
       </Avatar>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" title={user.pseudoId}>
-          {primaryDisplay}
-        </p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <CountryFlag code={user.countryCode} name={user.countryName} />
+          <p className="text-sm font-medium truncate" title={user.pseudoId}>
+            {primaryDisplay}
+          </p>
+        </div>
         <p className="text-xs text-muted-foreground truncate mt-0.5">
           {subline}
         </p>

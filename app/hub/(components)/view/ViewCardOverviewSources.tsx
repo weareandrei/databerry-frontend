@@ -1,14 +1,18 @@
 'use client'
 
 /**
- * Composite "project overview — sources / users" tile. Two-tab
- * (Sources, Users) panel that sits next to the overview chart on
+ * Composite "project overview — sources / countries" tile. Two-tab
+ * (Sources, Countries) panel that sits next to the overview chart on
  * desktop, or below it on mobile / inside the pinned-views card.
  *
  * Props-only data path — the component owns the active tab + the
  * pin/unpin/refresh menu, but the per-tab data + loading state come
  * from the caller. Real callers feed `useOverviewSourcesData()`
  * through this prop set; demo callers pass static mock data.
+ *
+ * Users tab was retired in favour of Countries (more scannable; works
+ * without PostHog person-identification). Per-user depth lives in
+ * the standalone `posthog_users` view type.
  */
 
 import Link from 'next/link'
@@ -30,11 +34,11 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewSourcesPanel } from './OverviewSourcesPanel'
-import { OverviewUsersPanel } from './OverviewUsersPanel'
-import type { OverviewSource, OverviewUser } from '@/lib/api'
+import { OverviewCountriesPanel } from './OverviewCountriesPanel'
+import type { OverviewSource, OverviewCountry } from '@/lib/api'
 import type { ProjectOverviewSourcesConfig, View } from '@/types/view'
 
-type Tab = 'sources' | 'users'
+type Tab = 'sources' | 'countries'
 
 function readConfig(view: View): ProjectOverviewSourcesConfig {
   const cfg = view.config as Partial<ProjectOverviewSourcesConfig>
@@ -52,7 +56,7 @@ interface TabState<T> {
   data: T | null
   loading: boolean
   error: string | null
-  /** Only meaningful for 'users' — caller signals why the list is empty. */
+  /** Only meaningful for 'countries' — caller signals why the list is empty. */
   provider?: 'google_analytics' | 'posthog' | null
   /** True once a fetch has at least been attempted. */
   fetched: boolean
@@ -76,10 +80,10 @@ interface ViewCardOverviewSourcesProps {
    * `loading: false`, `fetched: true`.
    */
   sources: TabState<OverviewSource[]>
-  users: TabState<OverviewUser[]>
+  countries: TabState<OverviewCountry[]>
   /** Refresh handlers — refresh acts on the active tab only. */
   onRefreshSources: () => void
-  onRefreshUsers: () => void
+  onRefreshCountries: () => void
   projectName?: string
   onUntrack?: (id: string) => void
   onPin?: (id: string) => void
@@ -95,9 +99,9 @@ export function ViewCardOverviewSources({
   tab,
   onTabChange,
   sources,
-  users,
+  countries,
   onRefreshSources,
-  onRefreshUsers,
+  onRefreshCountries,
   projectName,
   onUntrack,
   onPin,
@@ -112,10 +116,10 @@ export function ViewCardOverviewSources({
   const config = readConfig(view)
   const refresh = () => {
     if (tab === 'sources') onRefreshSources()
-    else onRefreshUsers()
+    else onRefreshCountries()
   }
 
-  const activeLoading = tab === 'sources' ? sources.loading : users.loading
+  const activeLoading = tab === 'sources' ? sources.loading : countries.loading
 
   return (
     <ViewWrapper variant="borderless">
@@ -128,8 +132,8 @@ export function ViewCardOverviewSources({
           <TabButton active={tab === 'sources'} onClick={() => onTabChange('sources')}>
             Sources
           </TabButton>
-          <TabButton active={tab === 'users'} onClick={() => onTabChange('users')}>
-            Users
+          <TabButton active={tab === 'countries'} onClick={() => onTabChange('countries')}>
+            Countries
           </TabButton>
           {/* Project pill — only when the card is rendered away from its own
               project page (e.g. pinned on Home). On the project page projectName
@@ -187,7 +191,7 @@ export function ViewCardOverviewSources({
       <div className="p-4 min-w-0">
         {tab === 'sources'
           ? renderSources(sources, config.sourcesLimit ?? 10)
-          : renderUsers(users)
+          : renderCountries(countries)
         }
       </div>
     </ViewWrapper>
@@ -210,22 +214,23 @@ function renderSources(
   return <OverviewSourcesPanel sources={state.data} pageSize={pageSize} />
 }
 
-function renderUsers(state: TabState<OverviewUser[]>): React.ReactElement {
+function renderCountries(state: TabState<OverviewCountry[]>): React.ReactElement {
   if (state.error) return <ErrorState message={state.error} />
   if (state.loading || !state.fetched) return <LoadingState />
 
-  // GA is explicitly unsupported in this pass — surface a tailored CTA
-  // rather than the generic "no traffic source" state so users know *why*
-  // the tab is empty and what to do about it.
+  // GA is explicitly unsupported (its country dimension uses display
+  // names not ISO codes — flag rendering would be ambiguous). Surface
+  // a tailored CTA so users understand *why* the tab is empty.
   if (state.provider === 'google_analytics') {
     return (
       <div className="flex flex-col items-center justify-center gap-2 text-center py-6 px-4">
         <p className="text-sm text-grey-dark">
-          User-level breakdown requires PostHog.
+          Country breakdown requires PostHog.
         </p>
         <p className="text-xs text-grey-light max-w-[280px]">
-          Google Analytics doesn&apos;t expose the per-user session data needed
-          for this view. Connect a PostHog project to see individual visitors.
+          Google Analytics&apos; country dimension uses display names rather
+          than ISO codes, which makes flag rendering ambiguous. Connect a
+          PostHog project to see country-level traffic.
         </p>
         <Link
           href="/hub/connections"
@@ -243,7 +248,7 @@ function renderUsers(state: TabState<OverviewUser[]>): React.ReactElement {
     return <NoTrafficState />
   }
 
-  return <OverviewUsersPanel users={state.data ?? []} />
+  return <OverviewCountriesPanel countries={state.data ?? []} />
 }
 
 // ── Sub-components for the three non-data states ───────────────────────────

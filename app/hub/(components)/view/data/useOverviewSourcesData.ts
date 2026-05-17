@@ -4,7 +4,7 @@
  * Data hook for `<ViewCardOverviewSources>`.
  *
  * Fetches the two tabs' data — top-traffic-sources +
- * recently-active users — for a given project + date range.
+ * top-countries — for a given project + date range.
  *
  * Original implementation lived inside `<ViewCardOverviewSources>`
  * with a lazy-on-first-tab-activation pattern (each tab fetched only
@@ -15,14 +15,19 @@
  *
  * The lazy pattern is preserved — `tab` is passed in by the caller
  * (component owns its own tab state), and the hook only fetches the
- * active tab plus refetches when `refreshSources` / `refreshUsers`
+ * active tab plus refetches when `refreshSources` / `refreshCountries`
  * is called for that tab. Switching tabs back to a previously-fetched
  * one re-uses cached data.
+ *
+ * The old "Users" tab was retired in favour of "Countries" — a more
+ * scannable rollup that doesn't require PostHog person-identification
+ * to be meaningful. The standalone per-user list still exists as the
+ * `posthog_users` view type for users who want per-visitor depth.
  */
 import { useEffect, useState } from 'react'
-import { PROJECT_OVERVIEW, type OverviewSource, type OverviewUser } from '@/lib/api'
+import { PROJECT_OVERVIEW, type OverviewSource, type OverviewCountry } from '@/lib/api'
 
-type Tab = 'sources' | 'users'
+type Tab = 'sources' | 'countries'
 
 export interface OverviewSourcesTabState<T> {
   data: T | null
@@ -32,16 +37,16 @@ export interface OverviewSourcesTabState<T> {
   fetched: boolean
 }
 
-export interface OverviewSourcesUsersTabState extends OverviewSourcesTabState<OverviewUser[]> {
-  /** Only meaningful for 'users' — backend tells us why the list is empty. */
+export interface OverviewCountriesTabState extends OverviewSourcesTabState<OverviewCountry[]> {
+  /** Backend tells us why the list is empty (GA unsupported, etc.). */
   provider?: 'google_analytics' | 'posthog' | null
 }
 
 export interface OverviewSourcesDataResource {
   sources: OverviewSourcesTabState<OverviewSource[]>
-  users: OverviewSourcesUsersTabState
+  countries: OverviewCountriesTabState
   refreshSources: () => void
-  refreshUsers: () => void
+  refreshCountries: () => void
 }
 
 interface UseOverviewSourcesDataOpts {
@@ -60,9 +65,9 @@ export function useOverviewSourcesData(
 ): OverviewSourcesDataResource {
   const { tab, dateFrom, dateTo } = opts
   const [sources, setSources] = useState<OverviewSourcesTabState<OverviewSource[]>>(initialState)
-  const [users, setUsers] = useState<OverviewSourcesUsersTabState>(initialState)
+  const [countries, setCountries] = useState<OverviewCountriesTabState>(initialState)
   const [sourcesTick, setSourcesTick] = useState(0)
-  const [usersTick, setUsersTick] = useState(0)
+  const [countriesTick, setCountriesTick] = useState(0)
 
   // Sources fetch — runs on first 'sources' activation, on range
   // changes while the tab is visible, or on refresh tick bump.
@@ -89,16 +94,16 @@ export function useOverviewSourcesData(
     }
   }, [tab, projectId, dateFrom, dateTo, sourcesTick])
 
-  // Users fetch — same lazy + refresh pattern.
+  // Countries fetch — same lazy + refresh pattern.
   useEffect(() => {
-    if (tab !== 'users') return
+    if (tab !== 'countries') return
     let cancelled = false
-    setUsers(s => ({ ...s, loading: true, error: null }))
-    PROJECT_OVERVIEW.getUsers(projectId, dateFrom, dateTo, 100)
+    setCountries(s => ({ ...s, loading: true, error: null }))
+    PROJECT_OVERVIEW.getCountries(projectId, dateFrom, dateTo, 50)
       .then(res => {
         if (cancelled) return
-        setUsers({
-          data: res.users,
+        setCountries({
+          data: res.countries,
           loading: false,
           error: null,
           provider: res.provider,
@@ -107,22 +112,22 @@ export function useOverviewSourcesData(
       })
       .catch(err => {
         if (cancelled) return
-        setUsers({
+        setCountries({
           data: null,
           loading: false,
-          error: err instanceof Error ? err.message : 'Failed to load users',
+          error: err instanceof Error ? err.message : 'Failed to load countries',
           fetched: true,
         })
       })
     return () => {
       cancelled = true
     }
-  }, [tab, projectId, dateFrom, dateTo, usersTick])
+  }, [tab, projectId, dateFrom, dateTo, countriesTick])
 
   return {
     sources,
-    users,
+    countries,
     refreshSources: () => setSourcesTick(t => t + 1),
-    refreshUsers: () => setUsersTick(t => t + 1),
+    refreshCountries: () => setCountriesTick(t => t + 1),
   }
 }

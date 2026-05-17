@@ -55,7 +55,7 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
             - xl+: scales with viewport at `72vw` for wide-screen breathing room
             - 3xl+ (≥112rem viewport): caps at `w-8xl` (88rem = 1408px) so the card stops growing on huge displays
           Custom `3xl` breakpoint and `8xl` container live in `globals.css`. */}
-      <div className="sticky z-[20] mx-auto w-[80vw] md:w-2xl xl:w-[72vw] 3xl:w-8xl pb-24" style={{ top: stickyTop }}>
+      <div className="sticky z-[20] mx-auto w-[80vw] md:w-[75vw] xl:w-[72vw] 3xl:w-8xl pb-24" style={{ top: stickyTop }}>
         <motion.div
           ref={cardRef}
           style={{ scale, borderRadius }}

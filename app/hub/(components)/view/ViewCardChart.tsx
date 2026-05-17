@@ -152,7 +152,7 @@ export function ViewCardChart({
 
   return (
     <>
-    <ViewWrapper className="col-span-2 row-span-2" variant={chromeless ? 'borderless' : 'default'}>
+    <ViewWrapper className="col-span-2 row-span-3" variant={chromeless ? 'borderless' : 'default'}>
       <ViewHeader
         name={title}
         connectionType={view.connectionType}
@@ -233,8 +233,13 @@ export function ViewCardChart({
             </p>
           </div>
         )}
+        {/* `minHeight={1}` / `minWidth={1}` on the ResponsiveContainer —
+            see OverviewChart for the same fix. Recharts emits NaN
+            `<path d>` values + a console error when its container
+            measures 0×0 (initial mount, AnimatePresence cross-fades,
+            etc.); 1px is enough to satisfy its guard. */}
         {!loading && !error && points.length > 0 && (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
             <BarChart
               data={points}
               // Top margin gives bars headroom so a single tall day doesn't

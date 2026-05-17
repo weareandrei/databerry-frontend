@@ -116,6 +116,14 @@ export interface PosthogUserRow {
   sessionSec: number
   /** ISO timestamp of the last pageview in the range. */
   lastSeen: string
+  /** ISO 3166-1 alpha-2 from `$geoip_country_code`. Empty when unresolved. */
+  countryCode: string
+  /** Display name from `$geoip_country_name`. */
+  countryName: string
+  /** City name from `$geoip_city_name`. */
+  city: string
+  /** Distinct `$session_id` count for this user in the range. */
+  sessionCount: number
 }
 
 export interface PosthogUsersResult {
@@ -820,6 +828,22 @@ export interface OverviewUsersResponse {
   provider: 'google_analytics' | 'posthog' | null
 }
 
+export interface OverviewCountry {
+  /** ISO 3166-1 alpha-2 (e.g. 'US', 'GB'). Stable key + flag input. */
+  countryCode: string
+  /** Display name; may be empty when PostHog didn't denormalise it. */
+  countryName: string
+  visitors: number
+  /** 0–1, precomputed server-side. */
+  share: number
+}
+
+export interface OverviewCountriesResponse {
+  countries: OverviewCountry[]
+  /** Same provider-routing semantics as `OverviewUsersResponse`. */
+  provider: 'google_analytics' | 'posthog' | null
+}
+
 export const PROJECT_OVERVIEW = {
   getChart: (
     projectId: string,
@@ -855,6 +879,11 @@ export const PROJECT_OVERVIEW = {
   getUsers: (projectId: string, dateFrom: string, dateTo: string, limit = 100) =>
     apiFetch<OverviewUsersResponse>(
       `/project-overview/users?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
+    ),
+
+  getCountries: (projectId: string, dateFrom: string, dateTo: string, limit = 50) =>
+    apiFetch<OverviewCountriesResponse>(
+      `/project-overview/countries?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
     ),
 
   getConversionEvents: (connectionId: string) =>
