@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, X } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
 import {
@@ -201,6 +201,15 @@ export function CreateViewModal() {
   const [displayModeStep, setDisplayModeStep] = useState<DisplayModeStep | null>(null)
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set())
   const [tracking, setTracking] = useState(false)
+  // Synchronous re-entry gate paired with `tracking`. State alone
+  // doesn't stop button-mash double-clicks (the disabled prop hasn't
+  // propagated to the DOM by the time the second click fires); the
+  // ref does. Shared across every submit handler in this modal
+  // (createView / handleTrackEvents / handleCreateFunnel /
+  // handleCreateRetention / handleCreateWebhookWithField) because
+  // only one is ever in flight at a time — they all live on
+  // mutually-exclusive sub-pages.
+  const trackingRef = useRef(false)
 
   // Initial scope = project the modal opened from. If null (rare —
   // most paths set a project), fall back to 'all'.
@@ -300,6 +309,8 @@ export function CreateViewModal() {
         }[],
   ) => {
     const list = Array.isArray(body) ? body : [body]
+    if (trackingRef.current) return
+    trackingRef.current = true
     setTracking(true)
     try {
       await views.createViews(
@@ -313,6 +324,7 @@ export function CreateViewModal() {
       views.closeModal()
       resetSubPages()
     } finally {
+      trackingRef.current = false
       setTracking(false)
     }
   }
@@ -498,6 +510,8 @@ export function CreateViewModal() {
 
   const handleTrackEvents = async () => {
     if (!eventsStep || selectedEvents.size === 0) return
+    if (trackingRef.current) return
+    trackingRef.current = true
     setTracking(true)
     try {
       await views.createViews(
@@ -518,6 +532,7 @@ export function CreateViewModal() {
       views.closeModal()
       resetSubPages()
     } finally {
+      trackingRef.current = false
       setTracking(false)
     }
   }
@@ -575,6 +590,8 @@ export function CreateViewModal() {
     if (!funnelStep) return
     const filled = funnelStep.steps.map(s => s.trim()).filter(s => s.length > 0)
     if (filled.length < 2) return
+    if (trackingRef.current) return
+    trackingRef.current = true
     setTracking(true)
     try {
       await views.createViews([
@@ -595,6 +612,7 @@ export function CreateViewModal() {
       views.closeModal()
       resetSubPages()
     } finally {
+      trackingRef.current = false
       setTracking(false)
     }
   }
@@ -634,6 +652,8 @@ export function CreateViewModal() {
   const handleCreateRetention = async () => {
     if (!retentionStep) return
     if (!retentionStep.startEvent || !retentionStep.returnEvent) return
+    if (trackingRef.current) return
+    trackingRef.current = true
     setTracking(true)
     try {
       await views.createViews([
@@ -657,6 +677,7 @@ export function CreateViewModal() {
       views.closeModal()
       resetSubPages()
     } finally {
+      trackingRef.current = false
       setTracking(false)
     }
   }
@@ -669,6 +690,8 @@ export function CreateViewModal() {
     if (!conn) return
     const opt = WEBHOOK_VIEW_OPTIONS.find(o => o.type === webhookStep.viewType)
     if (!opt) return
+    if (trackingRef.current) return
+    trackingRef.current = true
     setTracking(true)
     try {
       await views.createViews([
@@ -686,6 +709,7 @@ export function CreateViewModal() {
       views.closeModal()
       resetSubPages()
     } finally {
+      trackingRef.current = false
       setTracking(false)
     }
   }

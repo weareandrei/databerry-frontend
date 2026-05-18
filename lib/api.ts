@@ -319,6 +319,26 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
 }
 
 export const ALGORITHM = {
+  // ── Account ──────────────────────────────────────────────────────────────
+
+  /**
+   * Fetch the signed-in user's account row, upserting it if missing.
+   * The backend's `getOrCreateAccount` is an idempotent upsert keyed by
+   * `user_id`, so this route doubles as a self-healing safety net for
+   * users who slipped past the `handle_new_user` DB trigger (which has
+   * historically been wiped by Supabase platform upgrades — see the
+   * note in `useAccount`). Cheap on the happy path: a single
+   * `UPSERT … ON CONFLICT DO NOTHING` plus a SELECT.
+   */
+  getMyAccount: () =>
+    apiFetch<{
+      id: string
+      userId: string
+      planId: string
+      createdAt: string
+      updatedAt: string
+    }>('/accounts/me'),
+
   // ── Projects ─────────────────────────────────────────────────────────────
 
   getProjects: () => apiFetch<Project[]>('/projects'),

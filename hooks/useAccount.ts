@@ -1,17 +1,19 @@
 'use client'
 
 /**
- * `useAccount` — reads the signed-in user's account row from
- * Supabase. Currently the only field that matters is `plan_id`,
- * which drives the sidebar tier badge + the tier picker.
+ * `useAccount` — reads the signed-in user's account row via the
+ * backend's `/accounts/me` endpoint. Currently the only field that
+ * matters is `plan_id`, which drives the sidebar tier badge + the
+ * tier picker.
  *
- * Why a Supabase-direct hook (not a Redux slice or an API route):
- *   - The `accounts` table is RLS-locked to `auth.uid() = user_id`,
- *     so a direct `select` from the browser-side client is safe —
- *     no risk of leaking other users' rows.
- *   - The plan is a single string field that changes maybe once
- *     in an account's lifetime. A full Redux entity slice + load
- *     thunk would dwarf the actual data.
+ * Why the backend (was: direct Supabase select):
+ *   - `/accounts/me` is backed by `getOrCreateAccount` — an
+ *     idempotent upsert keyed by `user_id`. That makes every read
+ *     self-healing if the row is missing (`handle_new_user` trigger
+ *     wiped by a Supabase platform upgrade, a manual delete,
+ *     anything). The previous direct-Supabase read returned PGRST116
+ *     and silently fell back to `'free'`, which masked the bug for
+ *     months — a paid user with a missing row saw the free tier.
  *   - The plan is read in exactly one place today (the sidebar
  *     profile). If more callers show up later we can promote this
  *     to a context without changing the API.
@@ -19,7 +21,7 @@
  * Returns `'free'` as the safe fallback whenever:
  *   - The user isn't signed in (no `user.id` to query by).
  *   - The query is still in flight.
- *   - The query errored (network, RLS, whatever).
+ *   - The query errored (network, transient backend issue, whatever).
  * — meaning consumers never have to deal with `null` plan IDs.
  * Worst case, a paid-tier user sees free chrome for a render or
  * two; better than crashing the sidebar or showing "undefined".
@@ -27,7 +29,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { createClient } from '@/lib/supabase/client'
+import { ALGORITHM } from '@/lib/api'
 import { asPlanId, type PlanId } from '@/constants/plans'
 
 interface UseAccountResult {
@@ -80,23 +82,20 @@ export function useAccount(): UseAccountResult {
     let cancelled = false
     setLoading(true)
 
-    const supabase = createClient()
-    void supabase
-      .from('accounts')
-      .select('plan_id')
-      .eq('user_id', userId)
-      .single()
-      .then(({ data, error }) => {
+    // Backend upserts the row if missing — so this never returns 0
+    // rows the way the old direct-Supabase select could. Any error
+    // here is transient (network / auth blip) and we fall back to
+    // 'free' for the same reason the old code did: better to render
+    // free chrome briefly than to crash the sidebar with `null`.
+    void ALGORITHM.getMyAccount()
+      .then(account => {
         if (cancelled) return
-        if (error) {
-          // Quiet failure — most likely the row doesn't exist yet
-          // because the `handle_new_user` trigger hasn't fired
-          // (race between auth signup and the DB trigger). Free is
-          // the right fallback in every error case anyway.
-          setPlanId('free')
-        } else {
-          setPlanId(asPlanId(data?.plan_id))
-        }
+        setPlanId(asPlanId(account.planId))
+        setLoading(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setPlanId('free')
         setLoading(false)
       })
 

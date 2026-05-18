@@ -20,7 +20,7 @@
  *      refresh would otherwise return stale step counts)
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Plus, ArrowUp, ArrowDown, X } from '@phosphor-icons/react'
 import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { Button } from '@/components/ui/button'
@@ -101,6 +101,12 @@ export function EditFunnelModal({
   const [loadingEvents, setLoadingEvents] = useState(false)
   const [eventsError, setEventsError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  // Synchronous re-entry gate. `saving` state alone isn't enough — a
+  // user spamming the Save button fires multiple click handlers before
+  // React applies the disabled state to the DOM, and each handler reads
+  // `canSave` (which closes over the pre-update state) as `true`. The
+  // ref flips synchronously so the second click bails out instantly.
+  const savingRef = useRef(false)
 
   // Re-seed editable state + (re-)fetch events on each open.
   useEffect(() => {
@@ -159,6 +165,8 @@ export function EditFunnelModal({
   // ── Save ───────────────────────────────────────────────────────────
   const handleSave = async () => {
     if (!canSave) return
+    if (savingRef.current) return
+    savingRef.current = true
     setSaving(true)
     try {
       const nextConfig: FunnelConfig = {
@@ -179,6 +187,7 @@ export function EditFunnelModal({
         err instanceof Error ? `Save failed — ${err.message}` : 'Save failed',
       )
     } finally {
+      savingRef.current = false
       setSaving(false)
     }
   }

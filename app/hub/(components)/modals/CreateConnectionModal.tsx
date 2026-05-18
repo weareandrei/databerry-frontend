@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, Check, Info, Cube, CaretDown } from '@phosphor-icons/react'
 import { InlineErrorBanner } from './InlineErrorBanner'
@@ -604,6 +604,12 @@ export function CreateConnectionModal() {
   // only one is visible at a time; conflating them keeps the conditional
   // rendering inside `<HeaderSaveCancel>` simple.
   const [submitting, setSubmitting] = useState(false)
+  // Synchronous re-entry gate paired with `submitting`. State alone
+  // doesn't stop a user mashing the connect/fetch button before React
+  // has applied the disabled prop — without this ref, two API calls
+  // can land and create duplicate connections / fetch the same
+  // upstream resource twice. Mirrors the pattern in CreateProjectModal.
+  const submittingRef = useRef(false)
 
   const resetFormState = () => {
     setPosthogApiKey('')
@@ -622,6 +628,7 @@ export function CreateConnectionModal() {
     setVercelDrainUrl('')
     setVercelError(null)
     setSubmitting(false)
+    submittingRef.current = false
   }
 
   const handleOpenChange = (open: boolean) => {
@@ -671,6 +678,8 @@ export function CreateConnectionModal() {
   const handleVercelFetchProjects = async () => {
     const trimmed = vercelToken.trim()
     if (!trimmed) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setVercelError(null)
     try {
@@ -689,6 +698,7 @@ export function CreateConnectionModal() {
           : "Couldn't reach Vercel. Try again in a moment."
       setVercelError(message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -696,6 +706,8 @@ export function CreateConnectionModal() {
   const handleVercelConnect = async () => {
     const project = vercelProjects.find(p => p.id === vercelSelectedId)
     if (!project) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setVercelError(null)
     try {
@@ -720,6 +732,7 @@ export function CreateConnectionModal() {
           : "Couldn't save the Vercel connection. Try again."
       setVercelError(message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -767,6 +780,8 @@ export function CreateConnectionModal() {
     const trimmedName = stripeManualName.trim() || 'Stripe'
     const trimmedKey = stripeManualKey.trim()
     if (!trimmedKey) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setStripeManualError(null)
     try {
@@ -806,6 +821,7 @@ export function CreateConnectionModal() {
           : "Couldn't save the Stripe connection. Try again."
       setStripeManualError(message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -817,6 +833,8 @@ export function CreateConnectionModal() {
   const handlePostHogFetchProjects = async () => {
     const trimmedKey = posthogApiKey.trim()
     if (!trimmedKey || !posthogHost) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setPosthogError(null)
     try {
@@ -842,6 +860,7 @@ export function CreateConnectionModal() {
           : "Couldn't reach PostHog. Try again in a moment."
       setPosthogError(message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -852,6 +871,8 @@ export function CreateConnectionModal() {
     const trimmedKey = posthogApiKey.trim()
     const project = posthogProjects.find(p => p.id === posthogSelectedProjectId)
     if (!trimmedKey || !project) return
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     try {
       await connections.createConnection({
@@ -868,12 +889,15 @@ export function CreateConnectionModal() {
       setView('list')
       resetFormState()
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
 
   const handleWebhookConnect = async () => {
     const trimmedName = webhookName.trim() || 'Custom Webhook'
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setWebhookError(null)
     try {
@@ -919,6 +943,7 @@ export function CreateConnectionModal() {
           : "Couldn't create the webhook. Try again."
       setWebhookError(message)
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }

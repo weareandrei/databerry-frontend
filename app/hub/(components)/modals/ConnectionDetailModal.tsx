@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowsClockwise,
   CaretDown,
@@ -732,29 +732,42 @@ function ConnectionDetailModalInner({
   const projectDirty = projectId !== (connection.projectId ?? null)
   const dirty = detail.dirty || projectDirty
   const [savingProject, setSavingProject] = useState(false)
+  // Synchronous re-entry gate for `handleSave`. Save composes a project
+  // update (`updateConnectionProject`) plus optionally a detail-level
+  // save (Stripe products, GA property). Without this ref, a double-
+  // click can land two parallel project-update requests AND two
+  // detail-saves — at best wasteful, at worst racy when the second
+  // one's response overwrites the first.
+  const savingRef = useRef(false)
 
   const handleSave = async () => {
-    if (projectDirty) {
-      setSavingProject(true)
-      try {
-        await ALGORITHM.updateConnectionProject(connection.id, projectId)
-        // Refresh the connections context so the row badge updates
-        // alongside the modal close.
-        await dashboard.connections.loadConnections()
-      } catch {
-        toast.error('Failed to update project. Please try again.')
-        setSavingProject(false)
-        return
-      } finally {
-        setSavingProject(false)
+    if (savingRef.current) return
+    savingRef.current = true
+    try {
+      if (projectDirty) {
+        setSavingProject(true)
+        try {
+          await ALGORITHM.updateConnectionProject(connection.id, projectId)
+          // Refresh the connections context so the row badge updates
+          // alongside the modal close.
+          await dashboard.connections.loadConnections()
+        } catch {
+          toast.error('Failed to update project. Please try again.')
+          setSavingProject(false)
+          return
+        } finally {
+          setSavingProject(false)
+        }
       }
-    }
-    if (detail.dirty) {
-      await detail.save()
-    } else if (projectDirty) {
-      // No detail-level change, just project — close ourselves since the
-      // detail hook didn't.
-      onClose()
+      if (detail.dirty) {
+        await detail.save()
+      } else if (projectDirty) {
+        // No detail-level change, just project — close ourselves since the
+        // detail hook didn't.
+        onClose()
+      }
+    } finally {
+      savingRef.current = false
     }
   }
 

@@ -36,6 +36,13 @@ const REASONS: Record<Provider, Record<string, string>> = {
       'Your Stripe connection link expired. Start the connection again from the Connections page.',
     token_exchange:
       'Stripe rejected the connection. Try again — if it keeps failing, your Stripe account may have Connect restrictions enabled.',
+    // Backend detects Stripe's "Authorization code provided does not
+    // belong to you" — the canonical signature for STRIPE_CLIENT_ID and
+    // STRIPE_SECRET_KEY pointing at different modes (test vs live).
+    // Stripe Connect surfaces two client_ids per app in its dashboard
+    // and it's easy to grab the wrong one.
+    client_mode_mismatch:
+      'Stripe rejected the code: your STRIPE_CLIENT_ID and STRIPE_SECRET_KEY are in different modes (test vs live). Check the Connect settings in Stripe — pick the client_id that matches the mode of your secret key.',
     account_resolve:
       "We connected to Stripe but couldn't read your account info. Try once more in a moment.",
     credentials_save:
@@ -119,7 +126,18 @@ export function useOAuthCallback(provider: string) {
       const message = isProvider(provider)
         ? (REASONS[provider][reason] ?? REASONS[provider].unknown)
         : `Failed to connect ${provider}. Please try again.`
-      toast.error(message)
+      // OAuth failures need attention — bumping duration to 15s so the
+      // user actually sees the toast even if they had flicked away to
+      // check backend logs (the default 4s was the original "I never
+      // saw a toast" complaint). The reason code in the description
+      // makes the toast self-documenting — a user can paste it
+      // verbatim when asking for help instead of having to find it
+      // in the URL bar before it gets cleared.
+      const label = isProvider(provider) ? PROVIDER_LABELS[provider] : provider
+      toast.error(`${label} connection failed`, {
+        description: message,
+        duration: 15_000,
+      })
       window.history.replaceState({}, '', '/hub/connections')
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

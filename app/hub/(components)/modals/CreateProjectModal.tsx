@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useDashboard } from '@/contexts/DashboardContext'
 import {
   Dialog,
@@ -20,25 +20,55 @@ export function CreateProjectModal() {
   // generic Cube icon. Backend normalises (prepends `https://` if
   // missing, validates with `new URL()`); we just pass through.
   const [websiteUrl, setWebsiteUrl] = useState('')
+  // In-flight guard for the create POST. Two pieces:
+  //   - `submitting` (state) drives the disabled / loading UI
+  //   - `submittingRef` (ref) blocks re-entry WITHIN the same React
+  //     tick. A user hammering Enter / clicking Create rapidly fires
+  //     `onSubmit` faster than React can re-render the disabled
+  //     button — without the ref, multiple submits land in flight
+  //     and we get duplicate projects (the bug this fix is for).
+  const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
 
   const reset = () => {
     setName('')
     setWebsiteUrl('')
+    setSubmitting(false)
+    submittingRef.current = false
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!name.trim()) return
+    // Synchronous guard — `submitting` state hasn't propagated yet on
+    // the second Enter press, but the ref has.
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
+
     const trimmedUrl = websiteUrl.trim()
-    await projects.createProject(
-      name.trim(),
-      trimmedUrl ? trimmedUrl : null,
-    )
-    reset()
-    projects.closeModal()
+    try {
+      await projects.createProject(
+        name.trim(),
+        trimmedUrl ? trimmedUrl : null,
+      )
+      reset()
+      projects.closeModal()
+    } catch {
+      // Re-enable the button so the user can retry. The toast / error
+      // is surfaced by `createProject` itself (handled in
+      // DashboardContext); we just unstick the local UI.
+      submittingRef.current = false
+      setSubmitting(false)
+    }
   }
 
   const handleOpenChange = (open: boolean) => {
+    // Don't let backdrop click / Escape dismiss the dialog mid-create:
+    // a half-aware user could re-open it before the create finishes
+    // and start typing again into stale state. Cleaner to lock the
+    // dialog open until the request settles.
+    if (!open && submittingRef.current) return
     if (!open) {
       projects.closeModal()
       reset()
@@ -58,6 +88,7 @@ export function CreateProjectModal() {
               placeholder="My SaaS"
               value={name}
               onChange={e => setName(e.target.value)}
+              disabled={submitting}
               autoFocus
             />
           </div>
@@ -72,6 +103,7 @@ export function CreateProjectModal() {
               placeholder="databerry.app"
               value={websiteUrl}
               onChange={e => setWebsiteUrl(e.target.value)}
+              disabled={submitting}
             />
           </div>
           <DialogFooter>
@@ -80,11 +112,16 @@ export function CreateProjectModal() {
               variant="outline"
               size="sm"
               onClick={() => handleOpenChange(false)}
+              disabled={submitting}
             >
               Cancel
             </Button>
-            <Button type="submit" size="sm" disabled={!name.trim()}>
-              Create
+            <Button
+              type="submit"
+              size="sm"
+              disabled={!name.trim() || submitting}
+            >
+              {submitting ? 'Creating…' : 'Create'}
             </Button>
           </DialogFooter>
         </form>
