@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import Image from 'next/image'
-import { CaretUpDown, SignOut, Sparkle } from '@phosphor-icons/react'
+import { CaretUpDown, SignOut } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAccount } from '@/hooks/useAccount'
 import { usePlans } from '@/hooks/usePlans'
@@ -37,19 +37,23 @@ export function SidebarUserProfile() {
   // const email = 'team@heavenmade.org'
   void user // keep the hook wired even though we ignore its email for now
 
-  const isFree = planId === 'free'
-  // Subheader copy + accent: free users see an "Upgrade" prompt with a
-  // brand sparkle to nudge the action; paid users see their plan name
-  // in muted text (informational, not a call-to-action).
+  // Subheader: rounded badge with the plan name, plus a brand-coloured
+  // "Upgrade" link beside it for anyone NOT already on the top tier.
   //
-  // The plan name comes from the fetched `subscriptions` row, falling
-  // back to a title-cased plan id while `usePlans()` is still in
-  // flight — short window (<500 ms typically), but the fallback keeps
-  // the sidebar's first paint from showing a blank space where the
-  // label belongs.
+  // Plan name resolution: prefer the catalog row (`usePlans()`), fall
+  // back to a title-cased plan id while the fetch is in flight — short
+  // window (<500 ms typically), but the fallback keeps the sidebar's
+  // first paint from showing a blank chip.
+  //
+  // `isTopTier` covers both `pro` (the user's "top" plan id) and
+  // `enterprise` (which sits above pro in the catalog union — showing
+  // Upgrade there would be misleading even though the user only
+  // mentioned `pro`). If you want enterprise to keep prompting for an
+  // upgrade for some reason, drop the second clause.
   const currentPlan = plansById[planId]
   const fallbackName = planId.charAt(0).toUpperCase() + planId.slice(1)
-  const planLabel = isFree ? 'Upgrade' : `${currentPlan?.name ?? fallbackName} plan`
+  const planName = currentPlan?.name ?? fallbackName
+  const isTopTier = planId === 'pro' || planId === 'enterprise'
 
   return (
     <>
@@ -69,31 +73,49 @@ export function SidebarUserProfile() {
             <p className="text-[15px] text-[#2E2F30] font-semibold truncate tracking-normal">
               {email}
             </p>
-            <button
-              type="button"
-              onClick={e => {
-                e.stopPropagation()
-                e.preventDefault()
-                setTierSheetOpen(true)
-              }}
-              disabled={accountLoading}
-              // `visibility: hidden` (vs `display: none`) reserves the
-              // button's height while the account loads, so the email
-              // above doesn't jump downward when the label appears.
-              // `useAccount` initialises `planId='free'` as its default
-              // state before the fetch resolves, so without this gate
-              // every upgraded user sees a brief "Upgrade" flash on the
-              // first paint of the dashboard.
+            {/* `visibility: hidden` (vs `display: none`) reserves the
+                row's height while the account loads, so the email above
+                doesn't jump downward when the badge+upgrade appears.
+                `useAccount` initialises `planId='free'` as its default
+                state before the fetch resolves, so without this gate
+                every upgraded user would see a brief "Free" flash on
+                the first paint of the dashboard. */}
+            <div
+              className="flex items-center gap-1.5 mt-0.5"
               style={accountLoading ? { visibility: 'hidden' } : undefined}
-              className={
-                isFree
-                  ? 'self-start mt-0.5 inline-flex items-center gap-1 text-[11px] font-medium text-brand hover:underline'
-                  : 'self-start mt-0.5 inline-flex items-center gap-1 text-[11px] text-grey-light hover:text-grey-darkest transition-colors'
-              }
             >
-              {isFree && <Sparkle size={10} weight="fill" className="text-brand" />}
-              <span>{planLabel}</span>
-            </button>
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                  setTierSheetOpen(true)
+                }}
+                disabled={accountLoading}
+                // Rounded pill with the plan name. Matches the chip
+                // pattern used elsewhere in the app (project scope
+                // chips, section headers) so the tier reads as "tag"
+                // rather than "button" at a glance — the Upgrade link
+                // beside it is the actual CTA.
+                className="inline-flex items-center rounded-full border border-stroke bg-white px-2 py-[1px] text-[10px] font-medium text-grey-darkest hover:bg-hover-fill transition-colors"
+              >
+                {planName}
+              </button>
+              {!isTopTier && (
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    setTierSheetOpen(true)
+                  }}
+                  disabled={accountLoading}
+                  className="text-[11px] font-medium text-brand hover:underline"
+                >
+                  Upgrade
+                </button>
+              )}
+            </div>
           </div>
           <CaretUpDown size={14} weight="bold" className="text-muted-foreground shrink-0" />
         </DropdownMenuTrigger>

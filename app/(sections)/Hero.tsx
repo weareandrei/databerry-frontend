@@ -196,6 +196,29 @@ export function Hero() {
 
       {/* Content */}
       <div className="relative md:absolute md:inset-0 z-10 flex flex-col justify-center items-center text-center px-6 pt-28 pb-12 md:pt-20 md:pb-0">
+        {/* Product Hunt featured badge — first in the hero cascade
+            (slightly earlier delay than the BI badge below) so the
+            top-to-bottom fade reads naturally. The image is a plain
+            `<img>` (not `next/image`) because PH's CDN isn't in our
+            `images.remotePatterns` and a single 250×54 badge isn't
+            worth wiring up the config for. Adding an eslint-disable
+            for the @next/next/no-img-element rule keeps the rest of
+            the codebase honest about its `<Image>` usage. */}
+        <motion.div {...heroFade(0.75)} className="mb-3">
+          <a
+            href="https://www.producthunt.com/products/databerry?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-databerry"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Databerry - Track all your business data in a single dashboard | Product Hunt"
+              width={250}
+              height={54}
+              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1133651&theme=light&t=1779139221585"
+            />
+          </a>
+        </motion.div>
         {/* Badge */}
         <motion.div {...heroFade(0.9)} className="mb-6 rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-sm">
           Business Intelligence for founders
