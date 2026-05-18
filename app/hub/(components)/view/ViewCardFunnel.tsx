@@ -14,11 +14,12 @@
  *
  * Display modes (same `config.displayMode` polymorphism every
  * other multi-mode tile uses):
- *   - chart  → `col-span-3 row-span-3` — wider than the standard
- *              2-col tile so the per-step label columns don't
- *              crush into each other on 4-5 step funnels, and
- *              tall enough that the top + bottom pill rows both
- *              fit alongside the SVG.
+ *   - chart  → `col-span-3 row-span-2` everywhere. 3 cols wide so
+ *              the per-step pill labels don't crush on 4-5 step
+ *              funnels. Demo height is NOT controlled here (the
+ *              demo's parent is a flex-col card, not a grid, so
+ *              row-span is inert) — see `HorizontalFunnelChart`'s
+ *              `dense` prop for the demo's larger min-height.
  *   - value  → no span (default 1×1) — compact "from → to + %"
  *              tile rendered by `FunnelValueBody` (unchanged).
  * Funnel is expected to render INSIDE a CSS grid (the project
@@ -153,7 +154,23 @@ const EDGE_INSET_FRAC = 0.03
 // keeps the path simple and re-keys correctly across instances.
 let CLIP_ID_COUNTER = 0
 
-function HorizontalFunnelChart({ steps }: { steps: PosthogFunnelStep[] }) {
+function HorizontalFunnelChart({
+  steps,
+  dense = false,
+}: {
+  steps: PosthogFunnelStep[]
+  /**
+   * Demo callers pass `dense=true`. The demo lives inside a
+   * `flex flex-col` card with no fixed-height grid cell, so the
+   * SVG container's `flex-1` has nothing to grow into and the
+   * funnel sizes purely off its `min-h-…` floor. We raise that
+   * floor in the demo so the funnel reads as a substantial
+   * visual rather than a thin sliver. Real-dashboard callers
+   * (`dense=false`) keep the smaller default so a `row-span-2`
+   * grid cell isn't stretched past its allocation.
+   */
+  dense?: boolean
+}) {
   // Single stable clip-path id per mount. Mounts cheap; only used to
   // namespace `<clipPath id>` so SVGs from sibling funnels on the
   // same page don't fight over the same id.
@@ -319,15 +336,33 @@ function HorizontalFunnelChart({ steps }: { steps: PosthogFunnelStep[] }) {
         </div>
 
         {/* SVG container — `flex-1` claims all remaining vertical
-            space after the pill rows; `min-h-[140px]` floors it so
-            the funnel stays readable in auto-height parents (the
-            demo's flex-col "other-views card" doesn't define a
-            height, so flex-1 has nothing to grow into and the
-            min-height is what actually drives sizing there).
-            `min-w-0` is the standard flex escape-hatch so the
-            container can shrink horizontally below its content's
-            natural width. */}
-        <div className="relative flex-1 min-h-[140px] min-w-0">
+            space after the pill rows; the `min-h-…` floor takes
+            over in auto-height parents (where flex-1 has nothing
+            to grow into). Demo callers (`dense=true`) get a larger
+            floor so the funnel reads as a substantial visual in
+            the demo's flex-col card; real-dashboard callers use
+            the smaller default so a `row-span-2` grid cell isn't
+            stretched past its allocation. `min-w-0` is the
+            standard flex escape-hatch so the container can shrink
+            horizontally below its content's natural width. */}
+        <div
+          className={cn(
+            'relative flex-1 min-w-0',
+            // Demo gets a larger floor for two reasons:
+            // (a) the mobile demo renders the funnel in a flex-col
+            //     card (no grid), so `flex-1` has nothing to grow
+            //     into and `min-h` IS the height;
+            // (b) the desktop demo gives the funnel a row-span-3
+            //     grid cell (~354 px after gap math), so `flex-1`
+            //     grows the SVG to fill — `min-h` is just a floor.
+            // 200 px in demo: visually substantial on mobile,
+            // ignored on desktop where `flex-1` exceeds it.
+            // 140 px in real dashboard: keeps the SVG inside its
+            // smaller `row-span-2` cell (~220-280 px depending on
+            // grid; flex-1 still typically exceeds this floor).
+            dense ? 'min-h-[200px]' : 'min-h-[140px]',
+          )}
+        >
         <svg
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="none"
@@ -535,17 +570,21 @@ export function ViewCardFunnel({
 
   // Grid span — funnel slots into the same tile grid as ViewCardChart
   // / ViewCard etc., so it owns its own `col-span` / `row-span`:
-  //   - `chart` mode → `col-span-3 row-span-3` — wider than 2 cols
-  //     so the per-step pill labels don't crush into each other on
-  //     4-5 step funnels. Height is 3 rows (matched to ViewCardChart
-  //     for visual rhythm) so the top pill + SVG + bottom pill rows
-  //     all fit without the bottom pills getting squeezed in
-  //     `flex flex-col` parents (the demo's other-views card).
+  //   - `chart` mode → `col-span-3 row-span-2` in the real
+  //     dashboard, `col-span-3 row-span-3` in the demo (`dense`).
+  //     The demo's tile grid uses `gridAutoRows: 110px`, so
+  //     row-span-3 gives the funnel a ~354 px cell — enough room
+  //     for the wider funnel shape + per-step pill labels without
+  //     squashing. Real dashboard uses row-span-2 per the "no
+  //     change" feedback on that path. Always 3 cols wide so the
+  //     per-step label columns don't crush on 4-5 step funnels.
   //   - `value` mode → no span (default 1×1) — the compact "from →
   //     to + percentage" tile slots into the grid alongside other
   //     single-cell value tiles like Stripe MRR or PostHog
   //     `daily_counter`.
-  const gridSpan = isValueMode ? '' : 'col-span-3 row-span-3'
+  const gridSpan = isValueMode
+    ? ''
+    : `col-span-3 ${dense ? 'row-span-3' : 'row-span-2'}`
 
   return (
     <>
@@ -652,7 +691,7 @@ export function ViewCardFunnel({
                 Funnel needs at least 2 steps. Edit the view to configure.
               </p>
             ) : steps ? (
-              <HorizontalFunnelChart steps={steps} />
+              <HorizontalFunnelChart steps={steps} dense={dense} />
             ) : null}
           </>
         )}

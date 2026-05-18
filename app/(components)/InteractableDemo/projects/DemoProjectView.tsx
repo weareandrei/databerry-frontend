@@ -386,6 +386,11 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                   onPin={() => togglePin(funnel.id)}
                   isPinned={funnel.pinned}
                   chromeless
+                  // `dense` activates the demo-specific row-span +
+                  // min-height bump inside ViewCardFunnel +
+                  // HorizontalFunnelChart, matching the convention
+                  // DemoViewCard uses for the other tile components.
+                  dense
                 />
               )}
               {regularViews.map(v => (
@@ -679,6 +684,10 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
                   onUntrack={() => deleteView(funnel.id)}
                   onPin={() => togglePin(funnel.id)}
                   isPinned={funnel.pinned}
+                  // See the mobile call site above for the rationale —
+                  // `dense` is the demo-only signal that activates
+                  // the larger row-span + min-height for the funnel.
+                  dense
                 />
               )}
               {regularViews.map(v => (

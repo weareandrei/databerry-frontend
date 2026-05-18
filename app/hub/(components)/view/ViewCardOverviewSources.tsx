@@ -15,7 +15,6 @@
  * the standalone `posthog_users` view type.
  */
 
-import Link from 'next/link'
 import { useState } from 'react'
 import {
   ArrowsClockwise,
@@ -35,6 +34,7 @@ import {
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewSourcesPanel } from './OverviewSourcesPanel'
 import { OverviewCountriesPanel } from './OverviewCountriesPanel'
+import { TrafficConnectionPicker } from '../modals/TrafficConnectionPicker'
 import type { OverviewSource, OverviewCountry } from '@/lib/api'
 import type { ProjectOverviewSourcesConfig, View } from '@/types/view'
 
@@ -121,7 +121,19 @@ export function ViewCardOverviewSources({
 
   const activeLoading = tab === 'sources' ? sources.loading : countries.loading
 
+  // Opens the in-place picker for the "no analytics tool connected"
+  // empty states inside the tabs (sources empty, countries empty,
+  // and the GA-not-supported countries variant). On link, refresh
+  // BOTH tabs since the new connection could power either.
+  const [trafficPickerOpen, setTrafficPickerOpen] = useState(false)
+  const handleConnectClick = () => setTrafficPickerOpen(true)
+  const handleLinked = () => {
+    onRefreshSources()
+    onRefreshCountries()
+  }
+
   return (
+    <>
     <ViewWrapper variant="borderless">
       {/* Bespoke inline header — replaces <ViewHeader compact>. The tab
           buttons own the left side; the actions dropdown sits on the right.
@@ -190,11 +202,26 @@ export function ViewCardOverviewSources({
 
       <div className="p-4 min-w-0">
         {tab === 'sources'
-          ? renderSources(sources, config.sourcesLimit ?? 10)
-          : renderCountries(countries)
+          ? renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick)
+          : renderCountries(countries, handleConnectClick)
         }
       </div>
     </ViewWrapper>
+
+    {/* Traffic-source picker — only mounted while open.
+        See ViewCardOverviewChart for the rationale: the picker
+        calls `useDashboard()` which throws outside a
+        DashboardProvider (the demo doesn't wrap one), and the demo
+        never shows the empty-state CTAs that open this picker. */}
+    {trafficPickerOpen && (
+      <TrafficConnectionPicker
+        projectId={view.projectId}
+        open={trafficPickerOpen}
+        onOpenChange={setTrafficPickerOpen}
+        onLinked={handleLinked}
+      />
+    )}
+    </>
   )
 }
 
@@ -207,14 +234,18 @@ export function ViewCardOverviewSources({
 function renderSources(
   state: TabState<OverviewSource[]>,
   pageSize: number,
+  onConnectClick: () => void,
 ): React.ReactElement {
   if (state.error) return <ErrorState message={state.error} />
   if (state.loading || !state.fetched) return <LoadingState />
-  if (!state.data || state.data.length === 0) return <NoTrafficState />
+  if (!state.data || state.data.length === 0) return <NoTrafficState onConnectClick={onConnectClick} />
   return <OverviewSourcesPanel sources={state.data} pageSize={pageSize} />
 }
 
-function renderCountries(state: TabState<OverviewCountry[]>): React.ReactElement {
+function renderCountries(
+  state: TabState<OverviewCountry[]>,
+  onConnectClick: () => void,
+): React.ReactElement {
   if (state.error) return <ErrorState message={state.error} />
   if (state.loading || !state.fetched) return <LoadingState />
 
@@ -232,20 +263,21 @@ function renderCountries(state: TabState<OverviewCountry[]>): React.ReactElement
           than ISO codes, which makes flag rendering ambiguous. Connect a
           PostHog project to see country-level traffic.
         </p>
-        <Link
-          href="/hub/connections"
-          className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1"
+        <button
+          type="button"
+          onClick={onConnectClick}
+          className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1 cursor-pointer"
         >
           <Plugs size={12} weight="bold" />
           Connect PostHog
-        </Link>
+        </button>
       </div>
     )
   }
 
   // No provider at all (e.g. Common/unscoped with nothing connected).
   if (state.provider == null && (!state.data || state.data.length === 0)) {
-    return <NoTrafficState />
+    return <NoTrafficState onConnectClick={onConnectClick} />
   }
 
   return <OverviewCountriesPanel countries={state.data ?? []} />
@@ -274,7 +306,13 @@ function ErrorState({ message }: { message: string }) {
   )
 }
 
-function NoTrafficState() {
+interface NoTrafficStateProps {
+  /** Click handler for the "Connect analytics" CTA. Lifted to the
+   *  parent so it can open the in-place `TrafficConnectionPicker`. */
+  onConnectClick: () => void
+}
+
+function NoTrafficState({ onConnectClick }: NoTrafficStateProps) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 text-center py-6 px-4">
       <p className="text-sm text-grey-dark">No analytics tool connected yet.</p>
@@ -282,13 +320,14 @@ function NoTrafficState() {
         Connect Google Analytics or PostHog to see where your traffic is coming
         from.
       </p>
-      <Link
-        href="/hub/connections"
-        className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1"
+      <button
+        type="button"
+        onClick={onConnectClick}
+        className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1 cursor-pointer"
       >
         <Plugs size={12} weight="bold" />
         Connect analytics
-      </Link>
+      </button>
     </div>
   )
 }

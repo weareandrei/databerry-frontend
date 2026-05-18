@@ -23,13 +23,7 @@ import { StripeProductPicker } from '@/app/hub/connections/(modals)/StripeProduc
 import { ALGORITHM, type GAProperty } from '@/lib/api'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/Dialog'
+import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,20 +133,35 @@ function GoogleAnalyticsPropertyPicker() {
   const hasProperties = !!properties && properties.length > 0
 
   return (
-    <Dialog open onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-base font-medium">Select a GA4 property</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Choose which Google Analytics 4 property to track.
-          </DialogDescription>
-        </DialogHeader>
+    <BottomDialog open onOpenChange={open => { if (!open) handleClose() }}>
+      <BottomDialog.Page
+        title="Select a GA4 property"
+        bodyMaxWidth="32rem"
+        headerRight={() => (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
+              {hasProperties ? 'Skip' : 'Cancel'}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={saving || !selectedPropertyId}
+              className="bg-brand hover:bg-brand/90 text-white"
+            >
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        )}
+      >
+        <p className="text-sm text-muted-foreground -mt-1 mb-3">
+          Choose which Google Analytics 4 property to track.
+        </p>
         {loading ? (
           <p className="text-sm text-muted-foreground py-4 text-center">Loading properties…</p>
         ) : !hasProperties ? (
           <p className="text-sm text-muted-foreground py-4 text-center">No GA4 properties found.</p>
         ) : (
-          <div className="mt-1 max-h-72 overflow-y-auto pr-1 space-y-1.5">
+          <div className="space-y-1.5">
             {properties!.map(prop => {
               const checked = selectedPropertyId === prop.id
               return (
@@ -181,26 +190,8 @@ function GoogleAnalyticsPropertyPicker() {
             })}
           </div>
         )}
-        {/* Primary CTA uses bg-brand to match the rest of the dashboard
-            (Add connection pill, Create view, etc.). The default Button
-            variant's `bg-primary` doesn't render reliably through the
-            base-ui Button primitive in this Dialog — the rest of the app
-            sidesteps it the same way. */}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
-            {hasProperties ? 'Skip' : 'Cancel'}
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={saving || !selectedPropertyId}
-            className="bg-brand hover:bg-brand/90 text-white"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </BottomDialog.Page>
+    </BottomDialog>
   )
 }
 

@@ -152,7 +152,13 @@ export function ViewCardChart({
 
   return (
     <>
-    <ViewWrapper className="col-span-2 row-span-3" variant={chromeless ? 'borderless' : 'default'}>
+    <ViewWrapper
+      // Demo (`dense`) keeps the previously-validated `row-span-3` —
+      // the demo's wider card laid those out cleanly. Real dashboard
+      // sticks to `row-span-2` per the user's "no change" feedback.
+      className={`col-span-2 ${dense ? 'row-span-3' : 'row-span-2'}`}
+      variant={chromeless ? 'borderless' : 'default'}
+    >
       <ViewHeader
         name={title}
         connectionType={view.connectionType}

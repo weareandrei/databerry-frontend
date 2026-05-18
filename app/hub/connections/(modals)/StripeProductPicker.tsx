@@ -5,13 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { ArrowsClockwise, Check, Warning } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/Dialog'
+import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { ALGORITHM, type StripeProductOption } from '@/lib/api'
 import { useDashboard } from '@/contexts/DashboardContext'
 
@@ -226,15 +220,31 @@ export function StripeProductPicker() {
   const showProductChooser = hasProducts || isImporting
 
   return (
-    <Dialog open onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-base font-medium">Choose products to track</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            Pick the Stripe products that should count toward this connection&rsquo;s revenue tiles. You
-            can change this later from the connection settings.
-          </DialogDescription>
-        </DialogHeader>
+    <BottomDialog open onOpenChange={open => { if (!open) handleClose() }}>
+      <BottomDialog.Page
+        title="Choose products to track"
+        bodyMaxWidth="32rem"
+        headerRight={() => (
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
+              {hasNoProducts ? 'Cancel' : 'Skip'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-brand hover:bg-brand/90 text-white disabled:bg-grey-light disabled:text-white disabled:opacity-100"
+            >
+              {saving ? 'Saving…' : hasNoProducts ? 'Save & track all charges' : 'Save'}
+            </Button>
+          </div>
+        )}
+      >
+        <p className="text-sm text-muted-foreground -mt-1 mb-3">
+          Pick the Stripe products that should count toward this connection&rsquo;s revenue tiles. You
+          can change this later from the connection settings.
+        </p>
 
         {isImporting && (
           <div className="flex items-center gap-2 rounded-md border border-stroke bg-main px-3 py-2 mt-1">
@@ -366,28 +376,7 @@ export function StripeProductPicker() {
           </div>
         )}
 
-        {/* Primary CTA — uses `variant="ghost"` so the default variant's
-            `bg-primary text-primary-foreground` doesn't compete with our
-            `bg-brand text-white` and lose on CSS source order (which left
-            the button rendering near-invisibly in the modal). The disabled
-            override mirrors `ReassignConnectionDialog` — without it the
-            default `disabled:opacity-50` ghosts the brand-coloured CTA out
-            entirely. */}
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" size="sm" onClick={handleClose} disabled={saving}>
-            {hasNoProducts ? 'Cancel' : 'Skip'}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-brand hover:bg-brand/90 text-white disabled:bg-grey-light disabled:text-white disabled:opacity-100"
-          >
-            {saving ? 'Saving…' : hasNoProducts ? 'Save & track all charges' : 'Save'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </BottomDialog.Page>
+    </BottomDialog>
   )
 }

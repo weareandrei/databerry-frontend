@@ -27,7 +27,6 @@
  * source of truth for the design.
  */
 
-import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import Image from 'next/image'
 import {
@@ -52,6 +51,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
+import { TrafficConnectionPicker } from '../modals/TrafficConnectionPicker'
 import type { OverviewChartResponse } from '@/lib/api'
 import { bucketLabelForNow } from '@/utils/overviewBucketLabel'
 import type {
@@ -228,6 +228,12 @@ export function ViewCardOverviewChart({
   // The dropdown SELECTIONS (which primary metric, which secondary metric)
   // are unchanged — only their visual roles swap.
   const [swapped, setSwapped] = useState(false)
+  // Opens the in-place picker for the "no analytics tool connected
+  // yet" empty state below. Replaces the old `<Link to /hub/connections>`
+  // navigation which dropped the user on a different page with no
+  // context (and would auto-open a stale property picker if the URL
+  // still had OAuth-callback params lingering).
+  const [trafficPickerOpen, setTrafficPickerOpen] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setNowTick(t => t + 1), 60_000)
@@ -251,6 +257,7 @@ export function ViewCardOverviewChart({
   const totalPrimary = chart?.totalPrimary ?? 0
 
   return (
+    <>
     <ViewWrapper variant={chromeless ? 'borderless' : 'borderless'}>
       {/* Metric selectors row — replaces the standard header for this composite view.
           When a projectName is passed (pinned views on Home), a small project pill
@@ -394,13 +401,14 @@ export function ViewCardOverviewChart({
               <p className="text-xs text-grey-light max-w-[320px]">
                 Connect Google Analytics or PostHog to see traffic for this project.
               </p>
-              <Link
-                href="/hub/connections"
-                className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1"
+              <button
+                type="button"
+                onClick={() => setTrafficPickerOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors mt-1 cursor-pointer"
               >
                 <Plugs size={12} weight="bold" />
                 Connect analytics
-              </Link>
+              </button>
             </div>
           ) : chart ? (
             <>
@@ -446,5 +454,25 @@ export function ViewCardOverviewChart({
         </div>
       </div>
     </ViewWrapper>
+
+    {/* Traffic-source picker — only mounted while open. The picker
+        calls `useDashboard()`, which throws when no `DashboardProvider`
+        is in the tree (the landing-page demo never wraps one). The
+        demo never shows the empty-state CTA either, so gating mount on
+        `trafficPickerOpen` means the demo never instantiates the
+        picker at all. In the real dashboard the BottomDialog's
+        open/close transition still plays — it just mounts on first
+        open instead of staying mounted from the start.
+        `onLinked` triggers a chart refresh so the user sees the newly-
+        linked GA/PostHog data without a manual reload. */}
+    {trafficPickerOpen && (
+      <TrafficConnectionPicker
+        projectId={view.projectId}
+        open={trafficPickerOpen}
+        onOpenChange={setTrafficPickerOpen}
+        onLinked={onRefresh}
+      />
+    )}
+    </>
   )
 }
