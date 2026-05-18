@@ -138,7 +138,7 @@ function PostHogForm({
           autoFocus
         />
         <p className="text-xs text-muted-foreground">
-          Create one in PostHog under{' '}
+          Create one under{' '}
           <a
             href="https://app.posthog.com/settings/user-api-keys"
             target="_blank"
@@ -146,9 +146,13 @@ function PostHogForm({
             className="underline underline-offset-2 hover:text-foreground transition-colors"
           >
             Personal API Keys
-          </a>
-          . Make sure it has read access to{' '}
-          <span className="font-medium text-foreground">Projects</span>.
+          </a>{' '}
+          with <span className="font-medium text-foreground">Read</span> access
+          to{' '}
+          <span className="font-medium text-foreground">
+            Project, Query, and Event definition
+          </span>
+          . Read-only — we never write back.
         </p>
       </div>
       <div className="space-y-1.5">
@@ -368,7 +372,12 @@ function StripeManualForm({
           >
             Stripe Restricted Key
           </a>{' '}
-          with read access to: Charges, Customers, Subscriptions, Balance.
+          with <span className="font-medium text-foreground">Read</span> access
+          to{' '}
+          <span className="font-medium text-foreground">
+            Charges, Customers, Subscriptions, and Products
+          </span>
+          . Read-only — we never write back.
         </p>
       </div>
       <InlineErrorBanner message={error} />
