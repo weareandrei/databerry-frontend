@@ -329,14 +329,31 @@ export function CreateViewModal() {
     }
   }
 
-  const createComposite = () =>
-    createView([
+  const createComposite = () => {
+    // Default secondary metric: 'revenue' iff Stripe is actually
+    // eligible for this project, otherwise leave it off (`null` =
+    // "no secondary line"). Scoping rule MIRRORS the backend's
+    // `fetchStripeRevenueForProject` — Stripe (manual or Connect)
+    // counts as "connected" when the connection is project-scoped
+    // to THIS project OR scoped Common (project_id IS NULL, which
+    // the backend includes). Without this guard, a user who never
+    // connected Stripe would see the chart default to a "Revenue"
+    // overlay that flatlines at $0 — confusing and noisy.
+    const hasStripeForProject = connections.connections.some(
+      c =>
+        (c.type === 'stripe' || c.type === 'stripe_manual') &&
+        (c.projectId === null || c.projectId === targetProjectId),
+    )
+    return createView([
       {
         connectionId: null,
         connectionType: 'composite',
         type: 'project_overview',
         name: COMPOSITE_VIEW_OPTIONS[0].name,
-        config: { primaryMetric: 'visitors', secondaryMetric: 'revenue' },
+        config: {
+          primaryMetric: 'visitors',
+          secondaryMetric: hasStripeForProject ? 'revenue' : null,
+        },
       },
       {
         connectionId: null,
@@ -346,6 +363,7 @@ export function CreateViewModal() {
         config: { sourcesLimit: 10 },
       },
     ])
+  }
 
   // ── Click flow per ViewPickerBar ─────────────────────────────────────────
 

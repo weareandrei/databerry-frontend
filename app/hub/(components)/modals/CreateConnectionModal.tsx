@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Copy, Check, Info, Cube, CaretDown } from '@phosphor-icons/react'
+import { Copy, Check, Info, Warning, Cube, CaretDown } from '@phosphor-icons/react'
 import { InlineErrorBanner } from './InlineErrorBanner'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -295,17 +295,32 @@ function StripeChooseView({
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger>
+                {/* Swapped Info → Warning + amber tint so the warning is
+                    visible BEFORE the user hovers — otherwise a "Quick
+                    setup" CTA with a quiet grey info dot reads as
+                    "it's fine, just informational." */}
                 <span
-                  className="shrink-0 mt-0.5 text-muted-foreground"
+                  className="shrink-0 mt-0.5 text-amber-600"
                   onClick={e => e.stopPropagation()}
                 >
-                  <Info size={14} weight="bold" />
+                  <Warning size={14} weight="fill" />
                 </span>
               </TooltipTrigger>
-              <TooltipContent side="left" className="max-w-56">
+              {/* Yellow warning style overrides the default dark tooltip
+                  chrome from shadcn — `!` on each utility wins against
+                  the primitive's `bg-primary text-primary-foreground`
+                  defaults without us having to subclass the component. */}
+              <TooltipContent
+                side="left"
+                className="max-w-64 !bg-amber-50 !text-amber-900 !border !border-amber-200"
+              >
                 <p className="text-xs">
-                  Stripe Connect requires <code>read_write</code> scope. We only read your data
-                  but cannot restrict the token further — this is a Stripe limitation, not ours.
+                  <span className="font-semibold">Experimental.</span>{' '}
+                  Stripe Connect onboarding for Databerry is still being
+                  hardened — we&apos;ve hit edge cases with mode mismatches
+                  and account scoping. For now, the{' '}
+                  <span className="font-semibold">Manual API key</span>{' '}
+                  option below is the more reliable way to connect.
                 </p>
               </TooltipContent>
             </Tooltip>
