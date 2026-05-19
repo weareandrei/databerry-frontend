@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import {
   Dialog,
   DialogContent,
@@ -48,10 +49,20 @@ export function CreateProjectModal() {
 
     const trimmedUrl = websiteUrl.trim()
     try {
-      await projects.createProject(
+      const created = await projects.createProject(
         name.trim(),
         trimmedUrl ? trimmedUrl : null,
       )
+      // `created` is the new project row (or null on soft-fail in the
+      // context — in which case we still want the modal to close
+      // cleanly). Only emit the event when we have an id to attach,
+      // so the event count matches the actual project count.
+      if (created?.id) {
+        trackEvent(EVENT.PROJECT_CREATED, {
+          projectId: created.id,
+          hasWebsiteUrl: !!trimmedUrl,
+        })
+      }
       reset()
       projects.closeModal()
     } catch {

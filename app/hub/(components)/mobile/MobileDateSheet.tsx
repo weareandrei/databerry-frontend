@@ -20,6 +20,7 @@ import { ArrowRight, CaretLeft, CaretRight } from '@phosphor-icons/react'
 import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { Button } from '@/components/ui/button'
 import type { RootState } from '@/store'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import {
   resetGlobalToCurrent,
   setGlobalDateMode,
@@ -107,7 +108,15 @@ export function MobileDateSheet({ open, onOpenChange }: MobileDateSheetProps) {
                   key={m.id}
                   type="button"
                   variant="outline"
-                  onClick={() => dispatch(setGlobalDateMode(m.id))}
+                  onClick={() => {
+                    if (m.id !== mode) {
+                      trackEvent(EVENT.DATE_MODE_CHANGED, {
+                        mode: m.id,
+                        previousMode: mode,
+                      })
+                    }
+                    dispatch(setGlobalDateMode(m.id))
+                  }}
                   className={`h-auto py-2.5 text-sm ${
                     mode === m.id ? 'border-foreground bg-muted' : ''
                   }`}

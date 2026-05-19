@@ -10,6 +10,7 @@ import {
 } from '@/store/slices/connectionsSlice'
 import { openCreateConnectionModal, closeCreateConnectionModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import type { Connection } from '@/types/connection'
 
 export function useConnections() {
@@ -41,6 +42,17 @@ export function useConnections() {
     try {
       const created = await ALGORITHM.createConnection(body)
       dispatch(addConnection(created))
+      // Centralised at the hook level so every entry point (PostHog
+      // form, Stripe manual, Webhook create, Vercel, …) gets the
+      // event for free without each modal step re-instrumenting it.
+      // OAuth-flow connections (Stripe Connect, GA, Calendly, Sentry)
+      // are created in the backend callback — those fire from
+      // `useOAuthCallback` on the `?<provider>=connected` redirect.
+      trackEvent(EVENT.CONNECTION_CREATED, {
+        connectionId: created.id,
+        connectionType: created.type,
+        source: 'manual',
+      })
       return created
     } catch {
       toast.error('Failed to create connection')

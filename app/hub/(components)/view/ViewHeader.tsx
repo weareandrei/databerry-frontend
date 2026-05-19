@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { ALGORITHM } from '@/lib/api'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import { getViewOption, type ViewKind } from '@/constants/viewOptions'
 import type { View } from '@/types/view'
 
@@ -319,7 +320,18 @@ export function ViewHeader({
             )}
             {onRefresh && (
               <DropdownMenuItem
-                onClick={onRefresh}
+                onClick={() => {
+                  // Fire on the user-clicked entry point — NOT on the
+                  // refresh callback itself, which is also invoked by
+                  // automatic triggers (Stripe sync landed, date-mode
+                  // change re-fetch, etc.) we don't want counted as
+                  // "user pressed refresh."
+                  trackEvent(EVENT.VIEW_REFRESHED, {
+                    viewId,
+                    viewType: view?.type,
+                  })
+                  onRefresh()
+                }}
                 disabled={refreshing}
                 className="text-sm gap-2"
               >

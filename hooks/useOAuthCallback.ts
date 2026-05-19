@@ -23,6 +23,7 @@ import { useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 type Provider = 'stripe' | 'calendly' | 'google_analytics' | 'sentry'
 
@@ -118,6 +119,18 @@ export function useOAuthCallback(provider: string) {
     const status = searchParams.get(provider)
     if (status === 'connected') {
       const label = isProvider(provider) ? PROVIDER_LABELS[provider] : provider
+      // Mirror the `connection_created` event the manual-create path
+      // fires from `useConnections.createConnection`, so the two
+      // sources of new connections (OAuth + form) are queryable as a
+      // single funnel. The `?connectionId=…` param is set by the
+      // Stripe / GA callbacks; Calendly and Sentry don't set it
+      // today (they redirect straight to `=connected` without a
+      // product/property picker step), so we tolerate it missing.
+      trackEvent(EVENT.CONNECTION_CREATED, {
+        connectionType: provider,
+        connectionId: searchParams.get('connectionId') ?? null,
+        source: 'oauth',
+      })
       toast.success(`${label} connected successfully!`)
       connections.loadConnections()
       window.history.replaceState({}, '', '/hub/connections')

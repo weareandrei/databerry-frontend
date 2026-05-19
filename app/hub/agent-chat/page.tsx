@@ -29,6 +29,7 @@ import { ChatHeader } from './(components)/ChatHeader'
 import { ChatEmpty } from './(components)/ChatEmpty'
 import { ChatMessage } from './(components)/ChatMessage'
 import { ChatTypingIndicator } from './(components)/ChatTypingIndicator'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import { ChatInput } from './(components)/ChatInput'
 import type { ChatMessage as Msg, ToolCallTrace } from './(components)/types'
 import { createClient } from '@/lib/supabase/client'
@@ -114,6 +115,15 @@ function AgentChat() {
       setMessages(next)
       setInput('')
       setSending(true)
+
+      // Fire as the message is dispatched (before the API call) so the
+      // count reflects user intent even if the backend errors out.
+      // `messageIndex` lets us distinguish first-message-of-session
+      // (= "started a conversation") from continuation messages.
+      trackEvent(EVENT.ASK_AI_MESSAGE_SENT, {
+        messageLength: content.length,
+        messageIndex: messages.length, // 0 = first message in this session
+      })
 
       try {
         const supabase = createClient()

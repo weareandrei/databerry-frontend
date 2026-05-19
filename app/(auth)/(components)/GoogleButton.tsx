@@ -10,6 +10,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 interface GoogleButtonProps {
   label?: string
@@ -20,6 +21,14 @@ export function GoogleButton({ label = 'Continue with Google' }: GoogleButtonPro
 
   const handleGoogle = async () => {
     setLoading(true)
+    // Fire BEFORE the redirect. Supabase's OAuth flow takes the user
+    // off-site (to Google) and back via `/auth/callback`, by which
+    // point we don't know which click started the dance. The event
+    // intentionally captures "intent to use Google" — distinguishing
+    // signed-up-via-google vs logged-in-via-google requires a flag
+    // we'd have to pass through the callback (not worth it for v1).
+    trackEvent(EVENT.OAUTH_INITIATED, { provider: 'google' })
+
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',

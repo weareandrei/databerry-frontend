@@ -3,8 +3,24 @@
 import Link from 'next/link'
 import { XLogo } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 export function Footer() {
+  // Track each "maker of Databerry" link with a stable label + URL so
+  // PostHog Insights can break down which sibling product is pulling
+  // the most clicks. `section` distinguishes them from the @xdrewmiko
+  // / contact entries in the next column.
+  const trackFooterLink = (
+    section: 'maker' | 'creator' | 'contact',
+    label: string,
+    url: string,
+  ) =>
+    trackEvent(EVENT.LANDING_FOOTER_LINK_CLICKED, {
+      section,
+      label,
+      url,
+    })
+
   return (
     <footer className="relative px-[10vw] pt-20 pb-0 overflow-hidden">
       {/* Main grid */}
@@ -17,6 +33,13 @@ export function Footer() {
             <span className="text-sm text-white/70">All your business data in one place.</span>
             <Link
               href="/signup"
+              onClick={() =>
+                trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+                  tier: 'unspecified',
+                  destination: 'signup',
+                  location: 'footer',
+                })
+              }
               className="mt-1 self-start text-sm font-medium bg-white text-black px-5 py-2.5 rounded-lg hover:bg-white/90 transition-colors"
             >
               Get started
@@ -27,13 +50,22 @@ export function Footer() {
         {/* Contact links */}
         <RevealOnScroll delay={0.1}>
           <div className="flex flex-col gap-2 text-sm text-white/70">
-            <a href="mailto:team@heavenmade.org" className="hover:text-white transition-colors">
+            <a
+              href="mailto:team@heavenmade.org"
+              onClick={() =>
+                trackFooterLink('contact', 'team@heavenmade.org', 'mailto:team@heavenmade.org')
+              }
+              className="hover:text-white transition-colors"
+            >
               team@heavenmade.org
             </a>
             <a
               href="https://x.com/xdrewmiko"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() =>
+                trackFooterLink('creator', '@xdrewmiko', 'https://x.com/xdrewmiko')
+              }
               className="flex items-center gap-1.5 hover:text-white transition-colors"
             >
               <XLogo size={14} weight="fill" />
@@ -47,11 +79,26 @@ export function Footer() {
           <div className="flex flex-col gap-2">
             <span className="text-xs text-white/40 uppercase tracking-wider">By the maker of Databerry</span>
             <div className="flex flex-col gap-1 text-sm text-white/70">
-              <a href="https://taplaunch.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Taplaunch</a>
-              <a href="https://ideasparks.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">ideasparX</a>
-              <a href="https://datajam.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Datajam</a>
-              <a href="https://webcheckin.cc" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Website Roaster</a>
-              <a href="https://hackerpage.app" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Hackerpage</a>
+              {/* Listed as a data-driven map so future product additions
+                  pick up the tracking automatically. */}
+              {[
+                { label: 'Taplaunch', url: 'https://taplaunch.app' },
+                { label: 'ideasparX', url: 'https://ideasparks.app' },
+                { label: 'Datajam', url: 'https://datajam.app' },
+                { label: 'Website Roaster', url: 'https://webcheckin.cc' },
+                { label: 'Hackerpage', url: 'https://hackerpage.app' },
+              ].map(({ label, url }) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackFooterLink('maker', label, url)}
+                  className="hover:text-white transition-colors"
+                >
+                  {label}
+                </a>
+              ))}
             </div>
           </div>
         </RevealOnScroll>

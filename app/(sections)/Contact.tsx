@@ -26,6 +26,7 @@
 import { useState, type FormEvent } from 'react'
 import { PaperPlaneTilt } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 const CONTACT_EMAIL = 'team@heavenmade.org'
 
@@ -103,6 +104,15 @@ export default function Contact() {
       }
 
       setStatus({ kind: 'sent' })
+      // Only fire on actual server-accepted submission — not on
+      // local-validation failures or 4xx/5xx responses, since those
+      // are user errors or transient outages, not "the user filled
+      // the form successfully" which is what we actually want to
+      // measure. `messageLength` is a useful filter (very short
+      // messages are usually spam-y / bot probes).
+      trackEvent(EVENT.LANDING_CONTACT_FORM_SUBMITTED, {
+        messageLength: cleanMessage.length,
+      })
       // Clear the inputs so the user sees an empty form ready for
       // another message. Honeypot stays as-is (it's invisible).
       setEmail('')

@@ -4,6 +4,7 @@ import type { RootState, AppDispatch } from '@/store'
 import { setViews, addViews, removeView, replaceView } from '@/store/slices/viewsSlice'
 import { openCreateViewModal, closeCreateViewModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import type { View } from '@/types/view'
 
 export function useViews() {
@@ -52,6 +53,20 @@ export function useViews() {
     try {
       const created = await Promise.all(items.map(v => ALGORITHM.createView(v)))
       dispatch(addViews(created))
+      // Centralised event — fires for every entry point (event picker,
+      // funnel, retention, webhook field, composite "Add overview").
+      // One event per `createViews()` call (one user intent), with
+      // `viewTypes[]` so the composite chart+sources pair is grouped
+      // together rather than counted as 2 separate creations.
+      const firstItem = created[0]
+      trackEvent(EVENT.VIEW_CREATED, {
+        projectId: firstItem?.projectId,
+        folderId: firstItem?.folderId,
+        connectionType: firstItem?.connectionType,
+        viewTypes: created.map(v => v.type),
+        viewCount: created.length,
+        viewIds: created.map(v => v.id),
+      })
       return created
     } catch {
       toast.error('Failed to create views')

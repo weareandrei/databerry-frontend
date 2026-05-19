@@ -11,6 +11,7 @@ import {
 import type { RootState } from '@/store'
 import { setGlobalDateMode } from '@/store/slices/uiSlice'
 import type { GlobalDateMode } from '@/utils/dateHelpers'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 const LABELS: Record<GlobalDateMode, string> = {
   daily: 'Daily',
@@ -34,7 +35,18 @@ export function GlobalDateModeDropdown() {
         {ORDER.map(m => (
           <DropdownMenuItem
             key={m}
-            onClick={() => dispatch(setGlobalDateMode(m))}
+            onClick={() => {
+              // No-op fast path: don't fire if the user re-picks the
+              // already-active mode (would inflate the count without
+              // any actual state change).
+              if (m !== mode) {
+                trackEvent(EVENT.DATE_MODE_CHANGED, {
+                  mode: m,
+                  previousMode: mode,
+                })
+              }
+              dispatch(setGlobalDateMode(m))
+            }}
             className="text-sm"
           >
             {LABELS[m]}

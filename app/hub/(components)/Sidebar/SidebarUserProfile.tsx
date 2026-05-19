@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { TierPickerSheet } from './TierPickerSheet'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 export function SidebarUserProfile() {
   const { user, signOut } = useAuth()
@@ -27,7 +28,19 @@ export function SidebarUserProfile() {
   // surfaces (limit-error toasts, future "you're locked out" UIs)
   // open it via the `openTierPicker()` broadcast registered below.
   const [tierSheetOpen, setTierSheetOpen] = useState(false)
-  const handleTierPickerOpen = useCallback(() => setTierSheetOpen(true), [])
+  // Wrap the open in a tracked variant so both entry points (this
+  // sidebar's badge click + the global `openTierPicker()` broadcast)
+  // fire one canonical `tier_picker_opened` event. `source` lets us
+  // tell apart "user explicitly clicked the badge" from "limit-error
+  // toast forced them into the picker".
+  const openTierPicker = useCallback((source: 'badge' | 'broadcast') => {
+    trackEvent(EVENT.TIER_PICKER_OPENED, { source })
+    setTierSheetOpen(true)
+  }, [])
+  const handleTierPickerOpen = useCallback(
+    () => openTierPicker('broadcast'),
+    [openTierPicker],
+  )
   useTierPickerListener(handleTierPickerOpen)
 
   // Temporary: hardcoded sidebar label so screenshots / demos show a
@@ -89,7 +102,7 @@ export function SidebarUserProfile() {
                 onClick={e => {
                   e.stopPropagation()
                   e.preventDefault()
-                  setTierSheetOpen(true)
+                  openTierPicker('badge')
                 }}
                 disabled={accountLoading}
                 // Rounded pill with the plan name. Matches the chip
@@ -107,7 +120,7 @@ export function SidebarUserProfile() {
                   onClick={e => {
                     e.stopPropagation()
                     e.preventDefault()
-                    setTierSheetOpen(true)
+                    openTierPicker('badge')
                   }}
                   disabled={accountLoading}
                   className="text-[11px] font-medium text-brand hover:underline"

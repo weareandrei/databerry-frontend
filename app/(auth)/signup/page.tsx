@@ -33,6 +33,7 @@ import Navbar from '@/app/(components)/navbar'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { GoogleButton } from '@/app/(auth)/(components)/GoogleButton'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -62,6 +63,14 @@ export default function SignupPage() {
       setLoading(false)
       return
     }
+
+    // Fire BEFORE AuthContext sees the new user, so the event lands
+    // on the pre-identify anonymous distinct_id. PostHog's identify
+    // merges sessions, so we don't lose attribution.
+    trackEvent(EVENT.SIGNED_UP, {
+      method: 'email',
+      needsConfirmation: !data.session,
+    })
 
     if (data.session) {
       // Email confirmation disabled — user is logged in.

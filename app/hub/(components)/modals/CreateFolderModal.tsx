@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import {
   Dialog,
   DialogContent,
@@ -37,11 +38,21 @@ export function CreateFolderModal() {
     setSubmitting(true)
 
     try {
-      await folders.createFolder(
+      const created = await folders.createFolder(
         name.trim(),
         folders.createFolderParentId,
         folders.createFolderProjectId,
       )
+      if (created?.id) {
+        trackEvent(EVENT.FOLDER_CREATED, {
+          folderId: created.id,
+          projectId: created.projectId,
+          // Subfolders vs root — useful for "are people using nested
+          // structure or staying flat?" insights.
+          parentFolderId: created.parentId,
+          isNested: created.parentId != null,
+        })
+      }
       reset()
       folders.closeModal()
     } catch {

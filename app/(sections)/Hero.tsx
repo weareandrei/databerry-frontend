@@ -5,6 +5,7 @@ import Xarrow from 'react-xarrows'
 import { motion } from 'framer-motion'
 import { ArrowRight } from '@phosphor-icons/react'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 // Shared variant factory — hero elements animate in on mount, staggered
 const heroFade = (delay: number) => ({
@@ -263,6 +264,17 @@ export function Hero() {
           <span className="inline-flex items-center rounded-2xl bg-black/25 p-1">
             <Link
               href="/signup"
+              onClick={() =>
+                // No specific tier here — the hero CTA is the top-of-funnel
+                // "see what this is about" click. Use `tier: 'unspecified'`
+                // so it groups separately from the pricing-table tier
+                // clicks in PostHog Insights.
+                trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+                  tier: 'unspecified',
+                  destination: 'signup',
+                  location: 'hero',
+                })
+              }
               className="inline-flex items-center gap-3 rounded-2xl bg-black px-16 py-3 text-base font-medium text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] hover:opacity-90 transition-opacity"
             >
               Get started

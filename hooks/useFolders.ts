@@ -44,9 +44,13 @@ export function useFolders() {
       const created = await ALGORITHM.createFolder({ name, parentId, projectId })
       dispatch(removeFolder(tempId))
       dispatch(addFolder(created))
+      // Returning the row lets callers track analytics with the real
+      // folder id (the optimistic `tempId` wouldn't be useful).
+      return created
     } catch {
       dispatch(removeFolder(tempId))
       toast.error('Failed to create folder')
+      return null
     }
   }
 

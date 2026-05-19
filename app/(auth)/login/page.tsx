@@ -19,6 +19,7 @@ import Navbar from '@/app/(components)/navbar'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { GoogleButton } from '@/app/(auth)/(components)/GoogleButton'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 /**
  * Translate Supabase's terse error messages into something a user can
@@ -79,6 +80,7 @@ export default function LoginPage() {
       return
     }
 
+    trackEvent(EVENT.LOGGED_IN, { method: 'email' })
     router.push('/hub/home')
   }
 

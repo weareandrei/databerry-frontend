@@ -29,6 +29,7 @@ import { EditProjectDialog } from './EditProjectDialog'
 import { DeleteProjectDialog } from './DeleteProjectDialog'
 import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
 import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
+import { EVENT, trackEvent } from '@/lib/posthog'
 import {
   WidePosthogViewRenderer,
   isWidePosthogView,
@@ -169,6 +170,14 @@ export function useProjectView(
   const handlePin = async (viewId: string) => {
     const view = views.find(v => v.id === viewId)
     if (!view) return
+    // Fire BEFORE the optimistic toggle so `action` reflects the
+    // intent (the value flips immediately, and reading it from `view`
+    // after the toggle would invert the label).
+    trackEvent(EVENT.VIEW_PINNED, {
+      viewId,
+      viewType: view.type,
+      action: view.isPinned ? 'unpin' : 'pin',
+    })
     // Optimistic toggle
     setViews(prev => prev.map(v => v.id === viewId ? { ...v, isPinned: !v.isPinned } : v))
     if (view.isPinned) {
@@ -179,6 +188,14 @@ export function useProjectView(
   }
 
   const handleFolderClick = (folder: Folder) => {
+    // Track BEFORE the navigation so the event sticks even if the
+    // route change interrupts. `parentFolderId` distinguishes
+    // top-of-project folder clicks from drill-down inside a folder.
+    trackEvent(EVENT.FOLDER_OPENED, {
+      folderId: folder.id,
+      projectId: folder.projectId,
+      parentFolderId: folder.parentId,
+    })
     setLoading(true)
     setCurrentFolderId(folder.id)
     setViews([])

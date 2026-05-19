@@ -53,6 +53,7 @@ import {
   type PlanId,
 } from '@/constants/plans'
 import { usePlans } from '@/hooks/usePlans'
+import { EVENT, trackEvent } from '@/lib/posthog'
 
 /** Email used by the Enterprise / contact CTAs. */
 const CONTACT_EMAIL = 'team@heavenmade.org'
@@ -579,6 +580,13 @@ function PlanCta({
     return (
       <a
         href="/#contact"
+        onClick={() =>
+          trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+            tier: plan.id,
+            destination: 'contact',
+            location: variant === 'signup' ? 'landing_pricing' : 'dashboard_picker',
+          })
+        }
         className="inline-flex items-center justify-center gap-1.5 w-full rounded-full h-9 px-4 text-xs font-medium bg-brand hover:bg-brand/90 text-white transition-colors"
       >
         <ChatCircle size={12} weight="bold" />
@@ -602,6 +610,13 @@ function PlanCta({
     return (
       <Link
         href="/signup"
+        onClick={() =>
+          trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+            tier: plan.id,
+            destination: 'signup',
+            location: 'landing_pricing',
+          })
+        }
         className={cn(
           'inline-flex items-center justify-center gap-1.5 w-full rounded-full h-9 px-4 text-xs font-medium transition-colors',
           plan.id === 'free'
