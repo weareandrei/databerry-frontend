@@ -49,6 +49,15 @@ interface OverviewSourcesPanelProps {
    * is rendered.
    */
   pageSize?: number
+  /**
+   * Fires when the user hovers (or un-hovers) a source row — receives
+   * the source key, or `null` on leave. Used by the composite parent
+   * (project_overview pair) to drive the cross-component chart
+   * highlight: the chart's `externalHoveredSourceKey` prop reads from
+   * the same state this writes to. Optional — when omitted, hover is
+   * just a local visual state on the row.
+   */
+  onSourceHover?: (sourceKey: string | null) => void
 }
 
 // ---- Bar-geometry constants (kept in one place so math stays in sync) ---------
@@ -140,16 +149,29 @@ interface SourceRowProps {
    * those are visits whose source couldn't be identified.
    */
   tooltip?: string
+  /**
+   * Fires when the row enters/leaves hover. Used by the parent
+   * composite to drive the cross-component chart highlight (passing
+   * the active source key into `<OverviewChart>`'s
+   * `externalHoveredSourceKey` prop). Null on leave.
+   */
+  onHoverChange?: (sourceKey: string | null) => void
 }
 
-function SourceRow({ source, barCount, color, outlined, logo, label, tooltip }: SourceRowProps) {
+function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, onHoverChange }: SourceRowProps) {
   const FallbackIcon = fallbackIcon(source.source)
   const [isHovered, setIsHovered] = useState(false)
   return (
     <li
       className="group flex items-center gap-3 rounded-md bg-main px-3 py-2 overflow-hidden"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={() => {
+        setIsHovered(true)
+        onHoverChange?.(source.source)
+      }}
+      onMouseLeave={() => {
+        setIsHovered(false)
+        onHoverChange?.(null)
+      }}
     >
       {/* Left: icon + label — can shrink so long labels truncate gracefully.
           The optional `?` help icon sits flush next to the label so the
@@ -229,6 +251,7 @@ export function OverviewSourcesPanel({
   loading,
   unavailable,
   pageSize = 10,
+  onSourceHover,
 }: OverviewSourcesPanelProps) {
   // The ref lives on the <ul>; every row shares the same available bars width,
   // so one observer is enough. Rows are laid out as `[label] [bars] [count]`
@@ -358,6 +381,7 @@ export function OverviewSourcesPanel({
               logo={style.logo}
               label={style.label}
               tooltip={tooltip}
+              onHoverChange={onSourceHover}
             />
           )
         })}

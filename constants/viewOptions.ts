@@ -62,13 +62,24 @@ export const GA_VIEW_OPTIONS: ViewOption[] = [
 // Vercel view types are not yet implemented — no backend live-value endpoint exists.
 export const VERCEL_VIEW_OPTIONS: ViewOption[] = []
 
-// Composite "Project Overview" views — no connection required.
-// Added in pairs (chart + sources) but stored and rendered as independent views.
+// "General" category — connection-agnostic views. Two flavours:
+//   - `project_overview` (+ paired `project_overview_sources`) — the
+//     classic chart+sources composite. Renamed UI label from "Overview"
+//     to "Project overview" so it stands out from the new standalone
+//     "Chart" entry below.
+//   - `custom_chart` — a standalone chart (no sources panel). Same
+//     OverviewChart component reused under the hood; difference is
+//     that this one renders alone and lets the user pick any metric.
+//
+// All three live under the same `composite` connection-type bucket
+// because none of them require a specific integration to exist
+// before creation — the chart hooks pick up whatever connections
+// the project has.
 export const COMPOSITE_VIEW_OPTIONS: ViewOption[] = [
   {
     type: 'project_overview',
-    name: 'Overview',
-    desc: 'Stacked visitors chart with an optional overlay line',
+    name: 'Project overview',
+    desc: 'Stacked visitors chart with an optional overlay line, plus a traffic-sources breakdown',
     kind: 'chart',
     modes: ['chart'],
   },
@@ -78,6 +89,13 @@ export const COMPOSITE_VIEW_OPTIONS: ViewOption[] = [
     desc: 'Traffic sources breakdown sorted by volume',
     kind: 'list',
     modes: ['list'],
+  },
+  {
+    type: 'custom_chart',
+    name: 'Chart',
+    desc: 'A single configurable chart — pick any metric for the bars and any metric for the overlay line',
+    kind: 'chart',
+    modes: ['chart'],
   },
 ]
 

@@ -58,15 +58,22 @@ export function MobileProjectBody({ project }: MobileProjectBodyProps) {
   const overviewChart = v.views.find(view => view.type === 'project_overview')
   const overviewSources = v.views.find(view => view.type === 'project_overview_sources')
   const widePosthogViews = v.views.filter(isWidePosthogView)
+  // Standalone Chart views — see ProjectView desktop variant for the
+  // rationale. On mobile they ride alongside the other-views card.
+  const customChartViews = v.views.filter(view => view.type === 'custom_chart')
   const regularViews = v.views.filter(
     view =>
       view.type !== 'project_overview' &&
       view.type !== 'project_overview_sources' &&
+      view.type !== 'custom_chart' &&
       !isWidePosthogView(view),
   )
 
   const hasOverview = Boolean(overviewChart || overviewSources)
-  const hasOtherViews = widePosthogViews.length > 0 || regularViews.length > 0
+  const hasOtherViews =
+    widePosthogViews.length > 0 ||
+    customChartViews.length > 0 ||
+    regularViews.length > 0
   const hasFolders = v.subFolders.length > 0
 
   return (
@@ -174,6 +181,18 @@ export function MobileProjectBody({ project }: MobileProjectBodyProps) {
               border + shadow doesn't nest inside this outer card. */}
           {!v.loading && hasOtherViews && (
             <div className="rounded-xl border border-stroke bg-white shadow-card flex flex-col divide-y divide-stroke">
+              {customChartViews.map(view => (
+                <ViewCardOverviewChartConnected
+                  key={view.id}
+                  view={view}
+                  dateFrom={v.dateFrom}
+                  dateTo={v.dateTo}
+                  mode={v.mode}
+                  onUntrack={v.handleUntrack}
+                  onPin={v.handlePin}
+                  chromeless
+                />
+              ))}
               {widePosthogViews.map(view => (
                 <WidePosthogViewRenderer
                   key={view.id}

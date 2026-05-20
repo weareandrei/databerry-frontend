@@ -199,21 +199,24 @@ function PinnedCompositesLane({
 
 interface PinPartition {
   composites: View[]
+  customCharts: View[]
   widePosthog: View[]
   regular: View[]
 }
 
 function partitionPins(pins: View[]): PinPartition {
   const composites: View[] = []
+  const customCharts: View[] = []
   const widePosthog: View[] = []
   const regular: View[] = []
   for (const p of pins) {
     if (p.type === 'project_overview' || p.type === 'project_overview_sources')
       composites.push(p)
+    else if (p.type === 'custom_chart') customCharts.push(p)
     else if (isWidePosthogView(p)) widePosthog.push(p)
     else regular.push(p)
   }
-  return { composites, widePosthog, regular }
+  return { composites, customCharts, widePosthog, regular }
 }
 
 // ── Main component ────────────────────────────────────────────────────────
@@ -260,7 +263,7 @@ const PinnedViews = ({
   // provider-free.
   const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
 
-  const { composites, widePosthog, regular } = partitionPins(pins)
+  const { composites, customCharts, widePosthog, regular } = partitionPins(pins)
   const projectNameOf = (pin: View) => projects.find(p => p.id === pin.projectId)?.name
 
   // Live-on-mount sync — `pins` may include Stripe tiles. Pinned cards are
@@ -279,6 +282,32 @@ const PinnedViews = ({
           mode={mode}
           onUnpin={unpinView}
         />
+      )}
+
+      {customCharts.length > 0 && (
+        /* 2-up grid past xl (≥1280px) — same rationale as the
+           project-page custom-chart lane. `singleColumn` (mobile
+           override on home) forces single-column regardless of
+           breakpoint, so the layout stays vertical on phones. */
+        <div
+          className={
+            singleColumn
+              ? 'flex flex-col gap-4'
+              : 'grid grid-cols-1 xl:grid-cols-2 gap-4'
+          }
+        >
+          {customCharts.map(pin => (
+            <ViewCardOverviewChartConnected
+              key={pin.id}
+              view={pin}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              mode={mode}
+              projectName={projectNameOf(pin)}
+              onPin={unpinView}
+            />
+          ))}
+        </div>
       )}
 
       {widePosthog.length > 0 && (

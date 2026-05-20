@@ -47,14 +47,22 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { toast } from 'sonner'
+import { useDashboard } from '@/contexts/DashboardContext'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
+import { PosthogEventPickerDialog } from './PosthogEventPickerDialog'
 import { TrafficConnectionPicker } from '../modals/TrafficConnectionPicker'
 import type { OverviewChartResponse } from '@/lib/api'
 import { bucketLabelForNow } from '@/utils/overviewBucketLabel'
 import type {
+  ConnectionMetricRef,
   OverviewPrimaryMetric,
   OverviewSecondaryMetric,
   ProjectOverviewChartConfig,
@@ -76,6 +84,61 @@ const SECONDARY_OPTIONS: { value: OverviewSecondaryMetric; label: string }[] = [
   { value: 'revenue',          label: 'Revenue' },
 ]
 
+// ── Connection-sourced metric options ───────────────────────────────────
+//
+// Below the predefined options, the dropdown shows a submenu per
+// connection type (Stripe / GA / PostHog). Selecting an option pulls
+// the metric from THAT connection. This is the "any data vs any data"
+// feature — the predefined options above can only express the metrics
+// we hard-coded in the project-overview endpoint; the connection
+// options below let the user wire any metric exposed by their
+// integrations into either axis.
+//
+// `type` identifies the provider whose chart-data endpoint we'd hit.
+// `viewType` is the metric within that provider (matches existing
+// view-type identifiers like `stripe_gross`, `ga_users_today`).
+//
+// PostHog `daily_counter` (event count) needs an event-name picker
+// step before it can be plotted — for v1 of the cascade UI it shows
+// a "needs configuration" toast. Stripe + GA work end-to-end as soon
+// as the data path lands next turn.
+interface ConnectionMetricOption {
+  type: 'stripe' | 'google_analytics' | 'posthog'
+  viewType: string
+  label: string
+  needsEventPicker?: boolean
+}
+
+const CONNECTION_METRIC_GROUPS: {
+  type: ConnectionMetricOption['type']
+  label: string
+  options: ConnectionMetricOption[]
+}[] = [
+  {
+    type: 'stripe',
+    label: 'Stripe',
+    options: [
+      { type: 'stripe', viewType: 'stripe_gross', label: 'Gross Volume' },
+    ],
+  },
+  {
+    type: 'google_analytics',
+    label: 'Google Analytics',
+    options: [
+      { type: 'google_analytics', viewType: 'ga_users_today',     label: 'Users' },
+      { type: 'google_analytics', viewType: 'ga_sessions_today',  label: 'Sessions' },
+      { type: 'google_analytics', viewType: 'ga_pageviews_today', label: 'Pageviews' },
+    ],
+  },
+  {
+    type: 'posthog',
+    label: 'PostHog',
+    options: [
+      { type: 'posthog', viewType: 'daily_counter', label: 'Event count', needsEventPicker: true },
+    ],
+  },
+]
+
 function readConfig(view: View): ProjectOverviewChartConfig {
   const cfg = view.config as Partial<ProjectOverviewChartConfig>
   return {
@@ -91,28 +154,136 @@ function readConfig(view: View): ProjectOverviewChartConfig {
  * labels were dropped — the icon now indicates whether the metric is
  * plotted as bars or as the overlay line.
  */
+/**
+ * Metric dropdown — handles both predefined options (top group) and
+ * connection-sourced metrics (cascade submenus). The component is
+ * stateless: it displays the CURRENT selection (either a predefined
+ * `value` or a `connectionMetric` ref) and fires callbacks on pick.
+ *
+ * When the user picks a predefined option, `onChange` fires with
+ * the new value AND the connection ref is cleared (caller's job).
+ * When the user picks a connection option, `onPickConnection`
+ * fires with the resolved ref — the caller is expected to update
+ * the parent config so the connection ref takes priority over
+ * `value` in the chart's data path.
+ *
+ * Scoping: the cascade only surfaces submenus for providers where
+ * the project has at least one eligible connection (project-scoped
+ * OR Common). Same scoping rule the backend's
+ * `pickTrafficProvider` uses — picking from a section the project
+ * can't actually fetch data for would just produce empty charts.
+ */
 function MetricDropdown<T extends string | null>({
   iconSrc,
   iconAlt,
   value,
   options,
   onChange,
+  connectionMetric,
+  onPickConnection,
+  onRequestPosthogEvent,
+  projectId,
 }: {
   iconSrc: string
   iconAlt: string
   value: T
   options: { value: T; label: string }[]
   onChange: (next: T) => void
+  /** When set, the dropdown displays this connection metric's label
+   *  in its trigger (in place of the predefined `value`'s label). */
+  connectionMetric: ConnectionMetricRef | null | undefined
+  /** Fired when the user picks a connection metric from the cascade.
+   *  Caller resolves into the proper `ConnectionMetricRef` and
+   *  updates the parent config. */
+  onPickConnection: (ref: ConnectionMetricRef) => void
+  /** Fired when the user picks a PostHog metric from the cascade —
+   *  the cascade can't commit a PostHog ref until the parent has
+   *  opened the event picker and the user has chosen an event.
+   *  Receives `{ connectionId }` so the parent can prefill the
+   *  picker with the right connection. */
+  onRequestPosthogEvent: (info: { connectionId: string }) => void
+  /** Project that owns this chart — used to filter connections
+   *  for the cascade (project-scoped OR Common). */
+  projectId: string
 }) {
+  const { connections } = useDashboard()
+
+  // Filter the user's connections to those eligible for THIS chart:
+  // project-scoped to its project, OR Common. Matches the
+  // server-side `pickTrafficProvider` scoping rule.
+  const eligibleConnections = useMemo(
+    () =>
+      connections.connections.filter(
+        c => c.projectId === projectId || c.projectId === null,
+      ),
+    [connections.connections, projectId],
+  )
+  const userHasType = (type: ConnectionMetricOption['type']) =>
+    eligibleConnections.some(c =>
+      type === 'stripe'
+        ? c.type === 'stripe' || c.type === 'stripe_manual'
+        : c.type === type,
+    )
+  const visibleGroups = CONNECTION_METRIC_GROUPS.filter(g => userHasType(g.type))
+
+  // Resolve the connection metric's display label for the trigger,
+  // falling back to the predefined value's label when no connection
+  // ref is set. The lookup walks every group's options (cheap —
+  // <20 entries total) so we don't have to maintain a parallel
+  // viewType→label map.
+  const connectionMetricLabel = connectionMetric
+    ? CONNECTION_METRIC_GROUPS.flatMap(g => g.options).find(
+        o => o.viewType === connectionMetric.viewType,
+      )?.label
+    : undefined
   const current = options.find(o => o.value === value) ?? options[0]
+  const triggerLabel = connectionMetricLabel ?? current.label
+
+  // Resolve a picked cascade option into a concrete connection
+  // ref. We grab the FIRST eligible connection of the matching type
+  // — same convention as the rest of the dashboard when multiple
+  // connections of one type exist (see CreateViewModal's
+  // `connList[0]` selection). Future iteration: push a connection
+  // picker sub-page when count > 1.
+  const handlePickConnectionMetric = (opt: ConnectionMetricOption) => {
+    const conn = eligibleConnections.find(c =>
+      opt.type === 'stripe'
+        ? c.type === 'stripe' || c.type === 'stripe_manual'
+        : c.type === opt.type,
+    )
+    if (!conn) {
+      toast.error(
+        `No ${opt.type} connection eligible for this project. Connect one in Connections first.`,
+      )
+      return
+    }
+    if (opt.needsEventPicker) {
+      // PostHog needs a 2-step pick: connection (resolved here) +
+      // event name (collected by the parent's picker dialog).
+      // Defer to the parent — it owns the dialog state, and once
+      // the user confirms an event the parent calls
+      // `onPickConnection` with the fully-populated ref.
+      onRequestPosthogEvent({ connectionId: conn.id })
+      return
+    }
+    onPickConnection({
+      connectionId: conn.id,
+      connectionType: conn.type as ConnectionMetricRef['connectionType'],
+      viewType: opt.viewType,
+    })
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer">
         <Image src={iconSrc} alt={iconAlt} width={14} height={14} className="shrink-0" />
-        <span>{current.label}</span>
+        <span>{triggerLabel}</span>
         <CaretDown size={9} weight="bold" className="text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[160px]">
+      <DropdownMenuContent align="start" className="min-w-[180px]">
+        {/* Predefined options — the existing top group. Selecting one
+            clears any active connection-metric ref so the predefined
+            value takes effect. */}
         {options.map(o => (
           <DropdownMenuItem
             key={String(o.value)}
@@ -120,11 +291,65 @@ function MetricDropdown<T extends string | null>({
             className="gap-2 text-sm"
           >
             <span className="w-4 shrink-0">
-              {o.value === value && <Check size={12} weight="bold" />}
+              {!connectionMetric && o.value === value && (
+                <Check size={12} weight="bold" />
+              )}
             </span>
             <span>{o.label}</span>
           </DropdownMenuItem>
         ))}
+
+        {/* Cascade — only renders when the user has at least one
+            eligible connection. The separator + section header help
+            the dropdown read as "predefined / per-connection" rather
+            than a flat soup of options. */}
+        {visibleGroups.length > 0 && (
+          <>
+            <DropdownMenuSeparator />
+            <div className="px-2 pt-1 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+              From your connections
+            </div>
+            {visibleGroups.map(group => (
+              <DropdownMenuSub key={group.type}>
+                <DropdownMenuSubTrigger className="gap-2 text-sm">
+                  <span className="w-4 shrink-0">
+                    {/* Check mark on the GROUP when any of its
+                        viewTypes matches the active connection ref —
+                        so the user sees at a glance which provider
+                        the current overlay is from without having to
+                        expand the submenu. */}
+                    {connectionMetric &&
+                      group.options.some(o => o.viewType === connectionMetric.viewType) && (
+                        <Check size={12} weight="bold" />
+                      )}
+                  </span>
+                  <span>{group.label}</span>
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="min-w-[160px]">
+                  {group.options.map(opt => (
+                    <DropdownMenuItem
+                      key={opt.viewType}
+                      onClick={() => handlePickConnectionMetric(opt)}
+                      className="gap-2 text-sm"
+                    >
+                      <span className="w-4 shrink-0">
+                        {connectionMetric?.viewType === opt.viewType && (
+                          <Check size={12} weight="bold" />
+                        )}
+                      </span>
+                      <span>{opt.label}</span>
+                      {opt.needsEventPicker && (
+                        <span className="ml-auto text-[10px] text-amber-600">
+                          configure
+                        </span>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ))}
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -144,6 +369,15 @@ interface ViewCardOverviewChartProps {
    */
   primaryMetric: OverviewPrimaryMetric
   secondaryMetric: OverviewSecondaryMetric
+  /**
+   * When set, the corresponding dropdown displays this connection
+   * metric's label and the chart's data layer treats it as the
+   * source of truth (overriding the predefined `*Metric` above).
+   * Optional — older view configs lack these fields and the chart
+   * works fine with the predefined metrics alone.
+   */
+  primaryConnectionMetric?: ConnectionMetricRef | null
+  secondaryConnectionMetric?: ConnectionMetricRef | null
   /**
    * Called when the user picks a new metric from either dropdown.
    * Caller is expected to update its own metric state + (real mode)
@@ -185,7 +419,8 @@ interface ViewCardOverviewChartProps {
    * skips the `xl:` upsize so the tile fits inside narrow containers
    * (e.g. the landing-page demo card, where horizontal space is shared
    * with the sources/users panel on the right). Default `false` keeps
-   * the real dashboard's existing dimensions unchanged.
+   * the real dashboard's existing dimensions unchanged. IGNORED when
+   * `fillHeight` is true (the parent's height is the source of truth).
    *
    * Padding + bar widths are NOT changed by this prop — recharts'
    * `ResponsiveContainer` handles bar spacing automatically as the
@@ -193,6 +428,32 @@ interface ViewCardOverviewChartProps {
    * bars without us touching `OverviewChart`'s configuration.
    */
   compact?: boolean
+  /**
+   * Fill the parent container's full height instead of using a fixed
+   * inner chart height. Used by callers that place the chart in a
+   * grid cell with explicit height (the project view's unified
+   * grid) — without this, the chart's fixed `h-[340px]` plus header
+   * plus padding pushes the rendered card to ~480 px regardless of
+   * the cell size, overflowing smaller cells and overlapping
+   * neighboring tiles.
+   *
+   * Implementation: when `true`, the chart container becomes
+   * `flex-1 min-h-[240px] h-full` so it grows or shrinks to match
+   * the available height (with a 240 px floor so it never collapses
+   * to nothing if the parent has no explicit height). When `false`
+   * (default), the chart keeps its previous fixed-height behavior
+   * for non-grid contexts (mobile project body, demo, etc.).
+   */
+  fillHeight?: boolean
+  /**
+   * Cross-component highlight: when set, every stacked bar segment
+   * matching this source key stays lit and everything else dims.
+   * Driven by the sources panel sitting next to this chart in the
+   * project_overview composite — the panel's row hover writes to
+   * shared state, this prop reads from it. Passed straight through
+   * to `<OverviewChart>`.
+   */
+  externalHoveredSourceKey?: string | null
 }
 
 export function ViewCardOverviewChart({
@@ -202,6 +463,8 @@ export function ViewCardOverviewChart({
   mode,
   primaryMetric,
   secondaryMetric,
+  primaryConnectionMetric = null,
+  secondaryConnectionMetric = null,
   onMetricChange,
   chart,
   loading,
@@ -214,6 +477,8 @@ export function ViewCardOverviewChart({
   onPin,
   chromeless = false,
   compact = false,
+  fillHeight = false,
+  externalHoveredSourceKey = null,
 }: ViewCardOverviewChartProps) {
   // `nowTick` bumps once per minute so the "now" reference line advances to
   // the next bucket when the wall clock crosses an hour/day boundary without
@@ -235,6 +500,21 @@ export function ViewCardOverviewChart({
   // still had OAuth-callback params lingering).
   const [trafficPickerOpen, setTrafficPickerOpen] = useState(false)
 
+  // PostHog event-picker dialog state. `axis` remembers which
+  // dropdown asked for the event so we can commit the resulting ref
+  // to the right side on confirm. `connectionId` is the resolved
+  // PostHog connection (the cascade already picked it before
+  // opening the picker), threaded so the dialog knows which project
+  // to list events from. Null when the dialog is closed.
+  const [posthogPicker, setPosthogPicker] = useState<
+    | {
+        axis: 'primary' | 'secondary'
+        connectionId: string
+        initialEventName: string | null
+      }
+    | null
+  >(null)
+
   useEffect(() => {
     const id = setInterval(() => setNowTick(t => t + 1), 60_000)
     return () => clearInterval(id)
@@ -247,10 +527,43 @@ export function ViewCardOverviewChart({
     [mode, dateFrom, dateTo, nowTick],
   )
 
+  // Predefined pick → clear the connection-metric override on the
+  // same axis so the predefined value takes effect. Without this,
+  // a user who picks "Stripe → Gross Volume" and then re-picks
+  // "Revenue" from the top group would still see the Stripe
+  // override winning.
   const onPrimaryChange = (next: OverviewPrimaryMetric) =>
-    onMetricChange({ primaryMetric: next, secondaryMetric })
+    onMetricChange({
+      primaryMetric: next,
+      secondaryMetric,
+      primaryConnectionMetric: undefined,
+      secondaryConnectionMetric: secondaryConnectionMetric ?? undefined,
+    })
   const onSecondaryChange = (next: OverviewSecondaryMetric) =>
-    onMetricChange({ primaryMetric, secondaryMetric: next })
+    onMetricChange({
+      primaryMetric,
+      secondaryMetric: next,
+      primaryConnectionMetric: primaryConnectionMetric ?? undefined,
+      secondaryConnectionMetric: undefined,
+    })
+  // Cascade pick → set the connection ref. The predefined value
+  // stays in storage (we keep it around so unsetting the connection
+  // override falls back to it), it's just inert while a connection
+  // override is set.
+  const onPrimaryPickConnection = (ref: ConnectionMetricRef) =>
+    onMetricChange({
+      primaryMetric,
+      secondaryMetric,
+      primaryConnectionMetric: ref,
+      secondaryConnectionMetric: secondaryConnectionMetric ?? undefined,
+    })
+  const onSecondaryPickConnection = (ref: ConnectionMetricRef) =>
+    onMetricChange({
+      primaryMetric,
+      secondaryMetric,
+      primaryConnectionMetric: primaryConnectionMetric ?? undefined,
+      secondaryConnectionMetric: ref,
+    })
 
   const primaryUnavailable = chart?.primaryUnavailable ?? false
   const secondaryUnavailable = chart?.secondaryUnavailable ?? false
@@ -276,6 +589,19 @@ export function ViewCardOverviewChart({
           value={primaryMetric}
           options={PRIMARY_OPTIONS}
           onChange={onPrimaryChange}
+          connectionMetric={primaryConnectionMetric}
+          onPickConnection={onPrimaryPickConnection}
+          onRequestPosthogEvent={({ connectionId }) =>
+            setPosthogPicker({
+              axis: 'primary',
+              connectionId,
+              initialEventName:
+                primaryConnectionMetric?.connectionType === 'posthog'
+                  ? primaryConnectionMetric.eventName ?? null
+                  : null,
+            })
+          }
+          projectId={view.projectId}
         />
         {/* Swap button — toggles the bar/line visual encoding. After click,
             the bars plot the secondary metric and the line plots the primary
@@ -294,6 +620,19 @@ export function ViewCardOverviewChart({
           value={secondaryMetric}
           options={SECONDARY_OPTIONS}
           onChange={onSecondaryChange}
+          connectionMetric={secondaryConnectionMetric}
+          onPickConnection={onSecondaryPickConnection}
+          onRequestPosthogEvent={({ connectionId }) =>
+            setPosthogPicker({
+              axis: 'secondary',
+              connectionId,
+              initialEventName:
+                secondaryConnectionMetric?.connectionType === 'posthog'
+                  ? secondaryConnectionMetric.eventName ?? null
+                  : null,
+            })
+          }
+          projectId={view.projectId}
         />
         {projectName && (
           <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
@@ -372,16 +711,35 @@ export function ViewCardOverviewChart({
 
       {/* Chart.
           Heights:
-            - default       → `h-[280px] xl:h-[340px]` — real dashboard sizing
-            - compact=true  → `h-[200px]` flat, no xl upsize — for narrow
-                              containers (landing-page demo) where the
-                              chart shares horizontal room with a
-                              sources/users panel on the right.
+            - fillHeight=true → `flex-1 min-h-[240px]` — the outer
+                                p-4 wrapper grows in the parent
+                                flex-col, and the inner chart
+                                container fills it (`h-full`). Used
+                                in the project view's unified grid
+                                where the cell height comes from
+                                `row-span-N` so the chart adapts
+                                cleanly to whichever footprint the
+                                view sizing helper picked.
+            - default        → `h-[280px] xl:h-[340px]` — fixed
+                                heights for non-grid contexts
+                                (mobile project body, demo).
+            - compact=true   → `h-[200px]` flat, no xl upsize — for
+                                narrow containers where the chart
+                                shares horizontal room with a
+                                sources/users panel on the right.
           Recharts' `ResponsiveContainer` handles bar widths as the
           height shrinks, so we don't need to touch `OverviewChart`'s
           internal `maxBarSize` / segment sizing. */}
-      <div className="relative p-4">
-        <div className={`relative ${compact ? 'h-[200px]' : 'h-[280px] xl:h-[340px]'}`}>
+      <div className={fillHeight ? 'relative p-4 flex-1 min-h-0 flex flex-col' : 'relative p-4'}>
+        <div
+          className={
+            fillHeight
+              ? 'relative flex-1 min-h-[240px]'
+              : compact
+                ? 'relative h-[200px]'
+                : 'relative h-[280px] xl:h-[340px]'
+          }
+        >
           {loading ? (
             <div className="absolute inset-0 flex items-center justify-center">
               <ArrowsClockwise
@@ -434,6 +792,7 @@ export function ViewCardOverviewChart({
                     secondaryMetric={secondaryMetric}
                     nowLabel={nowLabel}
                     swapped={swapped}
+                    externalHoveredSourceKey={externalHoveredSourceKey}
                   />
                 </div>
               </div>
@@ -471,6 +830,37 @@ export function ViewCardOverviewChart({
         open={trafficPickerOpen}
         onOpenChange={setTrafficPickerOpen}
         onLinked={onRefresh}
+      />
+    )}
+
+    {/* PostHog event picker — only mounted while open (same
+        rationale as the traffic picker above). Confirming an event
+        commits the fully-populated `ConnectionMetricRef` to the
+        right axis via the chart's existing pick-connection
+        callbacks. The dialog itself doesn't know about axis —
+        we capture that in component state when opening. */}
+    {posthogPicker && (
+      <PosthogEventPickerDialog
+        open
+        onOpenChange={open => {
+          if (!open) setPosthogPicker(null)
+        }}
+        connectionId={posthogPicker.connectionId}
+        initialEventName={posthogPicker.initialEventName}
+        onConfirm={eventName => {
+          const ref: ConnectionMetricRef = {
+            connectionId: posthogPicker.connectionId,
+            connectionType: 'posthog',
+            viewType: 'daily_counter',
+            eventName,
+          }
+          if (posthogPicker.axis === 'primary') {
+            onPrimaryPickConnection(ref)
+          } else {
+            onSecondaryPickConnection(ref)
+          }
+          setPosthogPicker(null)
+        }}
       />
     )}
     </>

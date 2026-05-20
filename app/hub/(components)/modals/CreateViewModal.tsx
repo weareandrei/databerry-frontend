@@ -182,9 +182,14 @@ function viewOptionsForIntegration(integration: string): ViewOption[] {
     case 'sentry':
       return SENTRY_VIEW_OPTIONS
     case 'composite':
-      // Project Overview is connection-less. Expose only the chart
-      // entry — picking it creates the chart+sources pair under the hood.
-      return [COMPOSITE_VIEW_OPTIONS[0]]
+      // "General" picker — connection-less views.
+      //   [0] project_overview      → composite chart+sources (paired)
+      //   [1] project_overview_sources → never exposed standalone (always
+      //       paired with the composite chart, see `handlePickViewOption`'s
+      //       composite branch)
+      //   [2] custom_chart          → standalone chart, no sources
+      // We expose [0] AND [2] but skip [1].
+      return [COMPOSITE_VIEW_OPTIONS[0], COMPOSITE_VIEW_OPTIONS[2]]
     default:
       return []
   }
@@ -365,6 +370,31 @@ export function CreateViewModal() {
     ])
   }
 
+  /**
+   * Single-chart variant of `createComposite` — no sources panel.
+   * Same default metric resolution (revenue if Stripe is wired up,
+   * otherwise no secondary line). The rendered tile is the same
+   * `OverviewChart` component the project_overview view uses; the
+   * difference is purely whether it's paired with a sources panel.
+   */
+  const createCustomChart = () => {
+    const hasStripeForProject = connections.connections.some(
+      c =>
+        (c.type === 'stripe' || c.type === 'stripe_manual') &&
+        (c.projectId === null || c.projectId === targetProjectId),
+    )
+    return createView({
+      connectionId: null,
+      connectionType: 'composite',
+      type: 'custom_chart',
+      name: COMPOSITE_VIEW_OPTIONS[2].name,
+      config: {
+        primaryMetric: 'visitors',
+        secondaryMetric: hasStripeForProject ? 'revenue' : null,
+      },
+    })
+  }
+
   // ── Click flow per ViewPickerBar ─────────────────────────────────────────
 
   const handlePickViewOption = async (
@@ -372,7 +402,14 @@ export function CreateViewModal() {
     option: ViewOption,
   ) => {
     if (integration === 'composite') {
-      createComposite()
+      // Two distinct creation flows live under the "General" category:
+      //   `project_overview` → composite (chart + sources, two rows)
+      //   `custom_chart`     → standalone single chart, one row
+      if (option.type === 'project_overview') {
+        createComposite()
+      } else if (option.type === 'custom_chart') {
+        createCustomChart()
+      }
       return
     }
 

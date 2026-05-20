@@ -92,6 +92,19 @@ interface ViewCardOverviewSourcesProps {
    * Same `chromeless` knob `ViewCard` etc. expose for nested layouts.
    */
   chromeless?: boolean
+  /**
+   * Cross-component hover bridge — fires when a source row enters or
+   * leaves hover. The composite project_overview pair lifts a single
+   * `hoveredSourceKey` into shared state and passes the matching key
+   * down to `<ViewCardOverviewChart externalHoveredSourceKey>` so the
+   * chart highlights the segments belonging to that source. `null`
+   * on mouse leave clears the highlight.
+   *
+   * Only the Sources tab fires this — Countries has no chart-segment
+   * counterpart on the left. Optional so non-composite callers
+   * (mobile project body, pinned tile) don't have to plumb a no-op.
+   */
+  onSourceHover?: (sourceKey: string | null) => void
 }
 
 export function ViewCardOverviewSources({
@@ -106,6 +119,7 @@ export function ViewCardOverviewSources({
   onUntrack,
   onPin,
   chromeless = false,
+  onSourceHover,
 }: ViewCardOverviewSourcesProps) {
   // Suppress unused-prop lint — `chromeless` is accepted for API
   // uniformity but the wrapper below is always borderless (this
@@ -202,7 +216,7 @@ export function ViewCardOverviewSources({
 
       <div className="p-4 min-w-0">
         {tab === 'sources'
-          ? renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick)
+          ? renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick, onSourceHover)
           : renderCountries(countries, handleConnectClick)
         }
       </div>
@@ -235,11 +249,18 @@ function renderSources(
   state: TabState<OverviewSource[]>,
   pageSize: number,
   onConnectClick: () => void,
+  onSourceHover?: (sourceKey: string | null) => void,
 ): React.ReactElement {
   if (state.error) return <ErrorState message={state.error} />
   if (state.loading || !state.fetched) return <LoadingState />
   if (!state.data || state.data.length === 0) return <NoTrafficState onConnectClick={onConnectClick} />
-  return <OverviewSourcesPanel sources={state.data} pageSize={pageSize} />
+  return (
+    <OverviewSourcesPanel
+      sources={state.data}
+      pageSize={pageSize}
+      onSourceHover={onSourceHover}
+    />
+  )
 }
 
 function renderCountries(

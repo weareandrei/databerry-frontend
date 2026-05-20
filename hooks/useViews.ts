@@ -11,7 +11,18 @@ export function useViews() {
   const dispatch = useDispatch<AppDispatch>()
   const views = useSelector((state: RootState) => state.views.items)
   const loading = useSelector((state: RootState) => state.views.loading)
-  const refreshKey = useSelector((state: RootState) => state.views.refreshKey)
+  // Per-project refresh tick map. Consumers (`<ProjectView>`) should
+  // pick a single project's tick out of this map for their deps
+  // array — see `getRefreshKeyForProject` below. Subscribing to the
+  // whole map and pulling a single entry locally would still trigger
+  // a re-render in every `<ProjectView>` whenever ANY project's tick
+  // bumps; the helper avoids that by passing only the relevant
+  // primitive number down.
+  const refreshKeyByProject = useSelector(
+    (state: RootState) => state.views.refreshKeyByProject,
+  )
+  const getRefreshKeyForProject = (projectId: string) =>
+    refreshKeyByProject[projectId] ?? 0
   const isModalOpen = useSelector((state: RootState) => state.ui.createViewModalOpen)
   const createViewFolderId = useSelector((state: RootState) => state.ui.createViewFolderId)
   const createViewProjectId = useSelector((state: RootState) => state.ui.createViewProjectId)
@@ -98,7 +109,7 @@ export function useViews() {
   return {
     views,
     loading,
-    refreshKey,
+    getRefreshKeyForProject,
     isModalOpen,
     fetchViewsByProject,
     fetchViewsByFolder,

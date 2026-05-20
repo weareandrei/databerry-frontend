@@ -37,6 +37,24 @@ interface OverviewChartProps {
    * Use case: the chart-type swap button in `ViewCardOverviewChart`.
    */
   swapped?: boolean
+  /**
+   * External source-hover signal — when set, every stacked bar
+   * segment whose source key matches stays lit, every other
+   * segment dims. Cross-component highlight driven by the sources
+   * panel: user hovers a row in the sources list on the right,
+   * all corresponding segments in the chart on the left highlight
+   * simultaneously.
+   *
+   * Precedence: the chart's INTERNAL hover (cursor over a bar or
+   * specific segment) wins over this when both are active. The
+   * internal mouse interaction is the more specific intent;
+   * external hover is the fallback that only matters when the
+   * user isn't directly touching the chart.
+   *
+   * `null` means "no external hover" — the chart behaves as if
+   * this prop didn't exist.
+   */
+  externalHoveredSourceKey?: string | null
 }
 
 const SECONDARY_COLOR = '#F46719' // brand orange — overlay line
@@ -372,12 +390,22 @@ function BarTooltipCard({ bucket, sourceKeys, primaryMetric, secondaryMetric }: 
         </ul>
       )}
 
-      {/* Derived metric footer */}
-      {showRevPerVisitor && secondary != null && (
+      {/* Derived metric footer.
+          `secondary` is in DOLLARS (see formatPrimary's comment for
+          the contract) and `total` is the visitor count, so
+          `secondary / total` is dollars-per-visitor directly. The
+          previous formula `(secondary / total / 100)` divided by
+          an extra 100 — a hangover from an earlier draft when the
+          backend still passed cents through. Was silently wrong:
+          a project with $246 revenue and 2 visitors showed "$1.23
+          / visitor" instead of "$123 / visitor". The bug was
+          discovered when the connection-metric overlay landed and
+          the numbers stopped being plausible enough to ignore. */}
+      {showRevPerVisitor && secondary != null && total > 0 && (
         <div className="px-3 py-2 border-t border-stroke flex items-center justify-between">
           <span className="text-grey-light">Revenue / visitor</span>
           <span className="tabular-nums font-semibold text-grey-darkest">
-            ${(secondary / total / 100).toFixed(2)}
+            ${(secondary / total).toFixed(2)}
           </span>
         </div>
       )}
@@ -510,6 +538,7 @@ export function OverviewChart({
   secondaryMetric,
   nowLabel,
   swapped = false,
+  externalHoveredSourceKey = null,
 }: OverviewChartProps) {
   const { rows, sourceKeys } = useMemo(() => buildRows(data.buckets), [data.buckets])
   const yMax = useMemo(() => computeYMax(rows, sourceKeys), [rows, sourceKeys])
@@ -848,19 +877,36 @@ export function OverviewChart({
                 }
                 const bucketIndex = p.index ?? -1
 
-                // Datafast-style dim/highlight:
-                //  - bar mode:      segments in the hovered bucket stay lit;
-                //                   everything else dims.
-                //  - segment mode:  only the exact segment stays lit; everything
-                //                   else (including other segments in the same
-                //                   bucket) dims. The active segment also gets
-                //                   a soft drop-shadow so it visibly lifts off.
-                const isHighlighted =
+                // Datafast-style dim/highlight, with three input sources:
+                //  - bar mode (internal):      segments in the hovered bucket stay lit;
+                //                              everything else dims.
+                //  - segment mode (internal):  only the exact segment stays lit;
+                //                              everything else dims. The active
+                //                              segment also gets a soft drop-shadow
+                //                              so it visibly lifts off.
+                //  - external source hover:    user is hovering a row in the
+                //                              sources panel — every segment with
+                //                              that sourceKey stays lit (across
+                //                              ALL buckets), others dim. Multiple
+                //                              days with the same source highlight
+                //                              together for free since each segment
+                //                              checks its own sk.key.
+                //
+                // Precedence: internal wins when both are active (the cursor is
+                // physically on the chart, that's the more specific intent).
+                // External only matters when `hover` is null.
+                const internalMatch =
                   hover != null &&
                   (hover.kind === 'bar'
                     ? hover.bucketIndex === bucketIndex
                     : hover.bucketIndex === bucketIndex && hover.sourceKey === sk.key)
-                const isDimmed = hover != null && !isHighlighted
+                const externalMatch =
+                  hover == null &&
+                  externalHoveredSourceKey != null &&
+                  externalHoveredSourceKey === sk.key
+                const isHighlighted = internalMatch || externalMatch
+                const anyHoverActive = hover != null || externalHoveredSourceKey != null
+                const isDimmed = anyHoverActive && !isHighlighted
                 const isActiveSegment =
                   hover?.kind === 'segment' &&
                   hover.bucketIndex === bucketIndex &&

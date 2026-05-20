@@ -31,6 +31,12 @@ import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/View
 import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
 import { EVENT, trackEvent } from '@/lib/posthog'
 import {
+  cellSpanClasses,
+  getViewSizing,
+  PROJECT_GRID_AUTO_ROW_HEIGHT_PX,
+  PROJECT_GRID_CONTAINER_CLASS,
+} from '@/constants/viewSizing'
+import {
   WidePosthogViewRenderer,
   isWidePosthogView,
 } from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
@@ -136,6 +142,14 @@ export function useProjectView(
     ? foldersCtx.folders.filter(f => f.parentId === currentFolderId)
     : foldersCtx.folders.filter(f => f.projectId === project.id && f.parentId === null)
 
+  // Per-project refresh tick — bumps ONLY when this project's views
+  // change (a view was added/created for THIS project). Adding a
+  // view in a sibling project doesn't reach into this dep array, so
+  // unaffected `<ProjectView>` instances no longer reload from
+  // backend on every cross-project view-create. Replaces the
+  // global `viewsCtx.refreshKey` we used to depend on.
+  const projectRefreshKey = viewsCtx.getRefreshKeyForProject(project.id)
+
   const loadViews = useCallback(async () => {
     setLoading(true)
     const data = currentFolderId
@@ -143,7 +157,7 @@ export function useProjectView(
       : await viewsCtx.fetchViewsByProject(project.id, globalDateFrom, globalDateTo)
     setViews(data)
     setLoading(false)
-  }, [project.id, currentFolderId, globalDateFrom, globalDateTo, viewsCtx.refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [project.id, currentFolderId, globalDateFrom, globalDateTo, projectRefreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadViews()
@@ -389,7 +403,25 @@ export function ProjectView({
           collapsed ? 'rounded-xl' : 'rounded-t-xl'
         }`}
       />
-      {!collapsed && (
+      {/* Hide via CSS instead of unmounting on collapse. Keeping
+          the subtree mounted preserves every `<ViewCard>`'s fetch
+          state, so re-opening a collapsed project shows the data
+          INSTANTLY instead of triggering a fresh round of
+          per-view fetches (Stripe live-value, PostHog HogQL, GA
+          API, etc. — easily a dozen network calls per project).
+          The memory cost of holding the trees in the background
+          is negligible at typical scales (5-10 projects, ~10
+          views each); the latency win on un-collapse is
+          immediately noticeable.
+
+          Note: `display: none` (vs `visibility: hidden`) so the
+          collapsed project doesn't take vertical space — same
+          visual behavior as the old `&& unmount` branch. React
+          Reconciler still walks the tree on each render of the
+          parent, but the subtrees' useEffects don't re-fire
+          because the deps haven't changed across the mount/hide
+          transition. */}
+      <div style={collapsed ? { display: 'none' } : undefined}>
         <ProjectBody
           projectId={project.id}
           currentFolder={currentFolder}
@@ -409,7 +441,7 @@ export function ProjectView({
           handleConnectionAssigned={handleConnectionAssigned}
           isEmpty={isEmpty}
         />
-      )}
+      </div>
 
       {/* Edit + delete are mounted unconditionally so their close
           animations can play even after the project disappears from
@@ -580,45 +612,110 @@ function ProjectBodyViews({
   // Wide PostHog views (funnel/retention/users) ride alongside the
   // overview composite lane — full-width, stacked vertically.
   const widePosthogViews = views.filter(isWidePosthogView)
+  // Standalone "Chart" views (new in the General-category split).
+  // Same component as the project_overview chart half, but rendered
+  // full-width without a paired sources panel. Each user-created
+  // Chart sits on its own row so the user can compare metrics across
+  // multiple side-by-side charts.
+  const customChartViews = views.filter(v => v.type === 'custom_chart')
   const regularViews = views.filter(
     v =>
       v.type !== 'project_overview' &&
       v.type !== 'project_overview_sources' &&
+      v.type !== 'custom_chart' &&
       !isWidePosthogView(v),
   )
+  // The project_overview chart and its sources sibling are
+  // conceptually ONE view that the user thinks of as "Project
+  // overview." Today they're stored as two rows in the views table
+  // because they have different data hooks (chart hits
+  // /project-overview/chart; sources hits /project-overview/sources)
+  // and different renderer components — but they always travel
+  // together: the create-view flow inserts both, the pin/unpin flow
+  // moves both together, and the user expects to see them paired.
+  //
+  // Rendering policy: when BOTH siblings exist, emit ONE full-row
+  // grid cell with an internal 2-column split (chart left, sources
+  // right). Width-wise this matches the user's intent ("project
+  // overview takes the full row, doesn't wrap"). Width-wise it
+  // also matches the original side-by-side layout the dashboard
+  // shipped with — we just promote that mini-grid to be a child
+  // of the unified outer grid instead of its own sibling lane.
+  //
+  // When only ONE half exists (the other was deleted), each
+  // standalone half renders via the helper's normal sizing — chart
+  // alone goes full-width (per `project_overview` in VIEW_SIZING),
+  // sources alone gets a 2-cell standalone footprint.
+  const compositePair = chartView && sourcesView ? { chartView, sourcesView } : null
+
+  // Tiles routed through the helper-based dispatch below — excludes
+  // the composite pair when it'll be rendered specially above.
+  const dispatchTiles: View[] = [
+    ...(!compositePair && chartView ? [chartView] : []),
+    ...(!compositePair && sourcesView ? [sourcesView] : []),
+    ...customChartViews,
+    ...widePosthogViews,
+    ...regularViews,
+  ]
+
+  if (!compositePair && dispatchTiles.length === 0) {
+    return <div className="flex flex-col gap-6" />
+  }
+
   return (
-    <div className="flex flex-col gap-6">
-      {(chartView || sourcesView) && (
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
-          {chartView && (
+    <div
+      className={PROJECT_GRID_CONTAINER_CLASS}
+      style={{ gridAutoRows: `${PROJECT_GRID_AUTO_ROW_HEIGHT_PX}px` }}
+    >
+      {compositePair && (
+        <CompositeOverviewPair
+          chartView={compositePair.chartView}
+          sourcesView={compositePair.sourcesView}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          mode={mode}
+          handleUntrack={handleUntrack}
+          handlePin={handlePin}
+        />
+      )}
+      {/* Composite pair extracted into its own component so its
+          per-pair `hoveredSourceKey` state stays scoped — hovering a
+          source row re-renders the chart + sources halves only, not
+          the whole tile grid. Without this isolation a hover would
+          tick `ProjectBodyViews` state and re-run every sibling
+          tile's render path. */}
+      {dispatchTiles.map(view => {
+        const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
+        const sizing = getViewSizing(view.type, displayMode)
+        const wrapperClass = cellSpanClasses(sizing)
+        // Per-view-type renderer dispatch. The grid is uniform; only
+        // the body inside each cell differs.
+        let body: React.ReactNode
+        if (view.type === 'project_overview' || view.type === 'custom_chart') {
+          body = (
             <ViewCardOverviewChartConnected
-              key={chartView.id}
-              view={chartView}
+              view={view}
               dateFrom={dateFrom}
               dateTo={dateTo}
               mode={mode}
               onUntrack={handleUntrack}
               onPin={handlePin}
             />
-          )}
-          {sourcesView && (
+          )
+        } else if (view.type === 'project_overview_sources') {
+          body = (
             <ViewCardOverviewSourcesConnected
-              key={sourcesView.id}
-              view={sourcesView}
+              view={view}
               dateFrom={dateFrom}
               dateTo={dateTo}
               onUntrack={handleUntrack}
               onPin={handlePin}
             />
-          )}
-        </div>
-      )}
-      {widePosthogViews.length > 0 && (
-        <div className="flex flex-col gap-4">
-          {widePosthogViews.map(v => (
+          )
+        } else if (isWidePosthogView(view)) {
+          body = (
             <WidePosthogViewRenderer
-              key={v.id}
-              view={v}
+              view={view}
               historical={isRange}
               dateFrom={dateFrom}
               dateTo={dateTo}
@@ -626,17 +723,10 @@ function ProjectBodyViews({
               onPin={handlePin}
               onConnectionAssigned={handleConnectionAssigned}
             />
-          ))}
-        </div>
-      )}
-      {regularViews.length > 0 && (
-        <div
-          className="grid gap-y-6 gap-x-4 grid-flow-dense grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6"
-          style={{ gridAutoRows: '140px' }}
-        >
-          {regularViews.map(view => (
+          )
+        } else {
+          body = (
             <ViewCardRenderer
-              key={view.id}
               view={view}
               isRange={isRange}
               dateFrom={dateFrom}
@@ -647,9 +737,75 @@ function ProjectBodyViews({
               onPin={handlePin}
               onConnectionAssigned={handleConnectionAssigned}
             />
-          ))}
-        </div>
-      )}
+          )
+        }
+        return (
+          <div key={view.id} className={wrapperClass}>
+            {body}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Composite project_overview pair ────────────────────────────────────────
+
+interface CompositeOverviewPairProps {
+  chartView: View
+  sourcesView: View
+  dateFrom: string
+  dateTo: string
+  mode: 'daily' | 'weekly' | 'monthly'
+  handleUntrack: (viewId: string) => void
+  handlePin: (viewId: string) => void
+}
+
+/**
+ * Full-row composite. Internal grid: chart (1fr) on the left,
+ * sources (280–360 px) on the right at xl+. At narrower
+ * breakpoints the two stack vertically inside this same full-row
+ * cell, which keeps them paired even on phones. `row-span-3`
+ * (= 468 px) gives the chart enough vertical breathing room when
+ * it's full-width. Other multi-cell tiles use row-span-2 (304 px);
+ * the headline composite earns the extra rows because it's the
+ * page's most-read element.
+ *
+ * Owns the cross-component hover bridge: the sources panel writes
+ * its hovered row's source key here via `onSourceHover`, and the
+ * chart reads from `externalHoveredSourceKey` to light up matching
+ * stacked-bar segments while dimming the rest. State scope is just
+ * this pair, so hovering doesn't ripple to sibling tiles.
+ */
+function CompositeOverviewPair({
+  chartView,
+  sourcesView,
+  dateFrom,
+  dateTo,
+  mode,
+  handleUntrack,
+  handlePin,
+}: CompositeOverviewPairProps) {
+  const [hoveredSourceKey, setHoveredSourceKey] = useState<string | null>(null)
+  return (
+    <div className="col-span-full row-span-3 grid grid-cols-1 xl:grid-cols-[1fr_minmax(280px,360px)] gap-4">
+      <ViewCardOverviewChartConnected
+        view={chartView}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        mode={mode}
+        onUntrack={handleUntrack}
+        onPin={handlePin}
+        externalHoveredSourceKey={hoveredSourceKey}
+      />
+      <ViewCardOverviewSourcesConnected
+        view={sourcesView}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        onUntrack={handleUntrack}
+        onPin={handlePin}
+        onSourceHover={setHoveredSourceKey}
+      />
     </div>
   )
 }

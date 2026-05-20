@@ -679,6 +679,26 @@ export const ALGORITHM = {
       `/posthog/views/chart-data?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
+  /**
+   * Ad-hoc PostHog event-count chart for the overview chart's
+   * cascade-dropdown overlay. Takes `eventName` directly instead of
+   * a stored view id — the picker dialog hands the name straight
+   * here. Returns the same `{ points: ChartPoint[] }` shape as
+   * Stripe / GA's chart-data so `useConnectionMetricSeries` can
+   * merge results uniformly.
+   */
+  getPosthogEventChartData: (
+    connectionId: string,
+    eventName: string,
+    dateFrom?: string,
+    dateTo?: string,
+    mode?: 'daily' | 'weekly' | 'monthly',
+    tz?: string | null,
+  ) =>
+    apiFetch<{ points: { label: string; value: number }[] }>(
+      `/posthog/views/event-chart-data?connectionId=${connectionId}&eventName=${encodeURIComponent(eventName)}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${mode ? `&mode=${mode}` : ''}${tzParam(tz)}`,
+    ),
+
   /** Cumulative-count funnel for a `posthog_funnel` view. */
   getPosthogFunnel: (
     connectionId: string,

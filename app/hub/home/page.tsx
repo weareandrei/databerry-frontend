@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSelector } from 'react-redux'
-import { MagnifyingGlass } from '@phosphor-icons/react'
+import { MagnifyingGlass, X } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
 import type { RootState } from '@/store'
 import { GlobalDateChange } from '@/app/hub/home/(components)/GlobalDateChanger/GlobalDateChange'
@@ -17,10 +17,62 @@ export default function HomePage() {
   const { projects: projectsCtx, pins: pinsCtx } = useDashboard()
   const [query, setQuery] = useState('')
 
+  // ── Search ──────────────────────────────────────────────────────────
+  //
+  // Simple case-insensitive substring filter on the in-memory projects
+  // + pinned-views lists. No new fetches, no API, no debounce — both
+  // datasets are already loaded into the DashboardContext, so
+  // filtering is just a `.filter` over a few dozen items at most.
+  //
+  // What matches:
+  //   - Projects: project name
+  //   - Pinned views: the view's name OR the project name it belongs to
+  //     (typing "Taplaunch" surfaces the project AND any of its pins)
+  //
+  // What we DON'T search (yet):
+  //   - View names inside the project tile grid — those views aren't
+  //     loaded at the page level (they're fetched per-project by
+  //     `<ProjectView>`), so the filter would need new plumbing
+  //   - Folder names — same reason
+  //   - Connection names — different surface (lives at /hub/connections)
+  //
+  // Good v1 ceiling: filters down "I have 8 projects, where's the
+  // Acme one?" without any backend work.
+  const normalizedQuery = query.trim().toLowerCase()
+  const isSearching = normalizedQuery.length > 0
+
+  const filteredProjects = useMemo(() => {
+    if (!isSearching) return projectsCtx.projects
+    return projectsCtx.projects.filter(p =>
+      p.name.toLowerCase().includes(normalizedQuery),
+    )
+  }, [projectsCtx.projects, normalizedQuery, isSearching])
+
+  const filteredPins = useMemo(() => {
+    if (!isSearching) return pinsCtx.pinnedViews
+    return pinsCtx.pinnedViews.filter(pin => {
+      if (pin.name.toLowerCase().includes(normalizedQuery)) return true
+      const owningProject = projectsCtx.projects.find(p => p.id === pin.projectId)
+      if (owningProject?.name.toLowerCase().includes(normalizedQuery)) return true
+      return false
+    })
+  }, [pinsCtx.pinnedViews, projectsCtx.projects, normalizedQuery, isSearching])
+
   // Hide the entire pinned section when there's nothing to show — keeps
   // the dashboard clean during initial load and for users who haven't
   // pinned anything yet (no orphan label hovering over an empty area).
-  const hasPins = !pinsCtx.loading && pinsCtx.pinnedViews.length > 0
+  // During search, hide it once no pins match too (otherwise the
+  // section header reads as "Pinned views: nothing here" which is
+  // visually noisy when the user is clearly looking for something else).
+  const hasPins = !pinsCtx.loading && filteredPins.length > 0
+  // Whether the search emptied EVERYTHING out — shows the no-matches
+  // state so the user knows the search worked, just produced zero
+  // results (vs. a generic "nothing here" that would be ambiguous
+  // with the initial loading state).
+  const noMatches =
+    isSearching &&
+    filteredProjects.length === 0 &&
+    filteredPins.length === 0
 
   // Zero-projects → welcome panel instead of the labelled
   // pinned/projects sections. With no projects there can't be any
@@ -105,9 +157,22 @@ export default function HomePage() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search your data…"
+            placeholder="Search projects and pinned views…"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
+          {/* Clear button — only appears once there's something to
+              clear. `aria-label` for screen readers since the X glyph
+              isn't self-describing. */}
+          {isSearching && (
+            <button
+              type="button"
+              onClick={() => setQuery('')}
+              aria-label="Clear search"
+              className="shrink-0 text-muted-foreground hover:text-grey-darkest transition-colors"
+            >
+              <X size={13} weight="bold" />
+            </button>
+          )}
         </div>
         <GlobalDateChange />
         <GlobalDateModeDropdown />
@@ -130,10 +195,15 @@ export default function HomePage() {
               <section>
                 <h2 className="px-1 mb-3 text-xs font-medium uppercase tracking-wider text-grey-light">
                   Pinned views
+                  {isSearching && (
+                    <span className="ml-2 normal-case font-normal text-grey-light/80">
+                      ({filteredPins.length} matching)
+                    </span>
+                  )}
                 </h2>
                 <div className="rounded-xl border border-stroke bg-white shadow-card p-5">
                   <PinnedViews
-                    pins={pinsCtx.pinnedViews}
+                    pins={filteredPins}
                     unpinView={pinsCtx.unpinView}
                     onConnectionAssigned={pinsCtx.replacePin}
                     projects={projectsCtx.projects}
@@ -145,8 +215,31 @@ export default function HomePage() {
             <section className="flex flex-col">
               <h2 className="sticky top-0 z-30 bg-main py-3 px-1 text-xs font-medium uppercase tracking-wider text-grey-light">
                 Projects
+                {isSearching && (
+                  <span className="ml-2 normal-case font-normal text-grey-light/80">
+                    ({filteredProjects.length} matching)
+                  </span>
+                )}
               </h2>
-              <ProjectsGrid projects={projectsCtx.projects} loading={projectsCtx.loading} />
+              {noMatches ? (
+                <div className="rounded-xl border border-dashed border-stroke bg-white/50 px-6 py-12 text-center">
+                  <p className="text-sm text-grey-darkest font-medium">
+                    No matches for &ldquo;{query}&rdquo;
+                  </p>
+                  <p className="mt-1 text-xs text-grey-light">
+                    Search looks across project names and pinned view names.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-xs font-medium text-grey-darkest hover:bg-main transition-colors"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                <ProjectsGrid projects={filteredProjects} loading={projectsCtx.loading} />
+              )}
             </section>
           </div>
         )}

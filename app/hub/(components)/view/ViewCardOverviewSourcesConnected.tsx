@@ -29,6 +29,15 @@ interface ViewCardOverviewSourcesConnectedProps {
   onUntrack?: (id: string) => void
   onPin?: (id: string) => void
   chromeless?: boolean
+  /**
+   * Cross-component hover bridge — fires on Sources row hover so the
+   * paired chart on the left can highlight matching segments. Owned
+   * by the composite project_overview block in `ProjectView`, which
+   * keeps the hovered source key in local state and feeds it back
+   * into the chart's `externalHoveredSourceKey`. Optional so other
+   * callers (mobile body, pinned tile) don't have to plumb it.
+   */
+  onSourceHover?: (sourceKey: string | null) => void
 }
 
 export function ViewCardOverviewSourcesConnected({
@@ -39,6 +48,7 @@ export function ViewCardOverviewSourcesConnected({
   onUntrack,
   onPin,
   chromeless,
+  onSourceHover,
 }: ViewCardOverviewSourcesConnectedProps) {
   const [tab, setTab] = useState<Tab>('sources')
   const { sources, countries, refreshSources, refreshCountries } = useOverviewSourcesData(
@@ -61,6 +71,7 @@ export function ViewCardOverviewSourcesConnected({
       onUntrack={onUntrack}
       onPin={onPin}
       chromeless={chromeless}
+      onSourceHover={onSourceHover}
     />
   )
 }
