@@ -150,14 +150,30 @@ export function useProjectView(
   // global `viewsCtx.refreshKey` we used to depend on.
   const projectRefreshKey = viewsCtx.getRefreshKeyForProject(project.id)
 
+  // While the create-project optimistic UI is in flight, the project
+  // carries a placeholder id like `temp-${uuid}` (see
+  // `useProjects.createProject`). Firing `/views?projectId=temp-…`
+  // against that id 400s on the backend → "Failed to load views"
+  // toast on every freshly-created project, even though there's
+  // nothing wrong: the real id arrives a moment later, ProjectsGrid
+  // is keyed on `project.id` so this `<ProjectView>` unmounts and a
+  // fresh one mounts with the real id, which fetches successfully
+  // (empty array — a brand-new project has no views).
+  //
+  // Short-circuit here: no fetch, no toast, no loading flicker.
+  // The "Loading…" state stays on until the real id swap re-mounts
+  // us, which feels the same as the fetch-loading state would have.
+  const isTempProject = project.id.startsWith('temp-')
+
   const loadViews = useCallback(async () => {
+    if (isTempProject) return
     setLoading(true)
     const data = currentFolderId
       ? await viewsCtx.fetchViewsByFolder(currentFolderId, globalDateFrom, globalDateTo)
       : await viewsCtx.fetchViewsByProject(project.id, globalDateFrom, globalDateTo)
     setViews(data)
     setLoading(false)
-  }, [project.id, currentFolderId, globalDateFrom, globalDateTo, projectRefreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [project.id, isTempProject, currentFolderId, globalDateFrom, globalDateTo, projectRefreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadViews()
