@@ -58,12 +58,20 @@ export function usePosthogChart(
       }
     : null
 
+  // `isApplicable` participates in the deps so an in-place flip of
+  // `view.config.displayMode` (the "Convert to chart" menu item)
+  // re-triggers the fetch. Without it the surface deps (connectionId,
+  // view.id, dateFrom/dateTo, tz) don't change during conversion and
+  // the hook would stay on the previous render's `fetcher = null`
+  // result — chart renders "no data" until a hard reload re-mounts
+  // it with displayMode already 'chart'.
   const { data, loading, error, refresh } = useViewResource(fetcher, [
     view.connectionId,
     view.id,
     dateFrom,
     dateTo,
     tz,
+    isApplicable,
   ])
 
   return {

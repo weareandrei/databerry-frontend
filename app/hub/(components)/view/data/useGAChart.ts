@@ -74,6 +74,13 @@ export function useGAChart(view: View, options: GAChartOptions = {}): GAChartRes
       }
     : null
 
+  // `isApplicable` participates in the deps so an in-place flip of
+  // `view.config.displayMode` (the "Convert to chart" menu item)
+  // re-triggers the fetch. Without it the surface deps (connectionId,
+  // type, dateFrom/dateTo, mode, tz) don't change during conversion
+  // and the hook would stay on the previous render's `fetcher = null`
+  // result — chart renders "no data" until a hard reload re-mounts
+  // it with displayMode already 'chart'.
   const { data, loading, error, refresh } = useViewResource(fetcher, [
     view.connectionId,
     view.type,
@@ -81,6 +88,7 @@ export function useGAChart(view: View, options: GAChartOptions = {}): GAChartRes
     dateTo,
     mode,
     tz,
+    isApplicable,
   ])
 
   return {
