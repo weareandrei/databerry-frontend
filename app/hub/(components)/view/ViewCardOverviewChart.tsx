@@ -54,7 +54,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
-import { useDashboard } from '@/contexts/DashboardContext'
+import { useDashboardOptional } from '@/contexts/DashboardContext'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
 import { PosthogEventPickerDialog } from './PosthogEventPickerDialog'
@@ -206,17 +206,28 @@ function MetricDropdown<T extends string | null>({
    *  for the cascade (project-scoped OR Common). */
   projectId: string
 }) {
-  const { connections } = useDashboard()
+  // `useDashboardOptional` returns null on the landing-page demo (no
+  // `DashboardProvider` in that tree). Without the optional variant,
+  // every render of this dropdown — which `<ViewCardOverviewChart>`
+  // mounts in the demo via `<InteractableDemo>` — would throw,
+  // `DemoErrorBoundary` would catch + reset, the re-render would
+  // throw again, and the page would loop on errors forever.
+  // When no provider exists we treat the connection list as empty:
+  // the cascade's `visibleGroups` ends up empty and the cascade
+  // section is silently skipped, which is the right behaviour for
+  // a static mock-data demo anyway.
+  const dashboard = useDashboardOptional()
+  const allConnections = dashboard?.connections.connections ?? null
 
   // Filter the user's connections to those eligible for THIS chart:
   // project-scoped to its project, OR Common. Matches the
   // server-side `pickTrafficProvider` scoping rule.
   const eligibleConnections = useMemo(
     () =>
-      connections.connections.filter(
+      (allConnections ?? []).filter(
         c => c.projectId === projectId || c.projectId === null,
       ),
-    [connections.connections, projectId],
+    [allConnections, projectId],
   )
   const userHasType = (type: ConnectionMetricOption['type']) =>
     eligibleConnections.some(c =>

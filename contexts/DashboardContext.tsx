@@ -43,3 +43,19 @@ export function useDashboard() {
   if (!ctx) throw new Error('useDashboard must be used within DashboardProvider')
   return ctx
 }
+
+/**
+ * Provider-tolerant variant — returns `null` when the consumer
+ * isn't inside a `DashboardProvider` instead of throwing. Used by
+ * components that are shared between real-mode (dashboard, has
+ * provider) and demo-mode (landing-page `<InteractableDemo>`, no
+ * provider). Demo callers degrade gracefully on `null`; real
+ * callers get the same value `useDashboard()` returns.
+ *
+ * Don't use this in components that genuinely require the dashboard
+ * context — those should keep using `useDashboard()` so the missing
+ * provider fails loudly.
+ */
+export function useDashboardOptional() {
+  return useContext(DashboardContext)
+}
