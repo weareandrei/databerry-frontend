@@ -8,6 +8,7 @@ import { House, PlugsConnected, Robot, CaretDown, Plus, Gear } from '@phosphor-i
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
+import { SidebarPlanBadge } from './SidebarPlanBadge'
 import { SidebarFolderItem } from './SidebarFolderItem'
 import { SidebarTimezone } from './SidebarTimezone'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -295,10 +296,14 @@ export function SidebarContents({
         </AnimatePresence>
       </div>
 
-      {/* Bottom-most row: timezone label + 3-dots menu. Anchored with
-          `mt-auto` (set inside SidebarTimezone) so it stays pinned to the
-          bottom even when the projects list is short. Separated by
-          `border-t` for visual divorce from the nav items above. */}
+      {/* Bottom pair: subscription row above the timezone divider.
+          `SidebarTimezone` carries `mt-auto`, which pins this whole
+          tail to the bottom of the column even when the projects
+          list is short. The subscription row uses the same nav-item
+          styling as Home / Ask AI / Settings so it reads as a peer
+          of those rather than a piece of profile chrome — and sits
+          ABOVE the `border-t` divider that the timezone owns. */}
+      <SidebarPlanBadge />
       <SidebarTimezone />
     </div>
   )

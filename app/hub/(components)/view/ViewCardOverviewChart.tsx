@@ -55,6 +55,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { useDashboardOptional } from '@/contexts/DashboardContext'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
 import { PosthogEventPickerDialog } from './PosthogEventPickerDialog'
@@ -107,6 +108,43 @@ interface ConnectionMetricOption {
   viewType: string
   label: string
   needsEventPicker?: boolean
+}
+
+// View types whose values are denominated in dollars (vs raw counts).
+// Used to flip the connection-metric override's display formatter from
+// "1,234" → "$1,234" in tooltips + axis ticks. Kept in sync with
+// `STRIPE_CENTS_VIEW_TYPES` over in `useConnectionMetricSeries` — that
+// hook divides by 100 at the wire boundary so by the time values reach
+// the chart they're already in dollars, this set just controls the
+// presentation.
+const CURRENCY_CONNECTION_VIEW_TYPES = new Set(['stripe_gross', 'stripe_mrr'])
+
+/**
+ * Resolves a `ConnectionMetricRef` into the display label + currency
+ * flag the chart needs. Looks the label up in
+ * `CONNECTION_METRIC_GROUPS` (the canonical source of truth for what
+ * a connection-metric view-type is called in the UI), and pairs it
+ * with the currency check above. Returns `null` for an empty ref so
+ * callers can write `derive(...) ?? null`-style fallbacks cleanly.
+ *
+ * PostHog special case: when the ref carries an `eventName`, that's
+ * the specific user-selected event (e.g. "Project submitted") — show
+ * it instead of the generic "Event count" group label. Mirrors how
+ * the standalone PostHog value tile reads, so the user sees the same
+ * identifier everywhere their event is plotted.
+ */
+function connectionDisplay(
+  ref: ConnectionMetricRef | null | undefined,
+): { label: string; isCurrency: boolean } | null {
+  if (!ref) return null
+  if (ref.connectionType === 'posthog' && ref.eventName) {
+    return { label: ref.eventName, isCurrency: false }
+  }
+  const label =
+    CONNECTION_METRIC_GROUPS.flatMap(g => g.options).find(
+      o => o.viewType === ref.viewType,
+    )?.label ?? ref.viewType
+  return { label, isCurrency: CURRENCY_CONNECTION_VIEW_TYPES.has(ref.viewType) }
 }
 
 const CONNECTION_METRIC_GROUPS: {
@@ -239,16 +277,14 @@ function MetricDropdown<T extends string | null>({
 
   // Resolve the connection metric's display label for the trigger,
   // falling back to the predefined value's label when no connection
-  // ref is set. The lookup walks every group's options (cheap —
-  // <20 entries total) so we don't have to maintain a parallel
-  // viewType→label map.
-  const connectionMetricLabel = connectionMetric
-    ? CONNECTION_METRIC_GROUPS.flatMap(g => g.options).find(
-        o => o.viewType === connectionMetric.viewType,
-      )?.label
-    : undefined
+  // ref is set. `connectionDisplay()` is the single source of truth
+  // — same helper the chart tooltips use, so the label the user sees
+  // in the pill is identical to the one in the tooltip (e.g. PostHog
+  // events show their `eventName` like "Project submitted" in both
+  // places, not "Event count" in one and the name in the other).
+  const connectionDerived = connectionDisplay(connectionMetric)
   const current = options.find(o => o.value === value) ?? options[0]
-  const triggerLabel = connectionMetricLabel ?? current.label
+  const triggerLabel = connectionDerived?.label ?? current.label
 
   // Resolve a picked cascade option into a concrete connection
   // ref. We grab the FIRST eligible connection of the matching type
@@ -288,6 +324,16 @@ function MetricDropdown<T extends string | null>({
     <DropdownMenu>
       <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer">
         <Image src={iconSrc} alt={iconAlt} width={14} height={14} className="shrink-0" />
+        {/* Connection logo — only rendered when the active metric
+            comes from a connection. Sits between the chart-type
+            icon and the label so the pill reads as
+            "[chart icon] [provider logo] [metric name]". For
+            predefined picks (Visitors, Revenue, …) we don't have a
+            provider to attribute the metric to, so the logo slot is
+            simply omitted and the layout collapses cleanly. */}
+        {connectionMetric && (
+          <ConnectionIcon type={connectionMetric.connectionType} size={12} />
+        )}
         <span>{triggerLabel}</span>
         <CaretDown size={9} weight="bold" className="text-muted-foreground" />
       </DropdownMenuTrigger>
@@ -334,6 +380,12 @@ function MetricDropdown<T extends string | null>({
                         <Check size={12} weight="bold" />
                       )}
                   </span>
+                  {/* Provider logo — same icon shown in the trigger
+                      pill when this provider's metric is selected.
+                      Helps the dropdown scan visually (logo +
+                      provider name) instead of the user having to
+                      read each row's text to identify the source. */}
+                  <ConnectionIcon type={group.type} size={14} />
                   <span>{group.label}</span>
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent className="min-w-[160px]">
@@ -344,14 +396,29 @@ function MetricDropdown<T extends string | null>({
                       className="gap-2 text-sm"
                     >
                       <span className="w-4 shrink-0">
-                        {connectionMetric?.viewType === opt.viewType && (
-                          <Check size={12} weight="bold" />
-                        )}
+                        {/* Selection tick — only for options that
+                            commit a metric directly on click.
+                            `needsEventPicker` options (PostHog event
+                            count) open a further picker step instead,
+                            so they get a right-caret "drill in"
+                            affordance on the RIGHT rather than a tick
+                            here — mirroring the group submenu
+                            triggers above. */}
+                        {!opt.needsEventPicker &&
+                          connectionMetric?.viewType === opt.viewType && (
+                            <Check size={12} weight="bold" />
+                          )}
                       </span>
                       <span>{opt.label}</span>
                       {opt.needsEventPicker && (
-                        <span className="ml-auto text-[10px] text-amber-600">
-                          configure
+                        // "select" badge — signals that clicking
+                        // opens a further picker step (the event
+                        // chooser) rather than committing the metric
+                        // immediately. Replaces the earlier
+                        // "configure" wording / right-caret, both of
+                        // which read as ambiguous.
+                        <span className="ml-auto inline-flex items-center rounded-full border border-stroke px-1.5 py-[1px] text-[10px] font-medium text-grey-dark">
+                          select
                         </span>
                       )}
                     </DropdownMenuItem>
@@ -449,11 +516,14 @@ interface ViewCardOverviewChartProps {
    * neighboring tiles.
    *
    * Implementation: when `true`, the chart container becomes
-   * `flex-1 min-h-[240px] h-full` so it grows or shrinks to match
-   * the available height (with a 240 px floor so it never collapses
-   * to nothing if the parent has no explicit height). When `false`
-   * (default), the chart keeps its previous fixed-height behavior
-   * for non-grid contexts (mobile project body, demo, etc.).
+   * `flex-1 min-h-0` so it adapts to whatever vertical space the
+   * parent gives it. The previous `min-h-[240px]` floor was
+   * removed — it caused overflow in smaller cells
+   * (`row-span-2` = 304 px after header + padding) and recharts'
+   * `ResponsiveContainer` already prevents the SVG from collapsing
+   * to 0. When `false` (default), the chart keeps its previous
+   * fixed-height behavior for non-grid contexts (mobile project
+   * body, demo, etc.).
    */
   fillHeight?: boolean
   /**
@@ -465,6 +535,19 @@ interface ViewCardOverviewChartProps {
    * to `<OverviewChart>`.
    */
   externalHoveredSourceKey?: string | null
+  /**
+   * Wrap the tile in the standard view chrome (border + drop
+   * shadow). Used by the standalone "Chart" view-type
+   * (`custom_chart`) so it visually matches every other regular
+   * tile in the grid (Pageviews, Users, Funnel, …).
+   *
+   * The `project_overview` composite intentionally leaves this
+   * `false` — its chart half is paired with a sources panel in a
+   * single bespoke layout that owns its own borders, and adding
+   * the wrapper around just the chart half would break the visual
+   * continuity of the composite block.
+   */
+  withChrome?: boolean
 }
 
 export function ViewCardOverviewChart({
@@ -490,6 +573,7 @@ export function ViewCardOverviewChart({
   compact = false,
   fillHeight = false,
   externalHoveredSourceKey = null,
+  withChrome = false,
 }: ViewCardOverviewChartProps) {
   // `nowTick` bumps once per minute so the "now" reference line advances to
   // the next bucket when the wall clock crosses an hour/day boundary without
@@ -580,9 +664,28 @@ export function ViewCardOverviewChart({
   const secondaryUnavailable = chart?.secondaryUnavailable ?? false
   const totalPrimary = chart?.totalPrimary ?? 0
 
+  // Connection-metric display overrides — drive the chart's labels +
+  // axis/tooltip formatters when the user has picked a Stripe / GA /
+  // PostHog metric for either axis. `null` when the predefined path
+  // is active; `<OverviewChart>` falls back to its built-in
+  // `primaryMetric` / `secondaryMetric` formatters in that case.
+  const primaryDisplay = connectionDisplay(primaryConnectionMetric)
+  const secondaryDisplay = connectionDisplay(secondaryConnectionMetric)
+  // Format the header "Total: N" using the same rules as the
+  // tooltip — dollars when the active metric is currency-typed,
+  // count otherwise. Without this the header would print "Total: 20"
+  // for a $20 Gross Volume total, which reads as a count.
+  const formattedTotalPrimary = primaryDisplay
+    ? (primaryDisplay.isCurrency
+      ? `$${totalPrimary.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : totalPrimary.toLocaleString())
+    : primaryMetric === 'revenue'
+      ? `$${totalPrimary.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : totalPrimary.toLocaleString()
+
   return (
     <>
-    <ViewWrapper variant={chromeless ? 'borderless' : 'borderless'}>
+    <ViewWrapper variant={withChrome ? 'default' : 'borderless'}>
       {/* Metric selectors row — replaces the standard header for this composite view.
           When a projectName is passed (pinned views on Home), a small project pill
           sits after the metric dropdowns so the user can see which project the
@@ -656,7 +759,7 @@ export function ViewCardOverviewChart({
             <span className="text-xs text-grey-light tabular-nums">
               Total:{' '}
               <span className="text-grey-darkest font-semibold">
-                {totalPrimary.toLocaleString()}
+                {formattedTotalPrimary}
               </span>
             </span>
           )}
@@ -741,11 +844,32 @@ export function ViewCardOverviewChart({
           Recharts' `ResponsiveContainer` handles bar widths as the
           height shrinks, so we don't need to touch `OverviewChart`'s
           internal `maxBarSize` / segment sizing. */}
+      {/* Symmetric `p-4` in both modes. The chart no longer needs
+          extra bottom padding to avoid reading as "overflowing":
+          the real cause was the inner container's `min-h-[240px]`
+          floor (now `min-h-0`), which forced the SVG taller than
+          the cell. With the chart adapting to its parent, even
+          16 px below the X-axis labels plus the grid's `gap-y-6`
+          row gap is enough separation. */}
       <div className={fillHeight ? 'relative p-4 flex-1 min-h-0 flex flex-col' : 'relative p-4'}>
+        {/* fillHeight: `flex-1 min-h-0` — the chart adapts to
+            WHATEVER vertical space the parent gives it. The
+            previous `min-h-[240px]` forced 240 px minimum, which
+            overflowed the card whenever the parent cell was
+            shorter than 240 + selector-row + padding (~360 px).
+            That happened in two places:
+              - standalone `custom_chart` (row-span-2 = 304 px) → bars and X-axis labels rendered BELOW the card edge.
+              - any future smaller composite layouts.
+            Recharts' `ResponsiveContainer` already has its own
+            `minHeight={1} minWidth={1}` guards (see `OverviewChart`)
+            so the chart never collapses to 0; we don't need a CSS
+            floor on top of that, and the floor was actively
+            harmful when the available space was smaller than its
+            value. */}
         <div
           className={
             fillHeight
-              ? 'relative flex-1 min-h-[240px]'
+              ? 'relative flex-1 min-h-0'
               : compact
                 ? 'relative h-[200px]'
                 : 'relative h-[280px] xl:h-[340px]'
@@ -804,6 +928,8 @@ export function ViewCardOverviewChart({
                     nowLabel={nowLabel}
                     swapped={swapped}
                     externalHoveredSourceKey={externalHoveredSourceKey}
+                    primaryDisplay={primaryDisplay}
+                    secondaryDisplay={secondaryDisplay}
                   />
                 </div>
               </div>

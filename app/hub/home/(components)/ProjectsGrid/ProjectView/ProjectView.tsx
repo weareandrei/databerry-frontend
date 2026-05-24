@@ -708,6 +708,14 @@ function ProjectBodyViews({
         // the body inside each cell differs.
         let body: React.ReactNode
         if (view.type === 'project_overview' || view.type === 'custom_chart') {
+          // Chrome (border + shadow) for `custom_chart` only —
+          // those are standalone "Chart" tiles that should match
+          // the visual treatment of every other tile in the grid
+          // (Pageviews, Users, Funnel, …). `project_overview` falls
+          // through this dispatch only when its sources sibling is
+          // missing (the composite pair has its own renderer above);
+          // in that case it stays borderless to match the design
+          // language of the composite block it normally pairs with.
           body = (
             <ViewCardOverviewChartConnected
               view={view}
@@ -716,6 +724,7 @@ function ProjectBodyViews({
               mode={mode}
               onUntrack={handleUntrack}
               onPin={handlePin}
+              withChrome={view.type === 'custom_chart'}
             />
           )
         } else if (view.type === 'project_overview_sources') {

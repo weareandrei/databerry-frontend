@@ -55,6 +55,25 @@ interface OverviewChartProps {
    * this prop didn't exist.
    */
   externalHoveredSourceKey?: string | null
+  /**
+   * Per-axis presentation overrides used when the corresponding
+   * axis is driven by a connection-sourced metric (Stripe Gross
+   * Volume, PostHog event count, …) rather than one of the
+   * predefined options. The chart can't infer the right label or
+   * value formatter from `primaryMetric` / `secondaryMetric` in
+   * that case — those still hold the legacy predefined value as
+   * a fallback for when the connection override is cleared.
+   *
+   * - `label` replaces the predefined label in tooltips + the
+   *   summary card primary/secondary lines.
+   * - `isCurrency` flips Y-axis tick formatting and tooltip
+   *   value formatting from count → dollars.
+   *
+   * Both default to `null`, in which case the chart behaves
+   * exactly as before (predefined metric path).
+   */
+  primaryDisplay?: { label: string; isCurrency: boolean } | null
+  secondaryDisplay?: { label: string; isCurrency: boolean } | null
 }
 
 const SECONDARY_COLOR = '#F46719' // brand orange — overlay line
@@ -200,12 +219,27 @@ function computeYMax(
 ): number {
   let max = 0
   for (const row of rows) {
-    let total = 0
+    // Stacked-source height: sum of every per-source segment in this
+    // bucket. Drives the axis when the chart is in stacked mode
+    // (traffic sources split the bar).
+    let stackedSum = 0
     for (const sk of sourceKeys) {
       const v = row[`src_${sk.key}`]
-      if (typeof v === 'number') total += v
+      if (typeof v === 'number') stackedSum += v
     }
-    if (total > max) max = total
+    // `total` is the per-bucket primary aggregate, carried on every
+    // row. It's what the SINGLE bar is plotted against in single-bar
+    // mode — which is exactly the case for connection metrics
+    // (Stripe Gross, PostHog event count) that have NO source
+    // breakdown, so `sourceKeys` is empty and `stackedSum` stays 0.
+    // Without folding `total` in here the axis collapsed to the
+    // `max <= 0 → return 4` fallback, capping the left axis at "$4"
+    // regardless of the real values. In stacked mode the two are
+    // equal (sources sum to the total) so taking the larger is
+    // correct either way.
+    const totalVal = typeof row.total === 'number' ? row.total : 0
+    const rowMax = Math.max(stackedSum, totalVal)
+    if (rowMax > max) max = rowMax
   }
   if (max <= 0) return 4
   return Math.max(4, Math.ceil(max / 4) * 4)
@@ -310,17 +344,38 @@ interface BarTooltipProps {
   sourceKeys: SourceKeyMeta[]
   primaryMetric: OverviewPrimaryMetric
   secondaryMetric: OverviewSecondaryMetric
+  primaryDisplay: { label: string; isCurrency: boolean } | null
+  secondaryDisplay: { label: string; isCurrency: boolean } | null
 }
 
-function BarTooltipCard({ bucket, sourceKeys, primaryMetric, secondaryMetric }: BarTooltipProps) {
-  const total = bucket.bySource.reduce((acc, s) => acc + s.value, 0)
+function BarTooltipCard({ bucket, sourceKeys, primaryMetric, secondaryMetric, primaryDisplay, secondaryDisplay }: BarTooltipProps) {
+  // When a connection-sourced primary is active, `bucket.bySource`
+  // is intentionally empty (see `ViewCardOverviewChartConnected`).
+  // The legacy `bySource.reduce` would render 0 in that case, so
+  // fall back to `bucket.total` which the wrapper sets to the
+  // connection series value. For the predefined path the two
+  // numbers agree (total = sum of sources) so this is a no-op.
+  const total = primaryDisplay
+    ? bucket.total
+    : bucket.bySource.reduce((acc, s) => acc + s.value, 0)
   const secondary = bucket.secondary
-  const hasSecondary = secondary != null && secondaryMetric != null
+  const hasSecondary =
+    secondary != null && (secondaryDisplay != null || secondaryMetric != null)
+  const primaryLbl = primaryDisplay?.label ?? primaryLabel(primaryMetric)
+  const secondaryLbl =
+    secondaryDisplay?.label ?? (secondaryMetric ? secondaryLabel(secondaryMetric) : '')
 
   // Derived: revenue-per-visitor is the only cross-metric ratio that makes sense
   // with current data (primary=visitors + secondary=revenue). More can be added
   // here as new metric combinations are introduced.
+  //
+  // Gated on the PREDEFINED metric path (no connection override on either
+  // axis). Once a connection metric is driving either axis the bucket totals
+  // no longer carry the visitor/revenue semantics this ratio assumes, and
+  // dividing them would print a nonsense number.
   const showRevPerVisitor =
+    !primaryDisplay &&
+    !secondaryDisplay &&
     primaryMetric === 'visitors' &&
     secondaryMetric === 'revenue' &&
     hasSecondary &&
@@ -343,10 +398,12 @@ function BarTooltipCard({ bucket, sourceKeys, primaryMetric, secondaryMetric }: 
         <div className="flex items-center justify-between gap-6">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-sm bg-grey-darkest shrink-0" />
-            <span className="text-grey-darkest font-medium">{primaryLabel(primaryMetric)}</span>
+            <span className="text-grey-darkest font-medium">{primaryLbl}</span>
           </div>
           <span className="tabular-nums font-semibold text-grey-darkest">
-            {formatPrimary(total, primaryMetric)}
+            {primaryDisplay
+              ? (primaryDisplay.isCurrency ? formatDollars(total) : total.toLocaleString())
+              : formatPrimary(total, primaryMetric)}
           </span>
         </div>
         {hasSecondary && (
@@ -356,10 +413,16 @@ function BarTooltipCard({ bucket, sourceKeys, primaryMetric, secondaryMetric }: 
                 className="w-2 h-2 rounded-sm shrink-0"
                 style={{ backgroundColor: SECONDARY_COLOR }}
               />
-              <span className="text-grey-darkest font-medium">{secondaryLabel(secondaryMetric)}</span>
+              <span className="text-grey-darkest font-medium">{secondaryLbl}</span>
             </div>
             <span className="tabular-nums font-semibold text-grey-darkest">
-              {formatSecondaryValue(secondary, secondaryMetric)}
+              {secondaryDisplay
+                ? (secondaryDisplay.isCurrency
+                  ? formatDollars(secondary)
+                  : secondary.toLocaleString())
+                : secondaryMetric
+                  ? formatSecondaryValue(secondary, secondaryMetric)
+                  : secondary.toLocaleString()}
             </span>
           </div>
         )}
@@ -539,6 +602,8 @@ export function OverviewChart({
   nowLabel,
   swapped = false,
   externalHoveredSourceKey = null,
+  primaryDisplay = null,
+  secondaryDisplay = null,
 }: OverviewChartProps) {
   const { rows, sourceKeys } = useMemo(() => buildRows(data.buckets), [data.buckets])
   const yMax = useMemo(() => computeYMax(rows, sourceKeys), [rows, sourceKeys])
@@ -693,7 +758,16 @@ export function OverviewChart({
       <ResponsiveContainer width="100%" height="100%" minHeight={1} minWidth={1}>
         <ComposedChart
           data={rows}
-          margin={{ top: 6, right: hasOverlay ? 8 : 0, left: 0, bottom: 0 }}
+          /* `bottom: 8` reserves a thin band below the X-axis labels
+             inside the SVG so they don't read as flush against the
+             card edge. Previously `bottom: 0` left the labels
+             touching the SVG bottom — combined with the chart's
+             outer `p-4` (16 px) it was only ~16 px to the next grid
+             row, which read as "no gap" against the dense composite
+             layout in `<ProjectView>`. 8 px is small enough not to
+             noticeably shrink the plot area while giving the chart
+             clear visual termination. */
+          margin={{ top: 6, right: hasOverlay ? 8 : 0, left: 0, bottom: 8 }}
           onMouseMove={handleChartMouseMove}
           onMouseLeave={handleChartMouseLeave}
         >
@@ -746,9 +820,16 @@ export function OverviewChart({
             tick={{ fontSize: 11, fill: AXIS_TICK_COLOR }}
             axisLine={false}
             tickLine={false}
-            tickFormatter={(v: number) =>
-              primaryMetric === 'revenue' ? formatDollarsShort(v) : yAxisFormatter(v)
-            }
+            tickFormatter={(v: number) => {
+              // Connection override (e.g. Stripe Gross Volume) wins over
+              // the predefined metric. `isCurrency` covers Stripe gross /
+              // MRR — any future currency-typed connection metric just
+              // sets the flag, no new branches needed here.
+              if (primaryDisplay) {
+                return primaryDisplay.isCurrency ? formatDollarsShort(v) : yAxisFormatter(v)
+              }
+              return primaryMetric === 'revenue' ? formatDollarsShort(v) : yAxisFormatter(v)
+            }}
             domain={[0, yMax]}
             ticks={[0, yMax / 4, yMax / 2, (yMax * 3) / 4, yMax]}
           />
@@ -762,6 +843,13 @@ export function OverviewChart({
               axisLine={false}
               tickLine={false}
               tickFormatter={(v: number) => {
+                // Connection override (e.g. PostHog event count) wins
+                // over the predefined secondary metric — `isCurrency`
+                // is false for counter-style overlays, true for
+                // dollar-denominated ones like Stripe Gross Volume.
+                if (secondaryDisplay) {
+                  return secondaryDisplay.isCurrency ? formatDollarsShort(v) : yAxisFormatter(v)
+                }
                 if (secondaryMetric === 'conversion_rate' || secondaryMetric === 'bounce_rate') {
                   return `${Math.round(v * 100)}%`
                 }
@@ -1021,6 +1109,8 @@ export function OverviewChart({
               sourceKeys={sourceKeys}
               primaryMetric={primaryMetric}
               secondaryMetric={secondaryMetric}
+              primaryDisplay={primaryDisplay}
+              secondaryDisplay={secondaryDisplay}
             />
           )}
         </div>

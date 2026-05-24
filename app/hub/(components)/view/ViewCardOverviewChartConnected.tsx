@@ -71,6 +71,14 @@ interface ViewCardOverviewChartConnectedProps {
    * straight through to the underlying `<ViewCardOverviewChart>`.
    */
   externalHoveredSourceKey?: string | null
+  /**
+   * Wrap the tile in the standard view chrome (border + shadow).
+   * `<ProjectView>` passes `true` for `custom_chart` views so they
+   * look like every other regular tile in the grid, and omits it
+   * (defaults to `false`) for the `project_overview` composite
+   * chart half — that one stays borderless by design.
+   */
+  withChrome?: boolean
 }
 
 export function ViewCardOverviewChartConnected({
@@ -83,6 +91,7 @@ export function ViewCardOverviewChartConnected({
   onPin,
   chromeless,
   externalHoveredSourceKey = null,
+  withChrome = false,
 }: ViewCardOverviewChartConnectedProps) {
   const initialConfig = useMemo(() => readConfig(view), [view])
   const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric>(
@@ -118,9 +127,20 @@ export function ViewCardOverviewChartConnected({
     secondaryMetric,
   })
 
-  // Fetch the secondary connection series in parallel with the main
-  // chart fetch. `enabled` gates this so we don't spend a network
-  // round-trip when the user is on a predefined secondary metric.
+  // Fetch primary + secondary connection series in parallel with
+  // the main chart fetch. Each `enabled` gate prevents a wasted
+  // round-trip when the corresponding axis is on a predefined
+  // metric (the common case). Both hooks share the same mode +
+  // dateFrom/dateTo so their bucket count matches the main fetch
+  // and the index-aligned merge below is safe.
+  const primaryConnSeries = useConnectionMetricSeries({
+    metric: primaryConnectionMetric ?? null,
+    dateFrom,
+    dateTo,
+    mode,
+    tz,
+    enabled: !!primaryConnectionMetric,
+  })
   const secondaryConnSeries = useConnectionMetricSeries({
     metric: secondaryConnectionMetric ?? null,
     dateFrom,
@@ -130,43 +150,92 @@ export function ViewCardOverviewChartConnected({
     enabled: !!secondaryConnectionMetric,
   })
 
-  // Compose the chart that goes into the presentation component:
-  // when a secondary connection metric is set AND its series has
-  // landed, replace each bucket's `.secondary` with the connection
-  // series' value at the same INDEX. Index-aligned merge holds
-  // because both fetches share the same (mode, dateFrom, dateTo)
-  // → identical bucket count.
+  // Compose the chart that goes into the presentation component.
   //
-  // When the series hasn't loaded yet we leave the original
-  // `secondary` in place so the chart doesn't flash "empty
-  // overlay" during the fetch. When the series errors out we
-  // null the overlay (so it renders as "no data" rather than the
-  // stale predefined value).
+  // Two independent overrides apply on top of the project-overview
+  // base payload (which always carries the predefined-metric series
+  // with source breakdown):
+  //
+  //   - PRIMARY override (when `primaryConnectionMetric` is set):
+  //     replace each bucket's `.total` with the connection series'
+  //     value at the same INDEX, and clear `.bySource = []`.
+  //     Clearing the source list flips `<OverviewChart>` from
+  //     stacked-source bars to a single gradient bar — connection
+  //     metrics (Stripe Gross, PostHog event count, etc.) don't
+  //     have a source breakdown, so the stacked rendering would
+  //     just be misleading "leftover" visitor segments. Also bump
+  //     `totalPrimary` to the connection series' sum so the
+  //     header "Total: N" reflects what's actually being plotted.
+  //
+  //   - SECONDARY override (when `secondaryConnectionMetric` is
+  //     set): replace each bucket's `.secondary` with the
+  //     connection series' value. Same index-aligned merge.
+  //
+  // Each override is independent — the user can pick a connection
+  // metric for the primary axis only, the secondary only, or both.
+  //
+  // Loading: leave the previous payload in place so the chart
+  // doesn't flash empty during the fetch. Error: explicitly null
+  // the affected axis so it renders as "no data" rather than the
+  // stale predefined value.
   const composedChart = useMemo(() => {
     if (!chart) return chart
-    if (!secondaryConnectionMetric) return chart
-    if (secondaryConnSeries.loading) return chart
-    if (secondaryConnSeries.error || !secondaryConnSeries.points) {
-      return {
-        ...chart,
-        buckets: chart.buckets.map(b => ({ ...b, secondary: null })),
-        totalSecondary: null,
-        secondaryUnavailable: true,
+    let next = chart
+
+    if (primaryConnectionMetric && !primaryConnSeries.loading) {
+      if (primaryConnSeries.error || !primaryConnSeries.points) {
+        next = {
+          ...next,
+          buckets: next.buckets.map(b => ({ ...b, total: 0, bySource: [] })),
+          totalPrimary: 0,
+          primaryUnavailable: true,
+        }
+      } else {
+        const series = primaryConnSeries.points
+        const merged = next.buckets.map((b, i) => ({
+          ...b,
+          total: series[i]?.value ?? 0,
+          // Connection metrics are a single series — no source
+          // breakdown exists. Clearing this drops the chart into
+          // single-bar (gradient) render mode.
+          bySource: [],
+        }))
+        const total = series.reduce((sum, p) => sum + (p.value ?? 0), 0)
+        next = {
+          ...next,
+          buckets: merged,
+          totalPrimary: total,
+          primaryUnavailable: false,
+        }
       }
     }
-    const series = secondaryConnSeries.points
-    const merged = chart.buckets.map((b, i) => ({
-      ...b,
-      secondary: series[i]?.value ?? null,
-    }))
-    const total = series.reduce((sum, p) => sum + (p.value ?? 0), 0)
-    return {
-      ...chart,
-      buckets: merged,
-      totalSecondary: total,
-      secondaryUnavailable: false,
+
+    if (secondaryConnectionMetric && !secondaryConnSeries.loading) {
+      if (secondaryConnSeries.error || !secondaryConnSeries.points) {
+        next = {
+          ...next,
+          buckets: next.buckets.map(b => ({ ...b, secondary: null })),
+          totalSecondary: null,
+          secondaryUnavailable: true,
+        }
+      } else {
+        const series = secondaryConnSeries.points
+        const merged = next.buckets.map((b, i) => ({
+          ...b,
+          secondary: series[i]?.value ?? null,
+        }))
+        const total = series.reduce((sum, p) => sum + (p.value ?? 0), 0)
+        next = {
+          ...next,
+          buckets: merged,
+          totalSecondary: total,
+          secondaryUnavailable: false,
+        }
+      }
     }
-  }, [chart, secondaryConnectionMetric, secondaryConnSeries])
+
+    return next
+  }, [chart, primaryConnectionMetric, primaryConnSeries, secondaryConnectionMetric, secondaryConnSeries])
 
   const handleMetricChange = (next: ProjectOverviewChartConfig) => {
     setPrimaryMetric(next.primaryMetric)
@@ -199,7 +268,7 @@ export function ViewCardOverviewChartConnected({
         secondaryConnectionMetric={secondaryConnectionMetric}
         onMetricChange={handleMetricChange}
         chart={composedChart}
-        loading={loading || secondaryConnSeries.loading}
+        loading={loading || primaryConnSeries.loading || secondaryConnSeries.loading}
         error={error}
         onRefresh={refresh}
         onOpenConversions={() => setConversionsOpen(true)}
@@ -218,6 +287,7 @@ export function ViewCardOverviewChartConnected({
            this wrapper, so they keep the fixed-height behavior. */
         fillHeight
         externalHoveredSourceKey={externalHoveredSourceKey}
+        withChrome={withChrome}
       />
       <ProjectConversionsDialog
         projectId={view.projectId}
