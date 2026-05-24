@@ -246,7 +246,19 @@ const ConnectSection = () => {
 
   const PreviewCard = (
     <div className="dashboard w-full rounded-2xl border-2 border-white/50 bg-white/10 backdrop-blur-sm overflow-hidden p-4">
-      <div className="w-full min-h-[300px] md:min-h-[420px] rounded-xl overflow-hidden p-3 flex items-center justify-center">
+      {/* Mobile: FIXED height (`h-[340px]`) rather than `min-h`, so
+          the auto-cycling carousel can't resize this box as slides of
+          different heights swap in — without it the tallest slide
+          (the "coming soon" badge + 4-tile grid ≈ 336px incl. padding)
+          grew the container past the 300px floor every couple seconds,
+          shoving everything below up and down. 340px clears the
+          tallest slide so nothing clips. Desktop is unchanged:
+          `md:h-auto` drops the fixed height and `md:min-h-[420px]`
+          restores the original floor-only behaviour (it was already
+          stable there). Content stays vertically centred via the
+          flex utilities, so shorter slides sit nicely in the fixed
+          box. */}
+      <div className="w-full h-[340px] md:h-auto md:min-h-[420px] rounded-xl overflow-hidden p-3 flex items-center justify-center">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeIndex}
