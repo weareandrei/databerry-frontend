@@ -29,7 +29,7 @@ export default function VideoSection() {
         <div className="mx-auto w-full max-w-5xl">
           <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-gray-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
             <iframe
-              src="https://www.youtube.com/embed/v0SC3OEPHnk?si=ovLtrndFvGIKdyed"
+              src="https://www.youtube.com/embed/YptDji8Wc5A"
               title="Databerry demo"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerPolicy="strict-origin-when-cross-origin"
