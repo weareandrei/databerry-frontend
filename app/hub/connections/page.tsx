@@ -2,15 +2,15 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import {
-  PlugsConnected,
+  SquaresFour,
   Trash,
   Plus,
   ArrowsClockwise,
-  CaretDown,
+  CaretRight,
   Check,
-  Cube,
   DotsThreeVertical,
 } from '@phosphor-icons/react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
@@ -20,6 +20,9 @@ import { useOAuthCallback } from '@/hooks/useOAuthCallback'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { ConnectionDetailModal } from '@/app/hub/(components)/modals/ConnectionDetailModal'
 import { StripeProductPicker } from '@/app/hub/connections/(modals)/StripeProductPicker'
+import { AddMcpConnectionModal } from '@/app/hub/connections/(modals)/AddMcpConnectionModal'
+import { ProjectScopePill } from '@/app/hub/connections/(components)/ProjectScopePill'
+import { Cpu } from '@phosphor-icons/react'
 import { ALGORITHM, type GAProperty } from '@/lib/api'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -31,7 +34,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import type { Connection } from '@/types/connection'
-import type { Project } from '@/types/project'
 
 function OAuthCallbacks() {
   useOAuthCallback('stripe')
@@ -195,79 +197,20 @@ function GoogleAnalyticsPropertyPicker() {
   )
 }
 
-// ── Project-scope pill ──────────────────────────────────────────────────────
-//
-// Renders the "Common" / project-name badge AS the dropdown trigger so users
-// can change the project assignment by clicking the pill itself — the
-// affordance the badge already implies. Previously the trigger was a separate
-// 14px ⇄ icon next to the row's trash button: too discreet, users couldn't
-// find it. We keep the existing visual style (border-stroke pill) and add a
-// caret hint to signal "this opens a menu". Clicks stopPropagation so the
-// row's onClick (detail modal) doesn't also fire.
-
-function ProjectScopePill({
-  connection,
-  projectName,
-  projects,
-  onReassign,
-}: {
-  connection: Connection
-  projectName: string
-  projects: Project[]
-  onReassign: (projectId: string | null) => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        onClick={e => e.stopPropagation()}
-        className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0 hover:bg-main hover:text-grey-darkest transition-colors cursor-pointer aria-expanded:bg-main aria-expanded:text-grey-darkest"
-        title="Click to reassign to a different project"
-      >
-        <Cube size={9} weight="bold" />
-        <span>{projectName}</span>
-        <CaretDown size={9} weight="bold" className="opacity-60" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        onClick={e => e.stopPropagation()}
-        className="min-w-[220px]"
-      >
-        <DropdownMenuItem
-          onClick={e => {
-            e.stopPropagation()
-            onReassign(null)
-          }}
-          className="gap-2 text-sm"
-        >
-          <span className="w-4 shrink-0">
-            {connection.projectId == null && <Check size={12} weight="bold" />}
-          </span>
-          <span className="flex-1">Common (shared)</span>
-        </DropdownMenuItem>
-        {projects.map(p => (
-          <DropdownMenuItem
-            key={p.id}
-            onClick={e => {
-              e.stopPropagation()
-              onReassign(p.id)
-            }}
-            className="gap-2 text-sm"
-          >
-            <span className="w-4 shrink-0">
-              {connection.projectId === p.id && <Check size={12} weight="bold" />}
-            </span>
-            <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
-            <span className="flex-1 truncate">{p.name}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 export default function ConnectionsPage() {
+  const router = useRouter()
   const { connections, projects: projectsCtx } = useDashboard()
   const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null)
+  // MCP add-modal lives at the page level so it's a sibling of the
+  // section it's launched from — keeps it out of the connections list
+  // re-render cycle and lets the BottomDialog's portal target stay
+  // stable across opens.
+  const [mcpModalOpen, setMcpModalOpen] = useState(false)
+  // Split the connections array: regular ones go in the existing
+  // section (top); MCP ones go in their own section (bottom). One
+  // pass, no extra renders.
+  const regularConnections = connections.connections.filter(c => c.type !== 'mcp')
+  const mcpConnections = connections.connections.filter(c => c.type === 'mcp')
 
   return (
     /*
@@ -312,12 +255,47 @@ export default function ConnectionsPage() {
         }}
       />
 
+      {/* Mobile-only "MCP Connections" nav pill. Routes to the
+          dedicated `/hub/connections/mcp` subpage — same pattern as
+          tapping a project on mobile home opening
+          `/hub/project/[id]`. Splits the cognitive load: on a phone
+          the user sees one list at a time, with a clear affordance
+          to switch. Hidden on desktop, where vertical space lets
+          both lists coexist on the same page. Sits ABOVE the
+          regular connections card so it's the first thing the user
+          sees when they arrive — same priority MCP has on desktop
+          (its own dedicated card). */}
+      <button
+        type="button"
+        onClick={() => router.push('/hub/connections/mcp')}
+        className="md:hidden flex items-center gap-3 mb-3 rounded-xl border border-stroke bg-white shadow-card px-4 py-3 cursor-pointer hover:bg-hover-fill transition-colors text-left"
+      >
+        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-main border border-stroke shrink-0">
+          <Cpu size={16} weight="bold" className="text-grey-darkest" />
+        </span>
+        <span className="flex-1 min-w-0">
+          <span className="block text-sm font-semibold text-grey-darkest leading-tight">
+            MCP Connections
+          </span>
+          <span className="block text-[11px] text-grey-light leading-tight mt-0.5">
+            {mcpConnections.length === 0
+              ? 'Connect any MCP server to Databerry.'
+              : `${mcpConnections.length} connected — manage or add more.`}
+          </span>
+        </span>
+        <CaretRight
+          size={14}
+          weight="bold"
+          className="text-grey-light shrink-0"
+        />
+      </button>
+
       <div className="flex flex-col rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
         <div className="hidden md:block">
           <SectionHeader
             icon={
               <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                <PlugsConnected size={14} weight="bold" className="text-grey-darkest" />
+                <SquaresFour size={14} weight="bold" className="text-grey-darkest" />
               </span>
             }
             title={<span className="text-base font-bold text-grey-darkest">Connections</span>}
@@ -341,13 +319,13 @@ export default function ConnectionsPage() {
           <div className="flex items-center justify-center py-8">
             <ArrowsClockwise size={16} weight="bold" className="text-muted-foreground animate-spin" />
           </div>
-        ) : connections.connections.length === 0 ? (
+        ) : regularConnections.length === 0 ? (
           <p className="text-sm text-grey-light px-4 py-5">
             No connections yet.
           </p>
         ) : (
           <div className="divide-y divide-stroke">
-            {connections.connections.map(connection => {
+            {regularConnections.map(connection => {
               // Resolve the project label. null == "Common" (shared across
               // every project this user owns). Type-specific pills
               // (gaPropertyName, vercelProjectName) live in the detail modal
@@ -432,6 +410,134 @@ export default function ConnectionsPage() {
           </div>
         )}
       </div>
+
+      {/* ── MCP Connections ────────────────────────────────────────
+          Sibling section below the main Connections card, same chrome
+          (rounded white card + sticky-style header), but the add
+          button opens the MCP-specific `BottomDialog` form instead of
+          the generic create-connection picker. The list is filtered
+          on `type === 'mcp'` so MCP servers never bleed into the
+          regular Connections section above (and vice versa).
+
+          Why a separate section rather than reusing the existing
+          modal: MCP is a generic "any remote server" connector with
+          a flat form (URL + auth), and rolling it into the picker
+          would conflate "I want to add Stripe" (vendor-specific
+          OAuth/keys) with "I want to add an arbitrary MCP endpoint."
+          Visually separating them keeps the mental model clean.
+
+          DESKTOP ONLY (`hidden md:flex`). On mobile this whole block
+          moves to `/hub/connections/mcp` — the user gets there via
+          the nav pill at the top of this page. Splitting prevents
+          the phone's vertical viewport from competing two lists for
+          attention. */}
+      <div className="hidden md:flex mt-4 flex-col rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
+        <div className="hidden md:block">
+          <SectionHeader
+            icon={
+              <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
+                <Cpu size={14} weight="bold" className="text-grey-darkest" />
+              </span>
+            }
+            title={
+              <span className="text-base font-bold text-grey-darkest">
+                MCP Connections
+              </span>
+            }
+            rightSlot={
+              <Button
+                className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
+                onClick={() => setMcpModalOpen(true)}
+              >
+                <Plus size={14} weight="bold" />
+                Add MCP connection
+              </Button>
+            }
+            className="bg-main"
+          />
+        </div>
+        {/* (Mobile sub-header used to live here. Removed when the
+            MCP section became desktop-only — the dedicated
+            `/hub/connections/mcp` page now owns the mobile UX, with
+            its own `<MobileTopBar>` carrying the title + add button.) */}
+
+        {connections.loading ? (
+          <div className="flex items-center justify-center py-8">
+            <ArrowsClockwise
+              size={16}
+              weight="bold"
+              className="text-muted-foreground animate-spin"
+            />
+          </div>
+        ) : mcpConnections.length === 0 ? (
+          <p className="text-sm text-grey-light px-4 py-5">
+            No MCP connections yet.
+          </p>
+        ) : (
+          <div className="divide-y divide-stroke">
+            {mcpConnections.map(connection => {
+              const projectName = connection.projectId
+                ? projectsCtx.projects.find(p => p.id === connection.projectId)?.name ?? 'Project'
+                : 'Common'
+              return (
+                <div
+                  key={connection.id}
+                  onClick={() => setSelectedConnection(connection)}
+                  className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-main"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ConnectionIcon
+                      type={connection.type}
+                      size={20}
+                      className="text-grey-dark shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-grey-dark truncate">
+                          {connection.name}
+                        </p>
+                        <ProjectScopePill
+                          connection={connection}
+                          projectName={projectName}
+                          projects={projectsCtx.projects}
+                          onReassign={id =>
+                            connections.reassignProject(connection.id, id)
+                          }
+                        />
+                      </div>
+                      {/* MCP row shows the server URL underneath the
+                          name (instead of the generic "Connected on …"
+                          line) — the URL is the identifying piece of
+                          info for an MCP connection, much more useful
+                          than the creation date. */}
+                      <p className="text-xs text-grey-light truncate">
+                        {connection.mcpServerUrl ?? 'MCP'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (confirm(`Delete "${connection.name}"?`)) {
+                          connections.deleteConnection(connection.id)
+                        }
+                      }}
+                      aria-label="Delete connection"
+                      className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-grey-darkest hover:bg-black/[0.06] transition-colors"
+                    >
+                      <Trash size={14} weight="bold" />
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <AddMcpConnectionModal open={mcpModalOpen} onOpenChange={setMcpModalOpen} />
       </div>
     </>
   )

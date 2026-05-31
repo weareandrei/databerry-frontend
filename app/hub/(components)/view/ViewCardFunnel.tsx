@@ -632,8 +632,13 @@ export function ViewCardFunnel({
           }
         />
 
-        {/* Value-mode body — compact "from/to + percentage + count"
-            tile. Chart-mode body — the step-by-step bar layout. */}
+        {/* Value- and chart-mode bodies wrapped in a single
+            `data-no-dnd` marker (display: contents so it has zero
+            layout impact — flex children of `<ViewWrapper>` behave
+            as if the wrapper isn't there). Dragging inside the funnel
+            shouldn't start a tile drag; the header + outer padding
+            remain the drag surface. See `FilteredPointerSensor`. */}
+        <div data-no-dnd="true" style={{ display: 'contents' }}>
         {isValueMode ? (
           loading ? (
             <div className="flex items-center gap-1.5 px-4 pb-4 pt-3">
@@ -695,6 +700,7 @@ export function ViewCardFunnel({
             ) : null}
           </>
         )}
+        </div>
       </ViewWrapper>
 
       <ReassignConnectionDialog

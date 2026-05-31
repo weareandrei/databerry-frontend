@@ -123,7 +123,10 @@ export function ViewCardList({
         onUpdated={onConnectionAssigned}
       />
 
-      <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">
+      {/* Body marked `data-no-dnd` so dragging inside doesn't start a
+          tile drag — header + outer padding stay the drag surface.
+          See `FilteredPointerSensor`. */}
+      <div data-no-dnd="true" className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">
         {historical ? (
           <p className="text-xs text-muted-foreground py-2">
             Live data only — unavailable for past dates.

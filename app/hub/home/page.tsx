@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useSelector } from 'react-redux'
 import { MagnifyingGlass, X } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -10,12 +11,21 @@ import { GlobalDateModeDropdown } from '@/app/hub/home/(components)/GlobalDateCh
 import { ProjectsGrid } from '@/app/hub/home/(components)/ProjectsGrid/ProjectsGrid'
 import PinnedViews from "@/app/hub/home/(components)/PinnedViews";
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
+import { DashboardAgentSwitch, type SwitchValue } from '@/app/hub/home/(components)/DashboardAgentSwitch'
+import { AgentChatBody } from '@/app/hub/agent-chat/AgentChatBody'
 import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
 import { MobileHomeBody } from '@/app/hub/(components)/mobile/MobileHomeBody'
 
 export default function HomePage() {
   const { projects: projectsCtx, pins: pinsCtx } = useDashboard()
   const [query, setQuery] = useState('')
+  // The Dashboard / Ask-agent switch at the top of the page toggles
+  // this. We don't route between two pages — we keep the same URL
+  // (`/hub/home`) and swap the BODY component below with a short
+  // fade. `framer-motion`'s `AnimatePresence mode="wait"` runs the
+  // exit anim of the current body before mounting the next, giving
+  // the user a clear visual signal that the page surface changed.
+  const [view, setView] = useState<SwitchValue>('dashboard')
 
   // ── Search ──────────────────────────────────────────────────────────
   //
@@ -142,46 +152,158 @@ export default function HomePage() {
         space in this flex column — `<MobileHomeBody>`'s `flex-1
         overflow-y-auto` fills the entire content area below the bar.
       */}
-      <div className="md:hidden flex-1 flex flex-col bg-main">
+      {/* Definite-height wrapper on mobile. The hub layout's
+          `<main>` is `min-h-screen pt-[60px]` (the 60 px reserves
+          space for the fixed `<MobileTopBar>`), which lets the
+          element GROW beyond the viewport — fine for a long
+          dashboard list (scrolls the page), but lethal for the
+          agent surface, where the `flex-1 min-h-0` chain can't
+          shrink without a definite-height ancestor. Pinning the
+          wrapper to `calc(100dvh - 60px)` — the visible viewport
+          minus the topbar gutter — anchors the chain so that:
+          (1) the switch + chat chrome stay put,
+          (2) the messages get an actual `overflow-y-auto` scroll
+              instead of overflowing the page.
+          `100dvh` (dynamic viewport height) automatically resizes
+          when the mobile browser chrome (URL bar) shows/hides, and
+          also when the on-screen keyboard pops up — input stays
+          in view, messages just shrink to compensate. */}
+      <div className="md:hidden h-[calc(100dvh-60px)] flex flex-col bg-main">
         <MobileTopBar variant="home" />
-        <MobileHomeBody />
+        {/* Switch row sits right below the fixed topbar, using the
+            same horizontal padding (`px-4`) as the content below so
+            it ends up flush with the pinned/projects cards. Full
+            width so it visually spans the same column as everything
+            beneath it. `shrink-0` so it keeps its auto height when
+            the parent constraint tightens (e.g. keyboard pops up). */}
+        <div className="shrink-0 px-4 pt-4 pb-3">
+          <DashboardAgentSwitch
+            value={view}
+            onChange={setView}
+            fullWidth
+          />
+        </div>
+        {/* Body swap — same `AnimatePresence mode="wait"` pattern as
+            desktop so the surface change reads consistently across
+            form factors. Agent on mobile uses the same
+            `<AgentChatBody>` (without its own chrome — the
+            topbar+switch above own that role here). */}
+        <AnimatePresence mode="wait" initial={false}>
+          {view === 'agent' ? (
+            <motion.div
+              key="mobile-agent"
+              className="flex-1 min-h-0 flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <AgentChatBody />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="mobile-dashboard"
+              className="flex-1 min-h-0 flex flex-col"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <MobileHomeBody />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ─── Desktop layout (md+) — UNCHANGED from pre-mobile ────── */}
       <div className="hidden md:flex h-screen flex-col">
-      {/* Top bar — fixed at top of the column, no border, no sticky. */}
+      {/* Top bar — fixed at top of the column, no border, no sticky.
+          Left-to-right: Dashboard/Ask-agent switch (always visible),
+          then a group containing the search bar + period + mode
+          pickers. The group fades out when the user flips to "Ask
+          agent" since none of those controls drive the chat — only
+          the switch remains, anchored on the left. */}
       <div className="shrink-0 flex items-center gap-4 pt-6 pb-2 pr-6 bg-main">
-        <div className="flex-1 flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 shadow-sm">
-          <MagnifyingGlass size={15} weight="bold" className="text-muted-foreground shrink-0" />
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search projects and pinned views…"
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-          {/* Clear button — only appears once there's something to
-              clear. `aria-label` for screen readers since the X glyph
-              isn't self-describing. */}
-          {isSearching && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              aria-label="Clear search"
-              className="shrink-0 text-muted-foreground hover:text-grey-darkest transition-colors"
+        <DashboardAgentSwitch value={view} onChange={setView} />
+        {/* Dashboard-only tools. `AnimatePresence initial={false}`
+            skips the entry anim on first paint (so the controls
+            don't fade in every page load — only when the user
+            switches back from agent → dashboard). 150 ms fade +
+            small x-translate gives a subtle "slide away" feel
+            without being theatrical. Layout: `flex-1` so the group
+            still expands to fill the space between the switch and
+            the right edge while it's mounted; the internal `gap-4`
+            reproduces the spacing the outer flex used to do
+            between search / period / mode. */}
+        <AnimatePresence initial={false}>
+          {view === 'dashboard' && (
+            <motion.div
+              key="dashboard-tools"
+              className="flex-1 flex items-center gap-4"
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 8 }}
+              transition={{ duration: 0.15 }}
             >
-              <X size={13} weight="bold" />
-            </button>
+              <div className="flex-1 flex items-center gap-3 rounded-xl border bg-white px-4 py-2.5 shadow-sm">
+                <MagnifyingGlass size={15} weight="bold" className="text-muted-foreground shrink-0" />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={e => setQuery(e.target.value)}
+                  placeholder="Search projects and pinned views…"
+                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                />
+                {/* Clear button — only appears once there's something
+                    to clear. `aria-label` for screen readers since
+                    the X glyph isn't self-describing. */}
+                {isSearching && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    aria-label="Clear search"
+                    className="shrink-0 text-muted-foreground hover:text-grey-darkest transition-colors"
+                  >
+                    <X size={13} weight="bold" />
+                  </button>
+                )}
+              </div>
+              <GlobalDateChange />
+              <GlobalDateModeDropdown />
+            </motion.div>
           )}
-        </div>
-        <GlobalDateChange />
-        <GlobalDateModeDropdown />
+        </AnimatePresence>
       </div>
 
-      {/* Scrollable content. `min-h-0` is the flex-child trick that
-          lets `flex-1 overflow-y-auto` actually shrink instead of
-          expanding to fit children's natural height. */}
-      <div className="flex-1 overflow-y-auto min-h-0 pr-6 pb-8">
+      {/* Body — swaps between the dashboard content and the embedded
+          agent chat based on `view`. `AnimatePresence mode="wait"`
+          fades the outgoing body out before the incoming one fades
+          in (~150 ms each side); the URL stays at `/hub/home` either
+          way. The agent body uses a flex-col container (no scroll;
+          the chat manages its own message-stream scroll inside);
+          the dashboard body keeps `overflow-y-auto` for the
+          projects/pins grid. */}
+      <AnimatePresence mode="wait" initial={false}>
+        {view === 'agent' ? (
+          <motion.div
+            key="agent"
+            className="flex-1 min-h-0 flex flex-col"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <AgentChatBody />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="dashboard"
+            className="flex-1 overflow-y-auto min-h-0 pr-6 pb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
         {showWelcome ? (
           <WelcomeEmpty onCreate={() => projectsCtx.openModal()} />
         ) : (
@@ -243,7 +365,9 @@ export default function HomePage() {
             </section>
           </div>
         )}
-      </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
     </>
   )

@@ -9,6 +9,7 @@ import {
   WebhooksLogoIcon,
   PlugsConnected,
   ChartBar,
+  Cpu,
 } from '@phosphor-icons/react'
 
 // Types that have a custom image in /public/connections/
@@ -30,6 +31,10 @@ const TYPE_ICONS: Record<string, React.ElementType> = {
   webhook: WebhooksLogoIcon,
   custom: PlugsConnected,
   composite: ChartBar,
+  // MCP (Model Context Protocol) — no per-provider brand here (it's
+  // a protocol, not a single vendor). `Cpu` reads as "general
+  // tool-calling endpoint" without leaning on any one MCP server.
+  mcp: Cpu,
 }
 
 interface ConnectionIconProps {

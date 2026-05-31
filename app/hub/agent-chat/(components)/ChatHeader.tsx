@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Slim top bar for the Ask-AI page. Visually consistent with the
+ * Slim top bar for the Agent page. Visually consistent with the
  * home page's top bar (`shrink-0 … pt-6 pb-2 pr-6 bg-main`). The
  * "Clear chat" button is hidden until there's actually something
  * to clear.
@@ -20,7 +20,7 @@ export function ChatHeader({ hasMessages, onClear }: ChatHeaderProps) {
     <div className="shrink-0 flex items-center justify-between gap-4 pt-6 pb-3 pr-6">
       <div>
         <h1 className="text-lg font-semibold text-grey-darkest leading-tight">
-          Ask AI
+          Agent
         </h1>
         <p className="text-xs text-muted-foreground mt-0.5">
           Ask anything about your projects and connected data.

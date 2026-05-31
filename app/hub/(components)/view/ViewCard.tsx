@@ -149,7 +149,10 @@ export function ViewCard({
           onUpdated={onConnectionAssigned}
         />
 
-        <div className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">
+        {/* Body marked `data-no-dnd` so dragging from inside the value
+            block doesn't start a tile drag — header + outer padding
+            stay the drag surface. See `FilteredPointerSensor`. */}
+        <div data-no-dnd="true" className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">
           {liveLoading ? (
             <ArrowsClockwise size={14} weight="bold" className="text-muted-foreground animate-spin" />
           ) : needsReattach ? (

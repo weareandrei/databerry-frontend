@@ -1,22 +1,30 @@
 'use client'
 
 /**
- * Input row pinned to the bottom of the chat page. Auto-resizing
- * textarea + brand-coloured send button. Plain Enter inserts a
- * newline; ⌘/Ctrl+Enter submits — matches macOS chat conventions
- * and avoids accidental sends.
+ * Active-chat input pill. Visual language matches the empty-state
+ * input on `<ChatEmpty>` — soft `bg-main` rounded box, brand-orange
+ * `Sparkle` icon top-left, auto-resizing textarea, small brand-orange
+ * square send button bottom-right. The pair (empty + active) reads
+ * as the SAME input that just slides into different surrounding
+ * chrome; the user shouldn't feel like a different control replaced
+ * the one they were typing into.
  *
- * When `showSuggestions` is true, a row of starter prompt chips
- * renders inside the white wrapper, above the input pill. Clicking a
- * chip fills the textarea via `onChange` and the user then submits
- * normally. The chips moved here from the welcome panel because the
- * white wrapper is wide and reads as empty without something above
- * the input.
+ * Enter submits; Shift+Enter inserts a newline — standard chat
+ * platform convention (Slack, ChatGPT, iMessage web). We guard
+ * against IME composition by checking `nativeEvent.isComposing`,
+ * which is the recommended way to detect mid-composition Enter
+ * presses (e.g. Japanese / Chinese input methods finishing a
+ * candidate selection) — without this, a Korean user would lose
+ * the trailing character every time they hit Enter to commit.
+ *
+ * `showSuggestions` is still supported so the InteractableDemo can
+ * surface its preset Q&A chips above the input. In the real chat
+ * the parent never sets it — the active-state footer carries the
+ * MCP chips row instead, which is a separate concept.
  */
 
 import { useEffect, useRef } from 'react'
-import { PaperPlaneTilt } from '@phosphor-icons/react'
-import { Button } from '@/components/ui/button'
+import { ArrowUp, Sparkle } from '@phosphor-icons/react'
 
 const EXAMPLE_PROMPTS = [
   "What's my MRR right now?",
@@ -51,8 +59,8 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
 
   // Auto-resize: shrink to 0 first to remeasure, then grow to
-  // scrollHeight (capped via Tailwind's `max-h-32`). This is the
-  // standard textarea-autoresize pattern.
+  // scrollHeight (capped via the `max-h-40` class). Standard textarea
+  // autoresize pattern.
   useEffect(() => {
     const el = textareaRef.current
     if (!el) return
@@ -63,79 +71,77 @@ export function ChatInput({
   const canSend = value.trim().length > 0 && !sending
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+    // Shift+Enter → newline (let the textarea handle it natively).
+    // Plain Enter → submit, BUT only if the user isn't mid-IME
+    // composition — finishing a CJK candidate also fires Enter, and
+    // submitting there would eat the trailing character.
+    if (
+      e.key === 'Enter' &&
+      !e.shiftKey &&
+      !e.nativeEvent.isComposing
+    ) {
       e.preventDefault()
       if (canSend) onSubmit()
     }
   }
 
   return (
-    /*
-      Two-layer card, mirroring the pinned-views pattern on the home
-      page (white card containing view tiles).
-
-         page bg (cream)
-          └─ wide white wrapper (rounded-xl border shadow-card)  ← outer
-              ├─ grey "view tile" textarea (rounded + border + shadow-sm)  ← inner
-              └─ keyboard hint
-
-      The outer is the same chrome as `<div className="rounded-xl
-      border border-stroke bg-white shadow-card p-5">` that wraps the
-      pinned-views grid. The inner uses a soft grey bg
-      (`bg-black/[0.04]`) plus a subtle border + `shadow-sm` so it
-      reads as a distinct "view tile" embedded in the white card,
-      not just a tinted region. Same depth language as the rest of
-      the dashboard.
-    */
-    <div className="shrink-0 px-4 pt-2 pb-5">
-      {/*
-        White wrapper fills the page column — no max-width — exactly
-        like the pinned-views card on /hub/home (`rounded-xl border
-        border-stroke bg-white shadow-card`, no max-w applied). The
-        only constraint is the parent's px-4 padding.
-      */}
-      <div className="rounded-xl border border-stroke bg-white shadow-card p-4">
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="mb-3">
-            <div className="text-[10px] uppercase tracking-wider text-grey-light font-medium mb-2 px-1">
-              Try asking
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {suggestions.map(p => (
-                <button
-                  key={p}
-                  onClick={() => onChange(p)}
-                  className="text-xs px-3 py-1.5 rounded-full border border-stroke hover:bg-hover-fill text-grey-dark transition-colors"
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+    <div>
+      {showSuggestions && suggestions.length > 0 && (
+        // Suggestion chips sit ABOVE the gray input pill. Only the
+        // demo turns these on today; real chat shows MCP chips in
+        // the parent footer instead.
+        <div className="mb-3">
+          <div className="text-[10px] uppercase tracking-wider text-grey-light font-medium mb-2 px-1">
+            Try asking
           </div>
-        )}
-        <div className="flex items-end gap-2 rounded-xl bg-black/[0.04] border border-black/5 shadow-sm px-4 py-3 focus-within:ring-2 focus-within:ring-brand/30 transition-shadow">
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map(p => (
+              <button
+                key={p}
+                onClick={() => onChange(p)}
+                className="text-xs px-3 py-1.5 rounded-full border border-stroke hover:bg-hover-fill text-grey-dark transition-colors"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Gray input pill — same chrome as `<ChatEmpty>`'s integrated
+          input so the visual identity is consistent across both
+          states. Sparkle (top-left) is decorative AI affordance,
+          ArrowUp (bottom-right) is the send. */}
+      <div className="relative rounded-2xl bg-main border border-stroke px-4 pt-4 pb-3 min-h-[90px]">
+        <div className="flex items-start gap-2.5">
+          <Sparkle
+            size={18}
+            weight="fill"
+            className="text-brand shrink-0 mt-0.5"
+          />
           <textarea
             ref={textareaRef}
             rows={2}
             value={value}
             onChange={e => onChange(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask anything about your data…"
-            className="flex-1 resize-none bg-transparent text-sm outline-none placeholder:text-muted-foreground max-h-40 leading-relaxed py-1"
+            placeholder="Ask anything"
             disabled={sending}
+            className="flex-1 bg-transparent outline-none resize-none text-sm text-grey-darkest placeholder:text-grey-light disabled:opacity-60 max-h-40 leading-relaxed"
           />
-          <Button
-            onClick={() => canSend && onSubmit()}
-            disabled={!canSend}
-            size="icon"
-            className="bg-brand hover:bg-brand/90 text-white rounded-full shrink-0 disabled:opacity-30 disabled:hover:bg-brand"
-          >
-            <PaperPlaneTilt size={14} weight="bold" />
-          </Button>
         </div>
-        <p className="text-[10px] text-muted-foreground text-center mt-2 mb-0.5">
-          ⌘+Enter to send · Enter for new line
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            if (canSend) onSubmit()
+          }}
+          disabled={!canSend}
+          aria-label="Send message"
+          className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-brand text-white hover:bg-brand/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
+        >
+          <ArrowUp size={14} weight="bold" />
+        </button>
       </div>
     </div>
   )

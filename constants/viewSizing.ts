@@ -209,8 +209,15 @@ export function cellSpanClasses(span: CellSpan): string {
  * crush their labels. Adding a 7-col breakpoint later would mean
  * also bumping `max-w-*` on the project body's outer container.
  */
+// `grid-flow-dense` was dropped when drag-to-reorder shipped: dense
+// packing auto-shuffles tiles to fill gaps, which would silently
+// rearrange the manual order the user just dragged. Without it the
+// user's sequence is respected literally — at the cost of occasional
+// gaps when a wide tile follows a narrow one on a row that can't fit
+// it. That trade-off is the right one for an explicitly-ordered grid;
+// gaps are easier to explain than "I dropped it here but it moved."
 export const PROJECT_GRID_CONTAINER_CLASS =
-  'grid gap-y-6 gap-x-4 grid-flow-dense ' +
+  'grid gap-y-6 gap-x-4 ' +
   'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6'
 
 /** Inline style for the grid container — explicit auto-row height

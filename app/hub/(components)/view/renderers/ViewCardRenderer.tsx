@@ -31,6 +31,7 @@
  * it and gets the existing border + shadow.
  */
 
+import { memo } from 'react'
 import {
   isGAChartView,
   isPosthogChartView,
@@ -112,7 +113,7 @@ interface ViewCardRendererProps {
   chromeless?: boolean
 }
 
-export function ViewCardRenderer({
+function ViewCardRendererImpl({
   view,
   isRange,
   dateFrom,
@@ -304,3 +305,22 @@ export function ViewCardRenderer({
     />
   )
 }
+
+/**
+ * `React.memo` wrap so the tile bails out of re-renders when nothing
+ * about the view actually changed. This is what stops the funnel from
+ * appearing to "reload" during drag-and-drop reorders: dnd-kit's
+ * sortable ticks parent renders frequently while a drag is in flight,
+ * and without memoisation every tick recursed all the way down through
+ * every view-card renderer and its data hooks. With memoisation, a
+ * reorder produces ONE re-render per tile that actually moved in the
+ * `views` array (because the `view` object reference is preserved via
+ * `byId.get` in `handleReorder`); idle tiles stay put.
+ *
+ * Memo works only if the parent passes STABLE prop identities — that's
+ * why `<useProjectView>` wraps `onUntrack` / `onPin` /
+ * `onConnectionAssigned` in `useCallback` with refs. Otherwise the
+ * default shallow comparison fails every render and the memo is moot.
+ */
+export const ViewCardRenderer = memo(ViewCardRendererImpl)
+ViewCardRenderer.displayName = 'ViewCardRenderer'

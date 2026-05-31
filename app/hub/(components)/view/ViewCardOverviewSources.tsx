@@ -214,7 +214,7 @@ export function ViewCardOverviewSources({
         </div>
       </div>
 
-      <div className="p-4 min-w-0">
+      <div data-no-dnd="true" className="p-4 min-w-0">
         {tab === 'sources'
           ? renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick, onSourceHover)
           : renderCountries(countries, handleConnectClick)

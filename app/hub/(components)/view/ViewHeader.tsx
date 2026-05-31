@@ -16,6 +16,7 @@ import {
 } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { DragGrip } from './dnd/DragGrip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -166,6 +167,11 @@ export function ViewHeader({
     >
       {compact ? (
         <div className="flex items-center gap-1.5 min-w-0">
+          {/* Drag grip — only renders when this tile is inside a
+              `<SortableTile>` (i.e. the desktop project grid). On
+              demo / mobile / pinned-views surfaces the grip is a no-op
+              and nothing changes visually. */}
+          <DragGrip />
           <ConnectionIcon
             type={connectionType}
             size={14}
@@ -175,6 +181,7 @@ export function ViewHeader({
         </div>
       ) : (
         <div className="flex items-center gap-2 min-w-0">
+          <DragGrip />
           {/*
             Sizing forks on `dense`:
               - default real-dashboard sizing (34 px icon, `text-md`

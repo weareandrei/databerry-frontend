@@ -6,7 +6,7 @@
  * a top-down curtain (same pattern the demo had before, kept
  * verbatim).
  *
- * Nav items: Home / Settings / Ask AI / Connections.
+ * Nav items: Home / Settings / Agent / Connections.
  * Below the nav, a "Projects" section lists each demo project; tapping
  * a project switches to its dedicated project page in the demo. Each
  * project row has a caret to expand the folder list inline.
@@ -21,8 +21,8 @@ import { useState } from 'react'
 import { useMobileBreakpoint } from '@/hooks/useMobileBreakpoint'
 import {
   House,
-  PlugsConnected,
-  Robot,
+  SquaresFour,
+  ChatCircleDots,
   Gear,
   CaretRight,
   Folder,
@@ -270,8 +270,8 @@ function DemoSidebarContents({
 
       <nav className="px-2 space-y-0.5" onClick={e => e.stopPropagation()}>
         <DemoNavItem page="home" label="Home" icon={House} current={pageOpen} onClick={handleNav} />
-        <DemoNavItem page="agent-chat" label="Ask AI" icon={Robot} current={pageOpen} onClick={handleNav} />
-        <DemoNavItem page="connections" label="Connections" icon={PlugsConnected} current={pageOpen} onClick={handleNav} />
+        <DemoNavItem page="agent-chat" label="Agent" icon={ChatCircleDots} current={pageOpen} onClick={handleNav} />
+        <DemoNavItem page="connections" label="Connections" icon={SquaresFour} current={pageOpen} onClick={handleNav} />
         <DemoNavItem page="settings" label="Settings" icon={Gear} current={pageOpen} onClick={handleNav} />
       </nav>
 

@@ -104,7 +104,10 @@ export function ViewCardRetention({
           isPinned={isPinned}
         />
 
-        <div className="px-4 pb-4 mt-2">
+        {/* Body marked `data-no-dnd` so dragging inside doesn't start a
+            tile drag — header + outer padding stay the drag surface.
+            See `FilteredPointerSensor`. */}
+        <div data-no-dnd="true" className="px-4 pb-4 mt-2">
           {loading ? (
             <div className="flex items-center gap-1.5 py-3">
               <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />

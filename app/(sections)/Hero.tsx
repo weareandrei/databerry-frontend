@@ -239,14 +239,18 @@ export function Hero() {
           single dashboard
         </motion.h1>
 
-        {/* Subheader */}
-        <motion.h4
+        {/* Subheader — descriptive body copy, so it's a <p>, not a
+            heading. It was previously `<h4>`, which (a) tagged plain
+            prose as a heading and (b) created an h1→h4 level jump in
+            the document outline. Same visual styling; only the
+            semantic tag changes. */}
+        <motion.p
           {...heroFade(1.2)}
           className="mt-8 max-w-2xl text-base md:text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
           style={{ fontFamily: 'var(--font-inter)' }}
         >
           Built for founders that use too many tools. Connect Stripe, PostHog, Google Analytics, and the rest of your stack. All metrics that matter, side by side.
-        </motion.h4>
+        </motion.p>
 
         {/* CTA — black solid pill wrapped in a 25 %-opacity black
             halo pill, the same "double pill" treatment the

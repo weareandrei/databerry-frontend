@@ -1,90 +1,71 @@
 'use client'
 
 /**
- * Sidebar row that exposes the user's current plan + opens the
- * tier picker. Visually a nav-item lookalike (icon + label on the
- * left, value on the right) so it feels like a peer of Home / Ask
- * AI / Connections / Settings rather than a piece of the profile
- * header — which is where it used to live, awkwardly squeezed
- * under the email.
+ * Sidebar plan card — sits at the bottom of the sidebar, above the
+ * timezone row. Two sections:
  *
- * Owns the `<TierPickerSheet>` instance for the whole dashboard.
- * The shared `useTierPickerListener` bus still works, so limit-
- * error toasts that call `openTierPicker()` from far away pop the
- * sheet open without prop-drilling.
+ *   1. "Upgrade to PRO" banner with a soft brand-orange gradient +
+ *      faint grid texture, and a `>` caret on the right. The whole
+ *      banner is a single click target that goes STRAIGHT to a Pro
+ *      Stripe Checkout session — no tier picker in between.
+ *      Hidden when the user is already on Pro / enterprise /
+ *      custom plan (nothing to upgrade to).
  *
- * Plan-id → badge color is hardcoded in `BADGE_STYLES`. Adding a
- * new plan to `PlanId` should add a matching entry there; missing
- * entries silently fall back to the neutral grey treatment so a
- * new plan never crashes the chrome.
+ *   2. A plain white section with project-usage stats and a
+ *      "Manage plan" button that opens the tier picker (for
+ *      downgrade / billing management / etc.).
+ *
+ * Card chrome (rounded-xl border + shadow-card) matches view
+ * tiles — same border / radius / shadow tokens. The gradient
+ * banner is clipped by the card's `overflow-hidden` so its top
+ * corners round cleanly with the card.
+ *
+ * Owns the `<TierPickerSheet>` instance for the whole dashboard
+ * — the shared `useTierPickerListener` bus still pops it open
+ * from limit-error toasts elsewhere.
  */
 
 import { useCallback, useState } from 'react'
-import { Crown } from '@phosphor-icons/react'
+import { CaretRight } from '@phosphor-icons/react'
+import { toast } from 'sonner'
 import { useAccount } from '@/hooks/useAccount'
 import { usePlans } from '@/hooks/usePlans'
 import { useTierPickerListener } from '@/hooks/useTierPicker'
+import { useDashboard } from '@/contexts/DashboardContext'
 import { TierPickerSheet } from './TierPickerSheet'
+import { ALGORITHM } from '@/lib/api'
 import { EVENT, trackEvent } from '@/lib/posthog'
-import type { PlanId } from '@/constants/plans'
-
-// Per-plan badge palette — anchored to the OverviewChart's stacked-
-// bar palette (`constants/trafficSources.ts`) so the sidebar feels
-// like part of the same visual system the dashboard's charts use,
-// not a different colour world. Each plan gets ONE source hex; the
-// `bg` / `border` / `text` for the pill are derived from it via
-// `color-mix` so we don't have to hand-tune three values per plan.
-//
-// Mapping (intensity rises with tier):
-//   free       → `#C6C6C6` (grey         — chart's neutral "direct/other" bucket)
-//   starter    → `#FFA446` (light orange — bar palette's 3rd slot, slightly
-//                                          darker than the lightest yellow)
-//   pro        → `#FF4852` (deep coral   — bar palette's biggest/bottom slot,
-//                                          the deepest "almost red" hue)
-//   enterprise → `#FF4852` (same as pro — enterprise sits alongside pro at the
-//                                          top of the catalog and rarely
-//                                          renders today; the colour can
-//                                          diverge once a distinct visual
-//                                          identity is wanted for it)
-const PLAN_HEX: Record<PlanId, string> = {
-  free: '#C6C6C6',
-  starter: '#FFA446',
-  pro: '#FF4852',
-  enterprise: '#FF4852',
-}
-const NEUTRAL_HEX = '#C6C6C6'
 
 /**
- * Inline-style triple for a plan's pill — background, border, text.
- * Uses `color-mix` so a single `hex` drives all three derived shades:
- *   - bg: 18 % of the hue mixed with white → soft tint, badge reads
- *         as a label not a hot CTA.
- *   - border: 50 % → defined edge without competing with the bg.
- *   - text: 80 % mixed with BLACK so the hue stays recognisable
- *           while contrast against the soft bg stays readable
- *           (yellow especially — pure `#FFD239` would be illegible).
- *
- * `color-mix` is supported in every evergreen browser since 2023
- * (Chrome 111+, Firefox 113+, Safari 16.2+).
+ * Percentage helper for the usage bars. Clamps at 100 so over-quota
+ * (rare — only when a plan-cap shrinks under the user's feet, or
+ * when a metric like Connections legitimately exceeds the per-type
+ * cap aggregated across types) never renders past the bar's end.
+ * Returns 0 when the denominator is missing or non-positive — the
+ * caller branches on `isUnlimited` to skip the bar entirely in
+ * that case, so a 0 here is a safe sentinel for "limit unknown."
  */
-function planBadgeStyle(planId: PlanId): React.CSSProperties {
-  const hex = PLAN_HEX[planId] ?? NEUTRAL_HEX
-  return {
-    backgroundColor: `color-mix(in srgb, ${hex} 18%, white)`,
-    borderColor: `color-mix(in srgb, ${hex} 50%, white)`,
-    color: `color-mix(in srgb, ${hex} 80%, black)`,
-  }
+function pct(used: number, max: number): number {
+  if (max <= 0) return 0
+  return Math.min(100, Math.round((used / max) * 100))
 }
 
 export function SidebarPlanBadge() {
   const { planId, loading: accountLoading } = useAccount()
   const { plansById } = usePlans()
+  const { projects, views } = useDashboard()
 
-  // Local sheet state. Mirrors the pattern that used to live in
-  // `<SidebarUserProfile>` — single instance per dashboard, opened
-  // either by the local click or by a `openTierPicker()` broadcast
-  // from elsewhere (e.g. plan-limit toasts).
+  // Local sheet state — picker is for billing management ("Manage
+  // plan" button below). The Upgrade-to-Pro banner bypasses the
+  // sheet and hits Stripe Checkout directly, since the intent is
+  // unambiguous (the user clicked an upgrade CTA naming the target
+  // plan; no need to make them re-pick it in the sheet).
   const [tierSheetOpen, setTierSheetOpen] = useState(false)
+  // Stripe Checkout takes a moment to create the session before the
+  // redirect; gate the button on this so a double-tap doesn't fire
+  // two POSTs.
+  const [redirectingToPro, setRedirectingToPro] = useState(false)
+
   const openTracked = useCallback((source: 'plan_row' | 'broadcast') => {
     trackEvent(EVENT.TIER_PICKER_OPENED, { source })
     setTierSheetOpen(true)
@@ -92,50 +73,172 @@ export function SidebarPlanBadge() {
   const handleBroadcast = useCallback(() => openTracked('broadcast'), [openTracked])
   useTierPickerListener(handleBroadcast)
 
-  // Plan name resolution mirrors the previous `<SidebarUserProfile>`
-  // logic: prefer the catalog row (`usePlans()`), fall back to a
-  // title-cased plan id while the fetch is in flight. The catalog is
-  // ~3 rows of public data and usually settles in <500 ms; the
-  // fallback keeps the sidebar from showing a blank chip on first
-  // paint.
   const currentPlan = plansById[planId]
-  const fallbackName = planId.charAt(0).toUpperCase() + planId.slice(1)
-  const planName = currentPlan?.name ?? fallbackName
-  // The badge gets two inline-style merges below: one for the
-  // plan's colour triple (always present), and one for the
-  // first-paint `visibility: hidden` gate (only while account is
-  // loading). Keeping them as separate objects keeps the JSX
-  // readable; React's style merge handles the rest.
-  const badgeColorStyle = planBadgeStyle(planId)
+  // Custom / enterprise plans bypass numeric limits — render an
+  // "Unlimited" affordance in place of the bar.
+  const isUnlimited = currentPlan?.isCustomPlan ?? false
+  // Pro / enterprise already at the top of the ladder → nothing to
+  // upgrade to. Hide the orange banner for them. Free + starter see it.
+  const isTopTier = planId === 'pro' || planId === 'enterprise'
+  const showUpgradeBanner = !isTopTier && !isUnlimited
+
+  // ── Usage metrics — two bars: projects / views ─────────────────
+  // No Connections bar: the plan's `max_connections_per_type` cap
+  // is PER TYPE, not a global ceiling. A single "total / per-type
+  // cap" bar conflates the two — a user with 2 Stripe + 1 PostHog
+  // + 1 GA would render as 4/3 on a Free plan even though every
+  // type is within limits. Modal-level toasts from
+  // `enforceConnectionLimit` already surface the real per-type
+  // state when the user attempts a create.
+  //
+  // Caveats on the two we DO render:
+  //   - `views.views.length` reflects views currently loaded in
+  //     Redux (i.e. for projects the user has visited this session);
+  //     it undercounts when the user hasn't browsed every project
+  //     yet. Fine for an at-a-glance cue.
+  //   - Views ceiling is `maxViewsPerProject × maxProjects` — the
+  //     ABSOLUTE plan ceiling, so the denominator doesn't shift as
+  //     the user creates projects.
+  const projectsUsed = projects.projects.length
+  const maxProjects = currentPlan?.maxProjects ?? 0
+  const projectsPct = pct(projectsUsed, maxProjects)
+
+  const viewsUsed = views.views.length
+  const maxViews =
+    (currentPlan?.maxViewsPerProject ?? 0) * (currentPlan?.maxProjects ?? 0)
+  const viewsPct = pct(viewsUsed, maxViews)
+
+  // Direct Pro checkout — mirrors `<TierPickerSheet>`'s redirect
+  // path (POST → 303-style hard nav to Stripe). Errors surface as
+  // a toast and clear the in-flight flag so the user can retry.
+  const handleUpgradeToProClick = async () => {
+    if (redirectingToPro) return
+    setRedirectingToPro(true)
+    try {
+      const { url } = await ALGORITHM.createCheckoutSession('pro')
+      // Hard nav — Stripe Checkout is an external origin, so a
+      // `router.push` won't work. `assign` (vs `replace`) leaves the
+      // back button useful if Stripe shows them an error page.
+      window.location.assign(url)
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : 'Failed to start checkout'
+      toast.error(message)
+      setRedirectingToPro(false)
+    }
+  }
 
   return (
     <>
-      {/* `px-2` matches the section wrapper used by `<SidebarNavItem>`
-          elsewhere so this row's hover-fill spans the same width as
-          the other nav rows above. The button owns `px-3 py-1.5`
-          internally — identical to `<SidebarNavItem>`'s Link — so the
-          icon + label sit on the same vertical baseline as Home /
-          Ask AI / Connections / Settings. */}
-      <div className="px-2 mb-1">
-        <button
-          type="button"
-          onClick={() => openTracked('plan_row')}
-          disabled={accountLoading}
-          className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-grey-dark hover:bg-hover-fill hover:text-grey-darkest disabled:opacity-60 disabled:cursor-default"
+      <div
+        // Wider side margins on mobile pull the card visibly
+        // narrower than the nav items above — same content, but it
+        // no longer dominates the drawer just because it's the only
+        // multi-section block in there. Desktop stays at `px-2` so
+        // the card sits flush with the rest of the sidebar grid.
+        className="px-6 md:px-2 mb-2"
+        style={accountLoading ? { visibility: 'hidden' } : undefined}
+      >
+        {/* ── Card chrome ──────────────────────────────────────
+            When the upgrade banner is showing, the WHOLE card uses
+            a single linear gradient that starts at our brand orange
+            (`#F46719`) softened with white, and is fully white well
+            before the bottom — so the usage stats + Manage-plan
+            button sit on natural white. Explicit stops control the
+            curve:
+              0%   55 % brand + 45 % white → vibrant brand peach
+                                            (banner area, the part
+                                            you can actually tell
+                                            is orange)
+              25%  35 % brand + 65 % white → softer transition
+              45%  12 % brand + 88 % white → almost white
+              60%  pure white → from here to the bottom
+            Using `color-mix(in srgb, …)` ties the gradient to the
+            brand hex rather than Tailwind's generic orange tokens
+            (which read as pale peach, not "our colour"). Supported
+            in every evergreen browser since 2023. Pro / enterprise
+            / custom users see no banner and get a plain white card
+            — the orange would be misleading on a tier with nothing
+            to upgrade to. */}
+        <div
+          className="rounded-xl border border-stroke shadow-card overflow-hidden"
+          style={
+            showUpgradeBanner
+              ? {
+                  background:
+                    'linear-gradient(to bottom, ' +
+                    'color-mix(in srgb, #F46719 100%, white) 0%, ' +
+                    'color-mix(in srgb, #F46719 34%, white) 18%, ' +
+                    'color-mix(in srgb, #F46719 18%, white) 35%, ' +
+                    '#ffffff 60%)',
+                }
+              : { backgroundColor: '#ffffff' }
+          }
         >
-          <Crown size={16} weight="bold" className="shrink-0" />
-          <span className="flex-1 text-left">Subscription</span>
-          {/* Plan badge — `visibility: hidden` reserves the row's
-              width while `useAccount` resolves so the layout doesn't
-              jump on first paint. Colours come from `planBadgeStyle`
-              (inline CSS using the chart palette + color-mix). */}
-          <span
-            className="inline-flex items-center rounded-full border px-2 py-[1px] text-[10px] font-semibold tracking-wide"
-            style={accountLoading ? { ...badgeColorStyle, visibility: 'hidden' } : badgeColorStyle}
-          >
-            {planName}
-          </span>
-        </button>
+          {showUpgradeBanner && (
+            <button
+              type="button"
+              onClick={handleUpgradeToProClick}
+              disabled={redirectingToPro || accountLoading}
+              // Whole button is the hit target (full width of the
+              // card). `hover:bg-black/[0.04]` darkens the gradient
+              // gently on hover so the entire row visibly responds —
+              // not just the text. `group` lets the caret slide
+              // right a hair on hover for liveliness. `cursor-pointer`
+              // is explicit because some browsers under disabled-
+              // state CSS clear the default button cursor.
+              // No `justify-between`: caret sits right after the
+              // PRO pill via the row-level `gap-2`, so the cluster
+              // reads as one "Upgrade to PRO →" group rather than
+              // having the arrow stranded at the right edge.
+              className="group relative w-full flex items-center gap-2 px-3 py-3 cursor-pointer transition-colors hover:bg-black/[0.04] disabled:cursor-default disabled:hover:bg-transparent"
+              aria-label="Upgrade to Pro"
+            >
+              <span className="text-sm font-bold text-grey-darkest">
+                Upgrade to
+              </span>
+              {/* `PRO` pill — dark grey-darkest background with
+                  white text, matching the reference's black-pill
+                  treatment. `tracking-wider` and uppercase make
+                  the tiny label feel intentional, not cramped. */}
+              <span className="inline-flex items-center rounded-md bg-grey-darkest px-2 py-0.5 text-[11px] font-bold tracking-wider text-white">
+                PRO
+              </span>
+              <CaretRight
+                size={16}
+                weight="bold"
+                className="text-grey-darkest shrink-0 transition-transform duration-150 group-hover:translate-x-0.5"
+              />
+            </button>
+          )}
+
+          {/* ── Usage + Manage plan ──────────────────────────────
+              No internal background colour — the card-level
+              gradient (now white at this point) shows through. */}
+          <div className="p-3">
+            {isUnlimited ? (
+              <p className="text-[11px] text-grey-dark mb-3">
+                Unlimited projects, views &amp; connections
+              </p>
+            ) : (
+              <div className="mb-3 space-y-2">
+                <UsageBar label="Projects" used={projectsUsed} max={maxProjects} pct={projectsPct} />
+                <UsageBar label="Views" used={viewsUsed} max={maxViews} pct={viewsPct} />
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => openTracked('plan_row')}
+              disabled={accountLoading}
+              className="w-full rounded-md border border-stroke bg-white text-grey-darkest text-xs font-semibold py-1.5 transition-colors hover:bg-hover-fill cursor-pointer disabled:opacity-60 disabled:cursor-default"
+            >
+              Manage plan
+            </button>
+          </div>
+        </div>
       </div>
 
       <TierPickerSheet
@@ -144,5 +247,45 @@ export function SidebarPlanBadge() {
         currentPlanId={planId}
       />
     </>
+  )
+}
+
+/**
+ * Tiny row component for one usage metric — label on the left, `used
+ * / max` on the right, thin progress bar underneath. Extracted so the
+ * three metrics stay visually identical (vertical rhythm, type sizes,
+ * bar geometry) without three copies of the JSX in the card body.
+ */
+function UsageBar({
+  label,
+  used,
+  max,
+  pct,
+}: {
+  label: string
+  used: number
+  max: number
+  pct: number
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <span className="text-[11px] text-grey-dark">{label}</span>
+        <span className="text-[11px] font-semibold text-grey-darkest tabular-nums">
+          {used}{' '}
+          <span className="text-grey-light font-normal">/ {max}</span>
+        </span>
+      </div>
+      {/* Greyscale bar — `bg-stroke` track, `bg-grey-dark` fill. Both
+          stock Tailwind tokens; no orange in the bar (the orange
+          lives in the gradient banner above where it earns its keep
+          as a CTA accent). */}
+      <div className="h-1 w-full rounded-full bg-stroke overflow-hidden">
+        <div
+          className="h-full rounded-full bg-grey-dark transition-[width] duration-300 ease-out"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
   )
 }

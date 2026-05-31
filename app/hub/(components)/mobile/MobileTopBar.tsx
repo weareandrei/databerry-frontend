@@ -11,10 +11,10 @@
  *   `page`    →  [☰]  Page title                  [right slot]
  *
  * The `page` variant is the catch-all for non-analytics surfaces
- * (Settings, Connections, Ask AI) — it doesn't render the period
+ * (Settings, Connections, Agent) — it doesn't render the period
  * button (no global-date concept on those pages) and exposes a
  * generic `rightSlot` so each page can hand in its own optional
- * inline action (e.g. `+` on Connections, Trash on Ask AI). When
+ * inline action (e.g. `+` on Connections, Trash on Agent). When
  * `rightSlot` is omitted the right side is empty and the title
  * flexes into it.
  *
@@ -45,10 +45,20 @@ type Variant =
        * Optional inline action — appears on the right where the
        * period button sits in the other variants. Pages pass an
        * icon-only button (e.g. `+` on Connections, Trash on
-       * Ask AI). Settings passes nothing → the right slot is empty
+       * Agent). Settings passes nothing → the right slot is empty
        * and the title flexes into it.
        */
       rightSlot?: React.ReactNode
+      /**
+       * Optional back-button handler. When provided, the left
+       * burger is replaced with a back arrow that fires this
+       * callback — same chrome as the `project` variant. Used by
+       * subpages that nest under a parent screen (e.g.
+       * `/hub/connections/mcp` → `/hub/connections`), so users see
+       * a clear "return to parent" affordance instead of the
+       * generic burger.
+       */
+      onBack?: () => void
     }
 
 type MobileTopBarProps = Variant
@@ -63,12 +73,19 @@ export function MobileTopBar(props: MobileTopBarProps) {
   const [dateOpen, setDateOpen] = useState(false)
   const mode = useSelector((s: RootState) => s.ui.globalDateMode)
 
-  // Left button is the burger on home + page, back-arrow on project.
+  // Left button is the burger on home + page (default), back-arrow
+  // on project, OR back-arrow on a `page` that opted in via `onBack`.
   // Center text shows on project + page; home leaves it empty so the
   // period button flexes into the available space.
   // Right slot is the period button on home + project, or the page's
   // own optional `rightSlot` on the page variant.
-  const showsBurger = props.variant === 'home' || props.variant === 'page'
+  const backHandler: (() => void) | undefined =
+    props.variant === 'project'
+      ? props.onBack
+      : props.variant === 'page'
+        ? props.onBack
+        : undefined
+  const showsBurger = !backHandler
   const centerTitle =
     props.variant === 'project'
       ? props.projectName
@@ -102,7 +119,7 @@ export function MobileTopBar(props: MobileTopBarProps) {
         ) : (
           <button
             type="button"
-            onClick={props.onBack}
+            onClick={backHandler}
             aria-label="Back"
             className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-grey-darkest hover:bg-hover-fill transition-colors shrink-0"
           >

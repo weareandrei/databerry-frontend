@@ -84,6 +84,27 @@ export const EVENT = {
   // ── Dashboard interactions ────────────────────────────────────────
   VIEW_REFRESHED: 'view_refreshed',
   VIEW_PINNED: 'view_pinned',
+  /**
+   * Fired BOTH when the user submits a chat message AND when that
+   * request errors. Same name on both so a single PostHog event
+   * stream covers the Ask-AI funnel; parameter shape distinguishes
+   * the two paths:
+   *
+   *   On submit (always):
+   *     { prompt, promptLength, messageIndex }
+   *   On error (additionally):
+   *     { ...the submit props,
+   *       error,            // human-readable message
+   *       errorSource,      // 'network' | 'backend'
+   *       httpStatus?       // present when errorSource === 'backend'
+   *     }
+   *
+   * Filter `error is set` in PostHog Insights to see failures
+   * (counts and prompts); leave it as-is to count submissions.
+   * Successful turns fire ONCE (the submit event). Failed turns
+   * fire TWICE (submit + error) so the funnel doesn't lose the
+   * intent if the network drops mid-request.
+   */
   ASK_AI_MESSAGE_SENT: 'ask_ai_message_sent',
 } as const
 

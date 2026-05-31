@@ -1,28 +1,220 @@
 'use client'
 
 /**
- * First-load welcome panel for the Ask-AI page. Just orientation —
- * brand icon, headline, one-line subtitle. The example-prompt chips
- * used to live here too, but they've moved into `ChatInput`'s white
- * wrapper so the input area doesn't read as empty when the chat
- * hasn't started yet.
+ * Empty-state surface for the Agent page — what the user sees BEFORE
+ * any messages have been sent. Vertically-centred title, the chat
+ * input inline below it, the AI-disclaimer line under the input,
+ * and a row of MCP-connection chips at the bottom (their own MCPs
+ * + an always-trailing "Config MCP's" affordance that routes to
+ * Connections).
+ *
+ * The input is NOT shared with the bottom-pinned `<ChatInput>` —
+ * once the first message lands, `<AgentChatBody>` switches layouts
+ * to the active chat (messages stream + bottom input) and this
+ * surface unmounts entirely. So the textarea here is local and
+ * single-use: value lives in the parent so a half-typed prompt
+ * survives the empty→active switch.
+ *
+ * Title font: Bricolage Grotesque, the same display face used on
+ * the landing page hero / section titles, so the page feels like
+ * a peer of those rather than a generic dashboard surface.
  */
 
-import { Robot } from '@phosphor-icons/react'
+import Image from 'next/image'
+import { useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { ArrowUp, CaretRight, Sparkle } from '@phosphor-icons/react'
+import type { Connection } from '@/types/connection'
 
-export function ChatEmpty() {
+interface ChatEmptyProps {
+  value: string
+  onChange: (next: string) => void
+  onSubmit: () => void
+  sending: boolean
+  /** User's MCP connections (filtered to `type === 'mcp'` by the
+   *  caller). First few render as light-grey chips with the MCP
+   *  icon + connection name. */
+  mcpConnections: Connection[]
+}
+
+// We only show the first N MCP chips before the "Config MCP's"
+// trailing chip — more than ~4 chips at typical sidebar widths
+// would wrap awkwardly. The user can manage everything from
+// Connections via the trailing chip.
+const MAX_USER_MCP_CHIPS = 4
+
+export function ChatEmpty({
+  value,
+  onChange,
+  onSubmit,
+  sending,
+  mcpConnections,
+}: ChatEmptyProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const router = useRouter()
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Enter submits; Shift+Enter inserts a newline — matches the
+    // bottom-pinned `<ChatInput>` convention so muscle memory
+    // carries over once the user is in the active chat. IME-safe
+    // (skip submit if the user is mid-composition, e.g. picking a
+    // CJK candidate).
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      if (value.trim() && !sending) onSubmit()
+    }
+  }
+
+  const visibleMcps = mcpConnections.slice(0, MAX_USER_MCP_CHIPS)
+
   return (
-    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-white border border-stroke shadow-card flex items-center justify-center mb-5">
-        <Robot size={22} weight="bold" className="text-brand" />
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-10">
+      <div className="w-full max-w-2xl flex flex-col items-center">
+        {/* Title — Bricolage Grotesque, the same display face as
+            the landing hero. Bigger on desktop, scales down a bit
+            on mobile so it doesn't dwarf a phone viewport. */}
+        <h1
+          className="text-2xl md:text-3xl font-semibold text-grey-darkest mb-6 text-center tracking-tight"
+          style={{ fontFamily: 'var(--font-bricolage)' }}
+        >
+          What do you want to know ?
+        </h1>
+
+        {/* ── Chat input ──────────────────────────────────────────
+            Soft grey background (`bg-main`, our existing page-bg
+            token — same colour the page sits on, so the input reads
+            as inset rather than as a separate floating card on a
+            white background). Sparkle icon top-left is purely
+            decorative (the AI affordance), the send button sits at
+            bottom-right as a small brand-orange square. */}
+        <div className="w-full relative rounded-2xl bg-main border border-stroke px-4 pt-4 pb-3 min-h-[120px]">
+          <div className="flex items-start gap-2.5">
+            <Sparkle
+              size={18}
+              weight="fill"
+              className="text-brand shrink-0 mt-0.5"
+            />
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Ask anything"
+              rows={2}
+              disabled={sending}
+              className="flex-1 bg-transparent outline-none resize-none text-sm text-grey-darkest placeholder:text-grey-light disabled:opacity-60"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (value.trim() && !sending) onSubmit()
+            }}
+            disabled={!value.trim() || sending}
+            aria-label="Send message"
+            className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-brand text-white hover:bg-brand/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
+          >
+            <ArrowUp size={14} weight="bold" />
+          </button>
+        </div>
+
+        {/* AI disclaimer — small, muted, under the input. */}
+        <p className="mt-3 text-[11px] text-grey-light text-center">
+          Databerry AI copilot can be inaccurate. Please double-check responses.
+        </p>
+
+        {/* ── MCP chips row ──────────────────────────────────────
+            User's MCP connections (light-grey chips) then a
+            trailing "Config MCP's" CTA that routes to Connections.
+            Wrap on narrow viewports so the trailing chip stays in
+            view. `gap-3` keeps a comfortable rhythm without making
+            the row feel sparse. */}
+        <div className="mt-8 w-full flex items-center justify-center flex-wrap gap-3">
+          {visibleMcps.map(conn => (
+            <UserMcpChip key={conn.id} name={conn.name} />
+          ))}
+          <ConfigMcpChip onClick={() => router.push('/hub/connections')} />
+        </div>
       </div>
-      <h2 className="text-xl font-semibold text-grey-darkest mb-2">
-        Ask anything about your data
-      </h2>
-      <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
-        I can pull live numbers from your Stripe and Calendly connections —
-        across all your projects.
-      </p>
     </div>
+  )
+}
+
+// ── Sub-components ─────────────────────────────────────────────────
+// Exported so the active-chat footer (`<AgentChatBody>` post-first-
+// message) can reuse the same chip row without copy-pasting markup.
+
+/**
+ * One of the user's existing MCP connections. Light-grey background
+ * pill, the MCP svg as the leading icon (black at full opacity), the
+ * connection's name to its right. No click handler today — these
+ * are informational; the "Config MCP's" chip on the trailing edge
+ * is the actual action.
+ */
+export function UserMcpChip({ name }: { name: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-xl bg-main border border-stroke px-3 py-2">
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white border border-stroke">
+        <Image
+          src="/icons/mcp.svg"
+          alt=""
+          width={14}
+          height={14}
+          className="opacity-90"
+        />
+      </span>
+      <span className="text-sm font-medium text-grey-darkest truncate max-w-[120px]">
+        {name}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Trailing "Config MCP's" affordance — always present, regardless of
+ * how many MCPs the user has connected. Differs from `UserMcpChip`
+ * in three ways:
+ *   1. Icon background is the brand orange + the MCP svg is rendered
+ *      WHITE (via a `filter: brightness(0) invert(1)` trick on the
+ *      svg image, since we don't have a per-colour svg variant).
+ *   2. Two-line content: title ("Config MCP's") + a short
+ *      description ("Connect any MCP to Databerry.").
+ *   3. Trailing `>` caret signals "this is a navigation, not a
+ *      tile" — clicking routes to `/hub/connections` where the user
+ *      manages MCP connections.
+ */
+export function ConfigMcpChip({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group inline-flex items-center gap-3 rounded-xl bg-white border border-stroke px-3 py-2 shadow-sm transition-colors hover:bg-main cursor-pointer"
+    >
+      <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand shrink-0">
+        {/* The svg ships as black; `brightness(0) invert(1)` flips
+            it to pure white so it reads cleanly on the brand-orange
+            tile. Cheaper than maintaining a second white variant. */}
+        <Image
+          src="/icons/mcp.svg"
+          alt=""
+          width={16}
+          height={16}
+          style={{ filter: 'brightness(0) invert(1)' }}
+        />
+      </span>
+      <span className="text-left">
+        <span className="block text-sm font-semibold text-grey-darkest leading-tight">
+          Config MCP&rsquo;s
+        </span>
+        <span className="block text-[11px] text-grey-light leading-tight mt-0.5">
+          Connect any MCP to Databerry.
+        </span>
+      </span>
+      <CaretRight
+        size={14}
+        weight="bold"
+        className="text-grey-light shrink-0 transition-transform duration-150 group-hover:translate-x-0.5"
+      />
+    </button>
   )
 }

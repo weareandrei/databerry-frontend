@@ -181,7 +181,10 @@ export function ViewCardChart({
         onUpdated={onConnectionAssigned}
       />
 
-      <div className="px-4 mt-2 shrink-0">
+      {/* Body marked `data-no-dnd` so dragging inside doesn't start a
+          tile drag — header + outer padding stay the drag surface.
+          See `FilteredPointerSensor`. */}
+      <div data-no-dnd="true" className="px-4 mt-2 shrink-0">
         {loading ? (
           <div className="flex items-center gap-1.5">
             <ArrowsClockwise size={12} className="animate-spin text-muted-foreground" weight="bold" />
@@ -211,7 +214,7 @@ export function ViewCardChart({
         )}
       </div>
 
-      <div className="flex-1 min-h-0 px-1 pb-3 mt-2">
+      <div data-no-dnd="true" className="flex-1 min-h-0 px-1 pb-3 mt-2">
         {loading && (
           <div className="h-full flex items-center justify-center">
             <ArrowsClockwise size={20} className="animate-spin text-muted-foreground" weight="bold" />

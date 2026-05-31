@@ -106,6 +106,23 @@ export function useViews() {
     }
   }
 
+  /**
+   * Persist a new ordering for one container's views (project root
+   * when `folderId` is null, a folder otherwise). Pure passthrough —
+   * the optimistic local-state swap lives in the CALLER (`useProjectView`,
+   * which owns the displayed view array) so a failed persist can revert
+   * exactly what it changed; doing it here would split the snapshot
+   * across two state owners. Throws on failure so the caller can catch
+   * + revert + toast.
+   */
+  const reorderViews = async (
+    projectId: string,
+    folderId: string | null,
+    orderedViewIds: string[],
+  ) => {
+    await ALGORITHM.reorderViews(projectId, folderId, orderedViewIds)
+  }
+
   return {
     views,
     loading,
@@ -119,6 +136,7 @@ export function useViews() {
     getViewsByFolder,
     createViews,
     untrackView,
+    reorderViews,
     replaceView: replaceViewInState,
     openModal: (folderId: string | null, projectId: string) =>
       dispatch(openCreateViewModal({ folderId, projectId })),

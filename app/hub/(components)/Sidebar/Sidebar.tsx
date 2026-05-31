@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useDispatch } from 'react-redux'
 import { motion, AnimatePresence } from 'framer-motion'
-import { House, PlugsConnected, Robot, CaretDown, Plus, Gear } from '@phosphor-icons/react'
+import { House, SquaresFour, CaretDown, Plus, Gear } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
@@ -128,7 +128,7 @@ export function SidebarContents({
     >
       {/* `px-2` matches the nav `<motion.nav>` wrapper below so the
           profile button's hover-fill starts at the same left edge
-          as Home/Ask AI/Connections/Settings — and its right-edge
+          as Home/Connections/Settings — and its right-edge
           chevron lines up vertically with the Workspace / Projects
           section-header chevrons (which sit at the section's
           `pr-5` = 20 px from the sidebar's right edge; `px-2` outer
@@ -154,8 +154,13 @@ export function SidebarContents({
               className="overflow-hidden px-2 space-y-0.5"
             >
               <SidebarNavItem href="/hub/home" label="Home" icon={House} />
-              <SidebarNavItem href="/hub/agent-chat" label="Ask AI" icon={Robot} />
-              <SidebarNavItem href="/hub/connections" label="Connections" icon={PlugsConnected} />
+              {/* Agent nav row used to sit here. It's now reached
+                  via the Dashboard / Ask-agent switch in the home
+                  page's top bar (see `<DashboardAgentSwitch>`),
+                  since Agent is conceptually a peer of the
+                  dashboard rather than a Connections/Settings-style
+                  utility. */}
+              <SidebarNavItem href="/hub/connections" label="Connections" icon={SquaresFour} />
               <SidebarNavItem href="/hub/settings" label="Settings" icon={Gear} />
             </motion.nav>
           )}
@@ -296,13 +301,14 @@ export function SidebarContents({
         </AnimatePresence>
       </div>
 
-      {/* Bottom pair: subscription row above the timezone divider.
+      {/* Bottom pair: plan card above the timezone row.
           `SidebarTimezone` carries `mt-auto`, which pins this whole
           tail to the bottom of the column even when the projects
-          list is short. The subscription row uses the same nav-item
-          styling as Home / Ask AI / Settings so it reads as a peer
-          of those rather than a piece of profile chrome — and sits
-          ABOVE the `border-t` divider that the timezone owns. */}
+          list is short. The plan card's own border + shadow provides
+          the visual break above the timezone, so the timezone row
+          no longer carries a `border-t` of its own (would have
+          stacked into a heavy double-line against the card's bottom
+          edge). */}
       <SidebarPlanBadge />
       <SidebarTimezone />
     </div>

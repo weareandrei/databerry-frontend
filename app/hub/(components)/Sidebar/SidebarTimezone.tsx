@@ -5,11 +5,14 @@
  * to deep-link into Settings.
  *
  * This row sits *outside* the projects/workspace navigation — it's always
- * visible at the bottom of the sidebar, separated by a `border-t`. The
- * label is the raw IANA name (e.g. `Europe/Bucharest`), which is what's
- * actually applied to every view-fetch query. We deliberately don't show a
- * UTC offset alongside it: zones move (DST), and showing both invites the
- * user to expect them to stay in sync.
+ * visible at the bottom of the sidebar. The `<SidebarPlanBadge>` card sits
+ * directly above it and already provides a clear visual break (its own
+ * border + shadow), so this row no longer carries its own `border-t` — a
+ * second divider on top of the plan card's bottom edge read as a heavy
+ * double-line. The label is the raw IANA name (e.g. `Europe/Bucharest`),
+ * which is what's actually applied to every view-fetch query. We
+ * deliberately don't show a UTC offset alongside it: zones move (DST),
+ * and showing both invites the user to expect them to stay in sync.
  *
  * Click the 3-dots → `Change timezone` → routes to `/hub/settings#timezone`.
  * The hash anchor scrolls the timezone section into view on the settings
@@ -38,7 +41,7 @@ export function SidebarTimezone() {
     !settings && loading ? '—' : settings?.timezone ?? 'UTC'
 
   return (
-    <div className="mt-auto border-t border-stroke px-4 py-2.5 flex items-center gap-2 text-xs text-grey-dark">
+    <div className="mt-auto px-4 py-2.5 flex items-center gap-2 text-xs text-grey-dark">
       <Globe size={13} weight="bold" className="shrink-0 text-grey-light" />
       <span
         className="flex-1 truncate font-medium"

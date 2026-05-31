@@ -217,8 +217,10 @@ export function ViewCardSentryIssues({
         />
 
         {/* Filter row — period + sort dropdowns. Tucked under the header
-            so the tile reads "errors • [period] • sorted by [sort]". */}
-        <div className="px-4 pt-1 pb-2 flex items-center gap-2 text-xs text-muted-foreground">
+            so the tile reads "errors • [period] • sorted by [sort]".
+            Marked `data-no-dnd` (along with the body below) so dragging
+            inside doesn't start a tile drag. */}
+        <div data-no-dnd="true" className="px-4 pt-1 pb-2 flex items-center gap-2 text-xs text-muted-foreground">
           <DropdownMenu>
             <DropdownMenuTrigger className="inline-flex items-center gap-1 rounded-md border border-stroke bg-white px-2 py-1 text-xs text-grey-darkest hover:bg-hover-fill transition-colors">
               {PERIOD_LABELS[localPeriod]}
@@ -260,7 +262,7 @@ export function ViewCardSentryIssues({
 
         {/* Issue list — internal scroll so a long list (up to 25 rows)
             doesn't expand the tile beyond its 2×2 grid footprint. */}
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-3">
+        <div data-no-dnd="true" className="flex-1 overflow-y-auto min-h-0 px-4 pb-3">
           {loading ? (
             <div className="flex items-center gap-1.5 py-2">
               <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />

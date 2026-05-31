@@ -12,6 +12,7 @@ export const CONNECTION_DISPLAY_NAMES: Record<string, string> = {
   reddit: 'Reddit',
   gmail: 'Gmail',
   custom: 'Custom',
+  mcp: 'MCP',
   // The `composite` connection type is the category bucket in the
   // CreateViewModal picker — under it sit "Project overview"
   // (chart + sources composite) and the standalone "Chart" view.

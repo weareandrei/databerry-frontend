@@ -56,6 +56,7 @@ import {
 import { toast } from 'sonner'
 import { useDashboardOptional } from '@/contexts/DashboardContext'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { DragGrip } from './dnd/DragGrip'
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
 import { PosthogEventPickerDialog } from './PosthogEventPickerDialog'
@@ -697,6 +698,13 @@ export function ViewCardOverviewChart({
           doesn't use the standard view-card border + shadow chrome. The prop
           is accepted for API uniformity with the rest of the tile components. */}
       <div className="px-4 pt-3.5 pb-3 flex items-center gap-2 flex-wrap shrink-0">
+        {/* Drag grip — only renders when this tile is inside a
+            `<SortableTile>`. The composite project_overview pair
+            renders OUTSIDE `<SortableContext>` (it's the immovable
+            top anchor) so the grip is a no-op for that case;
+            `custom_chart` IS sortable, so the grip appears and
+            becomes its drag handle. */}
+        <DragGrip />
         <MetricDropdown
           iconSrc={swapped ? '/icons/line_chart.svg' : '/icons/bar_chart.svg'}
           iconAlt={swapped ? 'Line chart' : 'Bar chart'}
@@ -851,7 +859,7 @@ export function ViewCardOverviewChart({
           the cell. With the chart adapting to its parent, even
           16 px below the X-axis labels plus the grid's `gap-y-6`
           row gap is enough separation. */}
-      <div className={fillHeight ? 'relative p-4 flex-1 min-h-0 flex flex-col' : 'relative p-4'}>
+      <div data-no-dnd="true" className={fillHeight ? 'relative p-4 flex-1 min-h-0 flex flex-col' : 'relative p-4'}>
         {/* fillHeight: `flex-1 min-h-0` — the chart adapts to
             WHATEVER vertical space the parent gives it. The
             previous `min-h-[240px]` forced 240 px minimum, which

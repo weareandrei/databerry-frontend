@@ -42,7 +42,7 @@ export const SOURCE_STYLE: Record<string, NormalizedSource> = {
   // family that keeps the dashboard cohesive, but darker / redder so
   // it reads as a distinct source from Reddit when the two are
   // rendered side-by-side in a stacked bar.
-  producthunt: { key: 'producthunt', label: 'ProductHunt', color: '#DA552F' },
+  producthunt: { key: 'producthunt', label: 'ProductHunt', color: '#DA552F', logo: '/logos/producthunt.png' },
   youtube:     { key: 'youtube',     label: 'YouTube',     color: '#f43f5e' }, // rose-500
   facebook:    { key: 'facebook',    label: 'Facebook',    color: '#3b82f6' }, // blue-500
   linkedin:    { key: 'linkedin',    label: 'LinkedIn',    color: '#06b6d4' }, // cyan-500

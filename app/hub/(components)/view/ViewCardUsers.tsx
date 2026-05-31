@@ -261,7 +261,10 @@ export function ViewCardUsers({
           isPinned={isPinned}
         />
 
-        <div className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">
+        {/* Body marked `data-no-dnd` so dragging inside doesn't start a
+            tile drag — header + outer padding stay the drag surface.
+            See `FilteredPointerSensor`. */}
+        <div data-no-dnd="true" className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">
           {loading ? (
             <div className="flex items-center gap-1.5 py-2">
               <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />

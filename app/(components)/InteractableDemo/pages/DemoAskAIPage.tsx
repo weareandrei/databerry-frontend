@@ -23,7 +23,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Warning } from '@phosphor-icons/react'
 import { ChatHeader } from '@/app/hub/agent-chat/(components)/ChatHeader'
-import { ChatEmpty } from '@/app/hub/agent-chat/(components)/ChatEmpty'
+import { ChatCircleDots } from '@phosphor-icons/react'
 import { ChatMessage } from '@/app/hub/agent-chat/(components)/ChatMessage'
 import { ChatTypingIndicator } from '@/app/hub/agent-chat/(components)/ChatTypingIndicator'
 import { ChatInput } from '@/app/hub/agent-chat/(components)/ChatInput'
@@ -75,7 +75,7 @@ export function DemoAskAIPage() {
       <div className="shrink-0 mx-3 mb-2 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] text-amber-900">
         <Warning size={11} weight="bold" className="shrink-0" />
         <span>
-          Demo only — questions match a preset list. Real Ask AI uses
+          Demo only — questions match a preset list. The real Agent uses
           your live data.
         </span>
       </div>
@@ -85,7 +85,29 @@ export function DemoAskAIPage() {
       <div className="flex-1 overflow-y-auto min-h-0 px-3">
         <div className="max-w-2xl mx-auto py-3 space-y-3">
           {messages.length === 0 && !sending ? (
-            <ChatEmpty />
+            // Inline welcome panel for the demo. The real page's
+            // `<ChatEmpty>` now owns its own input + MCP-chip row
+            // (driven by `useDashboard()`, which doesn't exist in
+            // the demo's provider tree), so reusing it here would
+            // both double up on the input and crash on the missing
+            // context. Demo's purpose is invitation, not production
+            // functionality — the suggestion chips on `<ChatInput>`
+            // below already prompt the user toward the preset Q&A.
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-white border border-stroke shadow-card flex items-center justify-center mb-5">
+                <ChatCircleDots
+                  size={22}
+                  weight="bold"
+                  className="text-brand"
+                />
+              </div>
+              <h2 className="text-xl font-semibold text-grey-darkest mb-2">
+                Try the demo
+              </h2>
+              <p className="text-sm text-muted-foreground max-w-md leading-relaxed">
+                Tap a suggestion below to see how Agent answers from your data.
+              </p>
+            </div>
           ) : (
             messages.map(m => <ChatMessage key={m.id} message={m} />)
           )}

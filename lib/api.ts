@@ -652,6 +652,22 @@ export const ALGORITHM = {
 
   getPinnedViews: () => apiFetch<View[]>('/views/pinned'),
 
+  /**
+   * Persist a new ordering for the views in one container (project
+   * root when `folderId` is null, a folder otherwise). The full desired
+   * sequence is sent — the backend rewrites every view's `position` to
+   * match its index in the array. 204 No Content on success.
+   */
+  reorderViews: (
+    projectId: string,
+    folderId: string | null,
+    orderedViewIds: string[],
+  ) =>
+    apiFetch<void>('/views/reorder', {
+      method: 'PATCH',
+      body: JSON.stringify({ projectId, folderId, orderedViewIds }),
+    }),
+
   getPosthogLiveValue: (
     connectionId: string,
     viewId: string,

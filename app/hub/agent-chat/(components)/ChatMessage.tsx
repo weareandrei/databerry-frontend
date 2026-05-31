@@ -6,7 +6,11 @@
  *  - `role === 'user'`     — right-aligned, brand-coloured pill.
  *  - `role === 'assistant'` — left-aligned plain text with markdown
  *                             rendering. Tool calls (if any) appear
- *                             below as a collapsible chip.
+ *                             below as a row of connection chips
+ *                             (icon + name) — one chip per distinct
+ *                             connection the assistant touched. Click
+ *                             a chip to expand and see the params
+ *                             that were passed.
  *
  * The markdown component map is deliberately small — no GFM, no
  * syntax highlighter, no math. We're optimising for the actual
@@ -14,9 +18,13 @@
  * the occasional link.
  */
 
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Wrench } from '@phosphor-icons/react'
-import type { ChatMessage as Msg } from './types'
+import { Cpu } from '@phosphor-icons/react'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import type { ConnectionType } from '@/types/connection'
+import type { ChatMessage as Msg, ToolCallTrace } from './types'
+import { Renderables } from './Renderables'
 
 const MARKDOWN_COMPONENTS = {
   p: ({ children }: { children?: React.ReactNode }) => (
@@ -76,51 +84,219 @@ export function ChatMessage({ message }: { message: Msg }) {
     )
   }
 
+  // Assistant messages stack three things vertically:
+  //   1. Text bubble (capped at 85% to leave room for breathing).
+  //   2. Tool-trace chip row (Used N tools).
+  //   3. Renderable cards (charts, stats, top lists).
+  //
+  // The renderables column is WIDER than the bubble (`max-w-[640px]`)
+  // — small numbers/lists still feel inline, but the line chart gets
+  // enough horizontal room to actually read. Pinned to the left edge
+  // so it visually anchors to the same side as the bubble.
   return (
-    <div className="flex justify-start">
+    <div className="flex flex-col items-start gap-2">
       <div className="max-w-[85%] text-sm text-grey-darkest space-y-2">
-        <ReactMarkdown components={MARKDOWN_COMPONENTS}>
-          {message.content || '(no response)'}
-        </ReactMarkdown>
+        {/* Assistant bubble — soft grey so it reads as the
+            counterweight to the user's brand-orange pill, with a
+            slightly more pronounced rounded shape on the bottom-left
+            (mirror of the user bubble's top-right). */}
+        <div className="bg-main border border-stroke rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+          <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+            {message.content || '(no response)'}
+          </ReactMarkdown>
+        </div>
         {message.toolCalls && message.toolCalls.length > 0 && (
-          <ToolCallsChip calls={message.toolCalls} />
+          <ToolCallsRow calls={message.toolCalls} />
         )}
       </div>
+      {message.renderables && message.renderables.length > 0 && (
+        <div className="w-full max-w-[640px]">
+          <Renderables items={message.renderables} />
+        </div>
+      )}
     </div>
   )
 }
 
-// Collapsed view of which tools were invoked for this turn — click to
-// expand and see params + result. `<details>` is the right primitive
-// here: zero JS, accessible, keyboard-friendly.
-function ToolCallsChip({ calls }: { calls: NonNullable<Msg['toolCalls']> }) {
+// ── Tool calls ─────────────────────────────────────────────────────
+
+/**
+ * Map a tool name string to one of our known connection types so the
+ * `<ConnectionIcon>` can render the right brand mark. We don't have a
+ * structured `connectionType` field on `ToolCallTrace` today (the
+ * backend just hands us the tool name), so this is a best-effort
+ * substring match. New connection types added in the future get a new
+ * branch here.
+ *
+ * Returns `null` when no built-in connection matches — caller renders
+ * the generic MCP `<Cpu>` icon and the raw tool name (or "MCP server"
+ * label) in that case. Same fallback we'd hit for any tool exposed by
+ * a user's MCP server, since we don't know the MCP's display name
+ * from the tool string alone.
+ */
+function detectConnectionType(toolName: string): ConnectionType | null {
+  const lower = toolName.toLowerCase()
+  if (lower.includes('stripe')) return 'stripe'
+  if (lower.includes('posthog')) return 'posthog'
+  if (
+    lower.includes('google_analytics') ||
+    lower.includes('ga4') ||
+    lower.startsWith('ga_')
+  )
+    return 'google_analytics'
+  if (lower.includes('calendly')) return 'calendly'
+  if (lower.includes('vercel')) return 'vercel'
+  if (lower.includes('sentry')) return 'sentry'
+  if (lower.includes('github')) return 'github'
+  if (lower.includes('gmail')) return 'gmail'
+  if (lower.includes('reddit')) return 'reddit'
+  return null
+}
+
+/** Capitalise + de-snakeify a known connection type for display. */
+function displayName(type: ConnectionType): string {
+  switch (type) {
+    case 'google_analytics':
+      return 'Google Analytics'
+    case 'stripe_manual':
+      return 'Stripe'
+    default:
+      // 'posthog' → 'Posthog', 'github' → 'Github', etc.
+      return type.charAt(0).toUpperCase() + type.slice(1)
+  }
+}
+
+/**
+ * Group the turn's tool calls by detected connection type. Duplicates
+ * collapse — if the assistant called three Stripe tools in one turn,
+ * we render one "Stripe" chip with all three call entries grouped
+ * under it (visible on expand).
+ *
+ * MCP-sourced calls (those with `call.mcp` set by the backend) group
+ * by `mcp.connectionName` so multiple calls into the same MCP server
+ * collapse into one chip — same UX as the built-in groupings.
+ *
+ * Built-in calls without a detectable type fall back to one chip
+ * per distinct tool name — we can't safely collapse those without
+ * losing information about WHICH built-in tool was used.
+ */
+type GroupKind =
+  | { kind: 'connection'; type: ConnectionType }
+  | { kind: 'mcp'; connectionName: string }
+  | { kind: 'unknown' }
+
+function groupToolCalls(
+  calls: ToolCallTrace[],
+): { key: string; kind: GroupKind; label: string; entries: ToolCallTrace[] }[] {
+  const groups: Record<
+    string,
+    { kind: GroupKind; label: string; entries: ToolCallTrace[] }
+  > = {}
+  const order: string[] = []
+  for (const call of calls) {
+    let key: string
+    let label: string
+    let kind: GroupKind
+    if (call.mcp) {
+      key = `mcp:${call.mcp.connectionName}`
+      label = call.mcp.connectionName
+      kind = { kind: 'mcp', connectionName: call.mcp.connectionName }
+    } else {
+      const type = detectConnectionType(call.name)
+      if (type) {
+        key = `type:${type}`
+        label = displayName(type)
+        kind = { kind: 'connection', type }
+      } else {
+        // Each unknown tool keeps its own chip so the user can see
+        // which built-in tool actually ran (no useful grouping when
+        // we can't categorise).
+        key = `unknown:${call.name}`
+        label = call.name
+        kind = { kind: 'unknown' }
+      }
+    }
+    if (!groups[key]) {
+      groups[key] = { kind, label, entries: [] }
+      order.push(key)
+    }
+    groups[key]!.entries.push(call)
+  }
+  return order.map(k => ({ key: k, ...groups[k]! }))
+}
+
+function ToolCallsRow({ calls }: { calls: ToolCallTrace[] }) {
+  const groups = groupToolCalls(calls)
+  const [expanded, setExpanded] = useState<string | null>(null)
+
   return (
-    <details className="text-[11px] text-grey-light group">
-      <summary className="inline-flex items-center gap-1.5 cursor-pointer hover:text-grey-dark transition-colors select-none">
-        <Wrench size={11} weight="bold" />
-        Used {calls.length} {calls.length === 1 ? 'tool' : 'tools'} ·{' '}
-        <span className="text-grey-dark group-open:hidden">show</span>
-        <span className="text-grey-dark hidden group-open:inline">hide</span>
-      </summary>
-      <div className="mt-2 space-y-1.5 border-l border-stroke pl-3">
-        {calls.map((c, i) => (
-          <div key={i} className="font-mono">
-            <div className="text-grey-dark">
-              {c.name}
-              <span className="text-grey-light">
-                ({Object.entries(c.input)
-                  .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-                  .join(', ')})
-              </span>
-            </div>
-            {c.error ? (
-              <div className="text-destructive text-[10px] mt-0.5">
-                ✗ {c.error}
+    <div className="flex items-center flex-wrap gap-2 pl-1">
+      <span className="text-[11px] text-grey-light shrink-0">
+        Used {calls.length} {calls.length === 1 ? 'tool' : 'tools'}:
+      </span>
+      {groups.map(g => {
+        const isOpen = expanded === g.key
+        return (
+          <div key={g.key} className="relative">
+            <button
+              type="button"
+              onClick={() => setExpanded(isOpen ? null : g.key)}
+              aria-expanded={isOpen}
+              className={`inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2 py-1 text-[11px] font-medium text-grey-darkest shadow-sm hover:bg-hover-fill transition-colors ${
+                isOpen ? 'ring-1 ring-brand/30' : ''
+              }`}
+            >
+              {/* MCP groups use the generic Cpu mark — we don't have
+                  per-server icons. Built-in connection groups use the
+                  shared `<ConnectionIcon>` so the chip carries the
+                  brand mark the user already associates with that
+                  source. Unknown built-ins fall back to Cpu. */}
+              {g.kind.kind === 'connection' ? (
+                <ConnectionIcon type={g.kind.type} size={12} />
+              ) : (
+                <Cpu size={12} weight="bold" className="text-grey-dark" />
+              )}
+              <span className="truncate max-w-[160px]">{g.label}</span>
+              {g.entries.length > 1 && (
+                <span className="text-grey-light tabular-nums">
+                  ×{g.entries.length}
+                </span>
+              )}
+            </button>
+
+            {isOpen && (
+              // Expanded popover — anchored to the chip, shows the
+              // tool name + params for each call in the group. For
+              // MCP calls we surface the ORIGINAL tool name (e.g.
+              // `list_posts`) rather than the namespaced internal
+              // form (`mcp_0__list_posts`) — that's what the user
+              // sees in their MCP server's docs.
+              <div className="absolute z-10 top-full mt-1 left-0 min-w-[220px] max-w-[360px] rounded-lg border border-stroke bg-white shadow-card p-2 space-y-1.5">
+                {g.entries.map((c, i) => {
+                  const displayedName = c.mcp ? c.mcp.toolName : c.name
+                  return (
+                    <div key={i} className="font-mono text-[10px] leading-snug">
+                      <div className="text-grey-dark break-all">
+                        {displayedName}
+                        <span className="text-grey-light">
+                          (
+                          {Object.entries(c.input)
+                            .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+                            .join(', ')}
+                          )
+                        </span>
+                      </div>
+                      {c.error ? (
+                        <div className="text-destructive mt-0.5">✗ {c.error}</div>
+                      ) : null}
+                    </div>
+                  )
+                })}
               </div>
-            ) : null}
+            )}
           </div>
-        ))}
-      </div>
-    </details>
+        )
+      })}
+    </div>
   )
 }
