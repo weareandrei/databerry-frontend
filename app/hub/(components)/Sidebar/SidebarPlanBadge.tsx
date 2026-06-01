@@ -91,22 +91,25 @@ export function SidebarPlanBadge() {
   // `enforceConnectionLimit` already surface the real per-type
   // state when the user attempts a create.
   //
-  // Caveats on the two we DO render:
-  //   - `views.views.length` reflects views currently loaded in
-  //     Redux (i.e. for projects the user has visited this session);
-  //     it undercounts when the user hasn't browsed every project
-  //     yet. Fine for an at-a-glance cue.
-  //   - Views ceiling is `maxViewsPerProject × maxProjects` — the
-  //     ABSOLUTE plan ceiling, so the denominator doesn't shift as
-  //     the user creates projects.
+  // Views ceiling: `maxViewsPerProject × maxProjects` — the absolute
+  // plan ceiling, so the denominator doesn't shift as the user
+  // creates projects.
+  //
+  // Views numerator: `views.totalCount` from the cheap `/views/count`
+  // endpoint, fetched eagerly on dashboard mount. This used to be
+  // `views.views.length`, which only contained views the user had
+  // navigated into this session — leading to the infamous "0/100
+  // views" lie when the user had real views in folders they hadn't
+  // touched yet. `totalCount` is `null` while the GET is in flight;
+  // we hide the bar in that case so we don't show a stale 0.
   const projectsUsed = projects.projects.length
   const maxProjects = currentPlan?.maxProjects ?? 0
   const projectsPct = pct(projectsUsed, maxProjects)
 
-  const viewsUsed = views.views.length
+  const viewsUsed = views.totalCount
   const maxViews =
     (currentPlan?.maxViewsPerProject ?? 0) * (currentPlan?.maxProjects ?? 0)
-  const viewsPct = pct(viewsUsed, maxViews)
+  const viewsPct = viewsUsed != null ? pct(viewsUsed, maxViews) : 0
 
   // Direct Pro checkout — mirrors `<TierPickerSheet>`'s redirect
   // path (POST → 303-style hard nav to Stripe). Errors surface as
@@ -130,6 +133,18 @@ export function SidebarPlanBadge() {
     }
   }
 
+  // Don't render the card until ALL the inputs it depends on are
+  // ready. Previously we used `visibility: 'hidden'` while
+  // `accountLoading`, which reserved space but flashed a stale
+  // "0/100" once views.totalCount came in late. Gating on the union
+  // of (account, plan, views-count) means the card pops in once
+  // with the truth and stays. `currentPlan` is intentionally NOT a
+  // gate — a missing-from-plansById plan id (rare, but possible for
+  // legacy / custom plans) shouldn't hide billing forever; we'd
+  // rather render with the default-zero ceilings than disappear.
+  const isReady = !accountLoading && views.totalCount != null
+  if (!isReady) return null
+
   return (
     <>
       <div
@@ -139,7 +154,6 @@ export function SidebarPlanBadge() {
         // multi-section block in there. Desktop stays at `px-2` so
         // the card sits flush with the rest of the sidebar grid.
         className="px-6 md:px-2 mb-2"
-        style={accountLoading ? { visibility: 'hidden' } : undefined}
       >
         {/* ── Card chrome ──────────────────────────────────────
             When the upgrade banner is showing, the WHOLE card uses
@@ -225,7 +239,16 @@ export function SidebarPlanBadge() {
             ) : (
               <div className="mb-3 space-y-2">
                 <UsageBar label="Projects" used={projectsUsed} max={maxProjects} pct={projectsPct} />
-                <UsageBar label="Views" used={viewsUsed} max={maxViews} pct={viewsPct} />
+                {/* Views bar is hidden until the count GET resolves —
+                    showing "0/100" while the request is in flight
+                    misled users with views in folders they hadn't
+                    opened this session. `null` = loading; once the
+                    server replies it becomes a number (possibly 0
+                    for users who genuinely have no views, in which
+                    case the bar correctly shows 0). */}
+                {viewsUsed != null && (
+                  <UsageBar label="Views" used={viewsUsed} max={maxViews} pct={viewsPct} />
+                )}
               </div>
             )}
 

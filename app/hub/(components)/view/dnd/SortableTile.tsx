@@ -124,11 +124,24 @@ export function SortableTile({ id, className, children }: SortableTileProps) {
     [isDragging],
   )
 
+  // Cursor signal:
+  //   - idle      → `cursor-grab` (open hand) so users see the tile
+  //                 is draggable on hover before they try.
+  //   - dragging  → `cursor-grabbing` (closed hand) for the duration
+  //                 of the drag.
+  // Buttons / inputs / links inside the tile override with their
+  // own `cursor-pointer` etc. via CSS specificity — no per-child
+  // opt-out needed. The body area opts OUT of dragging itself via
+  // `data-no-dnd="true"` (checked by `FilteredPointerSensor`) but
+  // still inherits the grab cursor visually, which is honest: the
+  // tile IS draggable from the header region.
+  const cursorClass = isDragging ? 'cursor-grabbing' : 'cursor-grab'
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={className}
+      className={`${className ?? ''} ${cursorClass}`.trim()}
       {...listeners}
       {...attributes}
     >

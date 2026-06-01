@@ -20,7 +20,7 @@
 
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { Cpu } from '@phosphor-icons/react'
+import { Cpu, Warning } from '@phosphor-icons/react'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import type { ConnectionType } from '@/types/connection'
 import type { ChatMessage as Msg, ToolCallTrace } from './types'
@@ -79,6 +79,36 @@ export function ChatMessage({ message }: { message: Msg }) {
       <div className="flex justify-end">
         <div className="max-w-[75%] bg-brand text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-wrap">
           {message.content}
+        </div>
+      </div>
+    )
+  }
+
+  // ── Error variant ─────────────────────────────────────────────
+  // Backend reported a failure (Gemini outage, missing API key,
+  // network timeout). We render a red bubble + warning icon so
+  // the user can't mistake it for the agent's normal output. No
+  // tool-trace row, no renderables — error frames carry only the
+  // text. Content goes through markdown still so any inline `code`
+  // (e.g. an error code) renders sensibly.
+  if (message.isError) {
+    return (
+      <div className="flex justify-start">
+        <div
+          className="max-w-[85%] flex items-start gap-2 bg-red-50 border border-red-200 text-red-900 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm text-sm leading-relaxed"
+          role="alert"
+          aria-live="polite"
+        >
+          <Warning
+            size={16}
+            weight="fill"
+            className="shrink-0 mt-0.5 text-red-500"
+          />
+          <div className="min-w-0">
+            <ReactMarkdown components={MARKDOWN_COMPONENTS}>
+              {message.content || 'Something went wrong.'}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
     )

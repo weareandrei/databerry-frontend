@@ -32,6 +32,53 @@ export function trackEvent(event: string, properties?: Record<string, unknown>) 
   posthog.capture(event, properties)
 }
 
+/**
+ * Report a caught error to PostHog Error Tracking + a same-named
+ * funnel event in one call.
+ *
+ * Two things happen:
+ *   1. `posthog.captureException(err, ...)` files the error against
+ *      PostHog's exception view (the equivalent of a Sentry issue).
+ *      We use it instead of @sentry/nextjs because we haven't
+ *      installed Sentry yet — PostHog's error capture isn't as rich,
+ *      but it's already configured and doesn't add another vendor.
+ *   2. We ALSO `posthog.capture(event, ...)` the named event with
+ *      `error`/`errorMessage` properties so the same row shows up in
+ *      Insights funnels (e.g. "Connection-create attempted →
+ *      Connection-create errored"). Filter by `error is set` to
+ *      isolate failures.
+ *
+ * Pass the original Error object so PostHog can extract the stack
+ * frame; everything else goes through as event properties.
+ *
+ * @future To also send to Sentry, install `@sentry/nextjs` and
+ *   add `Sentry.captureException(err, { contexts: { event,
+ *   properties } })` here. The call sites already pass everything
+ *   Sentry needs.
+ */
+export function captureError(
+  event: string,
+  err: unknown,
+  properties?: Record<string, unknown>,
+) {
+  if (typeof window === 'undefined') return
+  const errorMessage = err instanceof Error ? err.message : String(err)
+  const errorName = err instanceof Error ? err.name : 'Unknown'
+  const props = {
+    ...properties,
+    error: errorMessage,
+    errorName,
+    eventName: event,
+  }
+  // Exception view — file under PostHog's error tracking surface.
+  // Wrap a bare string in an Error so captureException always gets
+  // something with a stack.
+  posthog.captureException(err instanceof Error ? err : new Error(errorMessage), props)
+  // Funnel view — same row also lands as the named capture so it's
+  // counted alongside the success-side events.
+  posthog.capture(event, props)
+}
+
 export function identifyUser(userId: string, properties?: Record<string, unknown>) {
   if (typeof window === 'undefined') return
   posthog.identify(userId, properties)
@@ -76,6 +123,25 @@ export const EVENT = {
   PROJECT_CREATED: 'project_created',
   VIEW_CREATED: 'view_created',
   CONNECTION_CREATED: 'connection_created',
+  /**
+   * Fired when `connections.createConnection` throws. Covers both
+   * regular (Stripe, PostHog, GA, Vercel, etc.) and MCP connection
+   * types — the attempt-side `CONNECTION_CREATED` event isn't
+   * symmetrical because by design it only fires on success
+   * (manually-created connections only; OAuth ones land via the
+   * callback hook). The MCP add modal goes through the same code
+   * path so it's covered here too.
+   *
+   * Parameters: { connectionType, error, errorName }
+   *   - `connectionType`: 'stripe' | 'posthog' | 'mcp' | …
+   *   - `error`: human-readable failure message (often the backend's
+   *     own 400 framing — "MCP server didn't respond within 10s",
+   *     "Stripe didn't accept this key", etc.).
+   *   - `errorName`: the JS Error class name (TypeError, etc.).
+   * Filter on `connectionType = mcp` in PostHog to isolate MCP
+   * failures specifically.
+   */
+  CONNECTION_CREATE_FAILED: 'connection_create_failed',
   FOLDER_CREATED: 'folder_created',
   // ── Dashboard navigation / intent ─────────────────────────────────
   TIER_PICKER_OPENED: 'tier_picker_opened',

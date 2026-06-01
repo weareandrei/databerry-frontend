@@ -653,6 +653,18 @@ export const ALGORITHM = {
   getPinnedViews: () => apiFetch<View[]>('/views/pinned'),
 
   /**
+   * Total view count for the authenticated user, across all their
+   * projects. Used by the sidebar plan card so it can show "X / Y
+   * views" without eagerly loading every view (which would be
+   * expensive and is also undesirable — most views aren't needed
+   * until the user navigates into a folder).
+   *
+   * Cheap on the backend: HEAD `select` with `count: 'exact'` —
+   * just the integer, no row payload.
+   */
+  getViewsCount: () => apiFetch<{ count: number }>('/views/count'),
+
+  /**
    * Persist a new ordering for the views in one container (project
    * root when `folderId` is null, a folder otherwise). The full desired
    * sequence is sent — the backend rewrites every view's `position` to

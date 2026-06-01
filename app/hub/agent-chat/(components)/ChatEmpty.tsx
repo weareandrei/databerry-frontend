@@ -144,53 +144,75 @@ export function ChatEmpty({
 // Exported so the active-chat footer (`<AgentChatBody>` post-first-
 // message) can reuse the same chip row without copy-pasting markup.
 
+// Shared chip chrome — every chip in this row uses the SAME outer
+// shape so they line up horizontally with no height drift. Only the
+// icon tile colour + content vary between the two variants.
+const CHIP_OUTER =
+  'inline-flex items-center gap-2.5 rounded-xl bg-white border border-stroke shadow-sm px-3 py-2'
+const CHIP_ICON_TILE =
+  'inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0'
+const CHIP_LABEL = 'text-sm font-semibold text-grey-darkest'
+
 /**
- * One of the user's existing MCP connections. Light-grey background
- * pill, the MCP svg as the leading icon (black at full opacity), the
- * connection's name to its right. No click handler today — these
- * are informational; the "Config MCP's" chip on the trailing edge
- * is the actual action.
+ * One of the user's existing MCP connections. White outer pill
+ * matching the trailing Config chip — only the icon tile differs
+ * (light-grey `bg-main` here vs. brand-orange there). Single line of
+ * content (name) so the chip's height matches the Config chip
+ * exactly; previously the User chip was shorter (`w-7 h-7` icon, no
+ * shadow) and the row read as a height-jitter mess.
+ *
+ * Hidden on mobile (`hidden md:inline-flex`): on a phone the user
+ * already lives in a tight vertical column, and a row of "you have
+ * these MCP servers" chips reads as visual clutter rather than
+ * useful inventory. The Config MCP's chip alone (which navigates to
+ * the connections page where the user can SEE the full list with
+ * names + URLs) covers the affordance.
+ *
+ * Desktop unchanged.
+ *
+ * No click handler today — these are informational; the "Config
+ * MCP's" chip on the trailing edge is the actual action.
  */
 export function UserMcpChip({ name }: { name: string }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-xl bg-main border border-stroke px-3 py-2">
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white border border-stroke">
+    <div className={`${CHIP_OUTER} hidden md:inline-flex`}>
+      <span className={`${CHIP_ICON_TILE} bg-main`}>
         <Image
           src="/icons/mcp.svg"
           alt=""
-          width={14}
-          height={14}
+          width={16}
+          height={16}
           className="opacity-90"
         />
       </span>
-      <span className="text-sm font-medium text-grey-darkest truncate max-w-[120px]">
-        {name}
-      </span>
+      <span className={`${CHIP_LABEL} truncate max-w-[140px]`}>{name}</span>
     </div>
   )
 }
 
 /**
  * Trailing "Config MCP's" affordance — always present, regardless of
- * how many MCPs the user has connected. Differs from `UserMcpChip`
- * in three ways:
- *   1. Icon background is the brand orange + the MCP svg is rendered
- *      WHITE (via a `filter: brightness(0) invert(1)` trick on the
- *      svg image, since we don't have a per-colour svg variant).
- *   2. Two-line content: title ("Config MCP's") + a short
- *      description ("Connect any MCP to Databerry.").
- *   3. Trailing `>` caret signals "this is a navigation, not a
+ * how many MCPs the user has connected. Same outer chrome as the
+ * `UserMcpChip` so the row reads as one consistent family; differs
+ * only in:
+ *   1. Icon tile is brand-orange + the MCP svg is rendered WHITE
+ *      (via a `filter: brightness(0) invert(1)` trick on the svg
+ *      image, since we don't have a per-colour svg variant).
+ *   2. Trailing `>` caret signals "this is a navigation, not a
  *      tile" — clicking routes to `/hub/connections` where the user
  *      manages MCP connections.
+ *
+ * Single-line content (no description) so the chip's height matches
+ * the User chips exactly.
  */
 export function ConfigMcpChip({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="group inline-flex items-center gap-3 rounded-xl bg-white border border-stroke px-3 py-2 shadow-sm transition-colors hover:bg-main cursor-pointer"
+      className={`group ${CHIP_OUTER} transition-colors hover:bg-hover-fill cursor-pointer`}
     >
-      <span className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-brand shrink-0">
+      <span className={`${CHIP_ICON_TILE} bg-brand`}>
         {/* The svg ships as black; `brightness(0) invert(1)` flips
             it to pure white so it reads cleanly on the brand-orange
             tile. Cheaper than maintaining a second white variant. */}
@@ -202,18 +224,11 @@ export function ConfigMcpChip({ onClick }: { onClick: () => void }) {
           style={{ filter: 'brightness(0) invert(1)' }}
         />
       </span>
-      <span className="text-left">
-        <span className="block text-sm font-semibold text-grey-darkest leading-tight">
-          Config MCP&rsquo;s
-        </span>
-        <span className="block text-[11px] text-grey-light leading-tight mt-0.5">
-          Connect any MCP to Databerry.
-        </span>
-      </span>
+      <span className={CHIP_LABEL}>Config MCP&rsquo;s</span>
       <CaretRight
         size={14}
         weight="bold"
-        className="text-grey-light shrink-0 transition-transform duration-150 group-hover:translate-x-0.5"
+        className="text-grey-darkest shrink-0 ml-1 transition-transform duration-150 group-hover:translate-x-0.5"
       />
     </button>
   )

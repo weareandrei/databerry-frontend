@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { toast } from 'sonner'
 import type { RootState, AppDispatch } from '@/store'
@@ -11,6 +12,33 @@ export function useViews() {
   const dispatch = useDispatch<AppDispatch>()
   const views = useSelector((state: RootState) => state.views.items)
   const loading = useSelector((state: RootState) => state.views.loading)
+
+  // Total view count across ALL the user's projects, fetched eagerly
+  // on mount. Distinct from `views.length` (the redux slice) which
+  // only contains views the user has actively navigated into this
+  // session — that one undercounts dramatically, and was the cause
+  // of the sidebar plan card showing "0 / 100 views" for users
+  // with real views in untouched folders.
+  //
+  // `null` while the count is loading; `number` once we have it.
+  // Increment/decrement after successful create/delete so the
+  // sidebar tracks reality without a refetch.
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    ALGORITHM.getViewsCount()
+      .then(r => {
+        if (!cancelled) setTotalCount(r.count)
+      })
+      .catch(() => {
+        // Leave as null — the sidebar will fall back to "—" and
+        // hide the bar, which is the correct behaviour when we
+        // don't know the count. The user's never blocked.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
   // Per-project refresh tick map. Consumers (`<ProjectView>`) should
   // pick a single project's tick out of this map for their deps
   // array — see `getRefreshKeyForProject` below. Subscribing to the
@@ -64,6 +92,11 @@ export function useViews() {
     try {
       const created = await Promise.all(items.map(v => ALGORITHM.createView(v)))
       dispatch(addViews(created))
+      // Keep `totalCount` in sync so the sidebar plan card updates
+      // immediately instead of waiting for a page refresh. Only
+      // bumps if we already have a count (null = still loading;
+      // don't pretend to know).
+      setTotalCount(c => (c == null ? c : c + created.length))
       // Centralised event — fires for every entry point (event picker,
       // funnel, retention, webhook field, composite "Add overview").
       // One event per `createViews()` call (one user intent), with
@@ -99,6 +132,12 @@ export function useViews() {
     dispatch(removeView(viewId))
     try {
       await ALGORITHM.deleteView(viewId)
+      // Decrement only after the server confirms — the local
+      // `removeView` dispatch is optimistic, and the catch below
+      // re-adds the view if the delete failed. We don't decrement
+      // optimistically because reverting a count is harder to keep
+      // truthful than waiting for the server "ok".
+      setTotalCount(c => (c == null ? c : Math.max(0, c - 1)))
       toast.success('View removed')
     } catch {
       if (existing) dispatch(addViews([existing]))
@@ -125,6 +164,7 @@ export function useViews() {
 
   return {
     views,
+    totalCount,
     loading,
     getRefreshKeyForProject,
     isModalOpen,

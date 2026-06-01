@@ -23,6 +23,16 @@ export interface ChatMessage {
    * reload.
    */
   renderables?: Renderable[]
+  /**
+   * True when this message's `content` is an error frame, not an
+   * actual model reply — e.g. Gemini service-unavailable, missing
+   * API key, request timeout. `<ChatMessage>` renders error
+   * messages with a red bubble + warning icon so the user can't
+   * mistake them for the agent's normal output. Persisted to
+   * localStorage like the rest of the message — a historical
+   * error stays styled correctly on reload.
+   */
+  isError?: boolean
 }
 
 export interface ToolCallTrace {

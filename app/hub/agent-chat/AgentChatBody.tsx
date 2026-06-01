@@ -20,6 +20,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useSelector } from 'react-redux'
 import { v4 as uuidv4 } from 'uuid'
@@ -34,7 +35,7 @@ import {
 import { ChatMessage } from './(components)/ChatMessage'
 import { ChatTypingIndicator } from './(components)/ChatTypingIndicator'
 import { ChatInput } from './(components)/ChatInput'
-import { EVENT, trackEvent } from '@/lib/posthog'
+import { EVENT, trackEvent, captureError } from '@/lib/posthog'
 import type {
   ChatMessage as Msg,
   Renderable,
@@ -199,13 +200,25 @@ export function AgentChatBody({
         // its own framed failures.)
         const isBackendError = !res.ok || (data.reply == null && data.error != null)
         if (isBackendError) {
-          trackEvent(EVENT.ASK_AI_MESSAGE_SENT, {
-            ...submitProps,
-            error:
-              data.error ?? data.message ?? `HTTP ${res.status} with no reply.`,
-            errorSource: 'backend',
-            httpStatus: res.status,
-          })
+          const errorMessage =
+            data.error ?? data.message ?? `HTTP ${res.status} with no reply.`
+          // `captureError` files BOTH a PostHog exception (for the
+          // error-tracking view) AND a same-named funnel event
+          // (joining the success-side `ask_ai_message_sent` stream
+          // so funnel queries work). Synthesising an Error here
+          // because the response was structurally fine — fetch
+          // didn't throw, the backend just returned a non-2xx with
+          // a message; we want the stack to point HERE, not at some
+          // generic network failure.
+          captureError(
+            EVENT.ASK_AI_MESSAGE_SENT,
+            new Error(`Chat backend error: ${errorMessage}`),
+            {
+              ...submitProps,
+              errorSource: 'backend',
+              httpStatus: res.status,
+            },
+          )
         }
 
         const reply =
@@ -218,6 +231,11 @@ export function AgentChatBody({
             content: reply,
             toolCalls: data.toolCalls,
             renderables: data.renderables,
+            // Backend-error replies render as a red bubble in
+            // `<ChatMessage>` so the user can't mistake an
+            // upstream failure (Gemini overloaded, missing API
+            // key, etc.) for the agent's actual answer.
+            isError: isBackendError,
           },
         ])
       } catch (err) {
@@ -225,17 +243,23 @@ export function AgentChatBody({
         // browser couldn't reach the server at all (offline, DNS,
         // CORS preflight rejected, etc.). Distinct from the
         // backend-error case above because there's no HTTP status to
-        // report.
+        // report. Pass the original `err` to `captureError` so
+        // PostHog gets the real fetch stack frame (which IS useful
+        // for diagnosing CORS / TLS errors), not a synthesised one.
         const message =
           err instanceof Error ? err.message : 'Something went wrong.'
-        trackEvent(EVENT.ASK_AI_MESSAGE_SENT, {
+        captureError(EVENT.ASK_AI_MESSAGE_SENT, err, {
           ...submitProps,
-          error: message,
           errorSource: 'network',
         })
         setMessages(prev => [
           ...prev,
-          { id: uuidv4(), role: 'assistant', content: `Error: ${message}` },
+          {
+            id: uuidv4(),
+            role: 'assistant',
+            content: message,
+            isError: true,
+          },
         ])
       } finally {
         setSending(false)
@@ -409,22 +433,56 @@ export function AgentChatBody({
                     scrolling all the way down still shows the last
                     message ABOVE the pill, not behind it. */}
                 {messages.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={clear}
-                    className="absolute -top-12 left-0 z-10 inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
-                  >
-                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main">
-                      <Plus
-                        size={14}
-                        weight="bold"
-                        className="text-grey-darkest"
-                      />
-                    </span>
-                    <span className="text-sm font-semibold text-grey-darkest">
-                      New chat
-                    </span>
-                  </button>
+                  // Floating row above the input. New-chat pill is
+                  // always shown; Config-MCP's pill is mobile-only —
+                  // on mobile the bottom MCP chip row is hidden (no
+                  // vertical budget for it), so we surface the
+                  // Config affordance up here next to New chat
+                  // instead. Desktop keeps the bottom MCP row, so
+                  // it doesn't need the duplicate.
+                  <div className="absolute -top-12 left-0 z-10 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={clear}
+                      className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
+                    >
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main">
+                        <Plus
+                          size={14}
+                          weight="bold"
+                          className="text-grey-darkest"
+                        />
+                      </span>
+                      <span className="text-sm font-semibold text-grey-darkest">
+                        New chat
+                      </span>
+                    </button>
+                    {/* Mobile-only Config MCP's — sized to match the
+                        New chat pill exactly (same outer chrome, same
+                        `w-7 h-7` icon tile) so they read as a pair.
+                        Identical structure to `<ConfigMcpChip>` but
+                        without the chevron — at this size the chevron
+                        crowded the label. */}
+                    <button
+                      type="button"
+                      onClick={() => router.push('/hub/connections')}
+                      className="md:hidden inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
+                      aria-label="Configure MCP connections"
+                    >
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-brand">
+                        <Image
+                          src="/icons/mcp.svg"
+                          alt=""
+                          width={14}
+                          height={14}
+                          style={{ filter: 'brightness(0) invert(1)' }}
+                        />
+                      </span>
+                      <span className="text-sm font-semibold text-grey-darkest">
+                        Config MCP&rsquo;s
+                      </span>
+                    </button>
+                  </div>
                 )}
 
                 <ChatInput
@@ -445,9 +503,15 @@ export function AgentChatBody({
                 {/* MCP chip row — user's MCP connections (cap at
                     `MAX_USER_MCP_CHIPS` so the row doesn't blow past
                     one line on narrow viewports), then the trailing
-                    Config affordance. Same row as the empty state;
-                    consistent shape across both surfaces. */}
-                <div className="mt-4 flex items-center justify-center flex-wrap gap-3">
+                    Config affordance.
+                    DESKTOP ONLY: `hidden md:flex`. On mobile the
+                    active-chat surface already has the Config MCP's
+                    button up next to New chat, and the user chips
+                    would otherwise add a second row at the bottom
+                    that competes with the input for vertical space.
+                    Empty state still shows the row on mobile because
+                    it has no input-overlap problem. */}
+                <div className="mt-4 hidden md:flex items-center justify-center flex-wrap gap-3">
                   {mcpConnections
                     .slice(0, MAX_USER_MCP_CHIPS)
                     .map(conn => (
