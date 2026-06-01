@@ -382,47 +382,50 @@ export function AgentChatBody({
               </div>
             </div>
 
-            {/* Row 3 — bottom footer. `relative` so the floating
-                New-chat pill below can anchor to it. */}
-            <div className="shrink-0 px-4 pb-4 relative">
-              {/* Floating "New chat" pill — positioned ABSOLUTELY
-                  above the footer's top edge so it visually overlaps
-                  the message scroll area (messages can scroll behind
-                  it) rather than living inside a full-width white
-                  strip that hid the last bubble. Only the pill itself
-                  carries chrome; the surrounding area is transparent
-                  to whatever's behind it.
-                  - `-top-12` lifts it ~48 px above the footer.
-                  - `left-8` aligns it with the input's left edge
-                    (footer has `px-4`, inner column uses
-                    `max-w-3xl mx-auto`, so 8 = 4 footer pad + 4
-                    breathing).
-                  - `z-10` keeps it above the scroll area's content
-                    (default stacking already does, but explicit).
-                  Message column's `pb-12` (above) is what reserves
-                  the empty space the floating pill sits over — so
-                  scrolling all the way down still shows the last
-                  message ABOVE the pill, not behind it. */}
-              {messages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clear}
-                  className="absolute -top-12 left-8 z-10 inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
-                >
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main">
-                    <Plus
-                      size={14}
-                      weight="bold"
-                      className="text-grey-darkest"
-                    />
-                  </span>
-                  <span className="text-sm font-semibold text-grey-darkest">
-                    New chat
-                  </span>
-                </button>
-              )}
-
-              <div className="max-w-3xl mx-auto">
+            {/* Row 3 — bottom footer. The floating "New chat" pill
+                anchors to the INNER (`max-w-3xl mx-auto`) column —
+                not the outer footer — so it sits above the input's
+                actual left edge on any viewport width. When the
+                viewport is wide, the outer footer spans the full
+                card while the input is centred in a 3xl column;
+                anchoring to the outer would put the pill out at
+                the left wall, far away from the input. */}
+            <div className="shrink-0 px-4 pb-4">
+              <div className="max-w-3xl mx-auto relative">
+                {/* Floating "New chat" pill — positioned ABSOLUTELY
+                    above the inner column's top edge so it visually
+                    overlaps the message scroll area (messages can
+                    scroll behind it) rather than living inside a
+                    full-width white strip that hid the last bubble.
+                    Only the pill itself carries chrome; the
+                    surrounding area is transparent.
+                    - `-top-12` lifts it ~48 px above the column.
+                    - `left-0` aligns its left edge with the input's
+                      left edge.
+                    - `z-10` keeps it above the scroll area's content
+                      (default stacking already does, but explicit).
+                    Message column's `pb-12` (above) is what reserves
+                    the empty space the floating pill sits over — so
+                    scrolling all the way down still shows the last
+                    message ABOVE the pill, not behind it. */}
+                {messages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={clear}
+                    className="absolute -top-12 left-0 z-10 inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main">
+                      <Plus
+                        size={14}
+                        weight="bold"
+                        className="text-grey-darkest"
+                      />
+                    </span>
+                    <span className="text-sm font-semibold text-grey-darkest">
+                      New chat
+                    </span>
+                  </button>
+                )}
 
                 <ChatInput
                   value={input}
