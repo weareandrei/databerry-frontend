@@ -103,11 +103,16 @@ export function DemoTopBar({ view, onViewChange }: DemoTopBarProps) {
     // sidebar to the left of this bar, so the burger never appears
     // and the padding can collapse back to the standard `px-3`.
     <div className="shrink-0 flex items-center gap-2 pt-3 pb-4 pr-3 pl-10 md:pl-3 bg-background">
-      {/* Dashboard / Agent mode switch — leftmost slot, exactly like
-          the real `/hub/home`. Reusing the production component
-          since it's a pure controlled UI (no provider deps). */}
+      {/* Dashboard / Agent mode switch — leftmost slot on DESKTOP
+          only (matches the real `/hub/home`). On mobile the demo
+          card is too narrow to fit switch + date pills on one row
+          without crushing labels, so `<DemoHomePage>` renders a
+          separate full-width switch ROW below this top-bar instead
+          — same pattern the production mobile dashboard uses. */}
       {showSwitch && (
-        <DashboardAgentSwitch value={view!} onChange={onViewChange!} />
+        <div className="hidden md:block">
+          <DashboardAgentSwitch value={view!} onChange={onViewChange!} />
+        </div>
       )}
 
       {showDashboardControls ? (
@@ -182,10 +187,15 @@ export function DemoTopBar({ view, onViewChange }: DemoTopBarProps) {
         </>
       ) : (
         // Agent view — pin the switch to the left and absorb the rest
-        // of the row width with a transparent spacer. Keeps the top
-        // bar's vertical height stable so the body below doesn't shift
-        // when the user toggles.
-        <div className="flex-1" />
+        // of the row width with a transparent spacer. `h-8` matches
+        // the dashboard view's `h-8` pills so the top-bar's height
+        // stays identical between views. WITHOUT this, on mobile the
+        // top-bar collapsed to just its padding (28 px), which sat
+        // ABOVE the burger button (absolute `top-2`, 36 px tall);
+        // the burger then overlapped the mobile switch row below.
+        // Matching pill height keeps the top-bar at the same 60 px
+        // in both views and removes the overlap.
+        <div className="flex-1 h-8" />
       )}
     </div>
   )

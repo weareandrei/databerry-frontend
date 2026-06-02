@@ -21,7 +21,10 @@ import { DemoPinnedViews } from '../projects/DemoPinnedViews'
 import { DemoMobileProjectsList } from '../projects/DemoMobileProjectsList'
 import { DemoProjectView } from '../projects/DemoProjectView'
 import { DemoAgentBody } from '../DemoAgentBody'
-import type { SwitchValue } from '@/app/hub/home/(components)/DashboardAgentSwitch'
+import {
+  DashboardAgentSwitch,
+  type SwitchValue,
+} from '@/app/hub/home/(components)/DashboardAgentSwitch'
 
 export function DemoHomePage() {
   const { projects, views } = useDemoContext()
@@ -45,6 +48,18 @@ export function DemoHomePage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
       <DemoTopBar view={view} onViewChange={setView} />
+
+      {/* Mobile-only full-width Dashboard / Agent mode switch row.
+          Matches the real mobile dashboard pattern: at `<md` the
+          inline switch in `<DemoTopBar>` is hidden (the demo card
+          can't fit switch + date pills on one row at phone widths)
+          and the switch moves down here as a full-bleed control,
+          flush with the body's `px-3` horizontal rhythm. Desktop
+          (`md+`) keeps the inline switch in the top bar and this
+          row never renders. */}
+      <div className="md:hidden shrink-0 px-3 pb-3">
+        <DashboardAgentSwitch value={view} onChange={setView} fullWidth />
+      </div>
 
       {/* Body swap. `AnimatePresence mode="wait"` runs the outgoing
           body's fade-out before the incoming body mounts — same
