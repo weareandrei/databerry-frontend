@@ -73,7 +73,7 @@ export type {
 // `steps`, etc.) because they're not common to every variant.
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
 
-export type DemoPage = 'home' | 'project' | 'connections' | 'settings' | 'agent-chat'
+export type DemoPage = 'home' | 'project' | 'connections' | 'settings'
 
 export interface DemoChatMessage {
   id: string
@@ -531,6 +531,15 @@ interface DemoContextValue {
   chat: DemoChatMessage[]
   sendChatMessage: (content: string) => void
   clearChat: () => void
+  /**
+   * Append a message to the chat WITHOUT the simulated reply round-
+   * trip — used by `<DemoAgentBody>` to drop scripted-conversation
+   * messages directly (typing animation handles the user side, the
+   * scripted assistant reply lands here too). Distinct from
+   * `sendChatMessage`, which always inserts the user message AND
+   * fires a 600 ms-delayed assistant reply from `PRECONFIGURED_QA`.
+   */
+  pushChatMessage: (role: 'user' | 'assistant', content: string) => void
 
   // Notice
   notice: string | null
@@ -755,6 +764,20 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [])
   const clearChat = useCallback(() => setChat([]), [])
 
+  // Drop a single message into the chat directly. Used by the
+  // scripted-conversation auto-play in `<DemoAgentBody>` — the
+  // typing animation runs locally inside that component, then this
+  // pushes the result. We don't reuse `sendChatMessage` for the
+  // scripted side because that one always pairs the user message
+  // with a `PRECONFIGURED_QA`-matched assistant reply on its own
+  // timeline, which would race the scripted reply.
+  const pushChatMessage = useCallback(
+    (role: 'user' | 'assistant', content: string) => {
+      setChat(prev => [...prev, { id: uid('msg'), role, content }])
+    },
+    [],
+  )
+
   // ─── Notice ────────────────────────────────────────────────────────────
   const showNotice = useCallback((message: string) => setNotice(message), [])
   const dismissNotice = useCallback(() => setNotice(null), [])
@@ -811,6 +834,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     chat,
     sendChatMessage,
     clearChat,
+    pushChatMessage,
     notice,
     showNotice,
     dismissNotice,
@@ -861,6 +885,27 @@ export interface DemoQA {
 
 export const PRECONFIGURED_QA: DemoQA[] = [
   // TODO — author Q&A pairs here.
+]
+
+/**
+ * Two-turn scripted conversation the `playDemo` action drops into
+ * the chat. Chosen to showcase what the Agent does in the smallest
+ * possible thread: a revenue question that exercises Stripe-style
+ * data, then a follow-up that hops to a different connected tool
+ * (PostHog / Google Analytics) — so the visitor sees ONE agent
+ * routing to MULTIPLE underlying sources, which is the actual
+ * value prop. Replies are markdown-friendly (the real `ChatMessage`
+ * renderer handles bold + bullets).
+ */
+export const DEMO_SCRIPT: DemoQA[] = [
+  {
+    q: "How's my revenue this week?",
+    a: "**$4,832 this week** (Apr 1 – Apr 7) — up **18%** from last week.\n\nThe biggest day was Wednesday at **$1,240**. Source: Stripe on your main project.",
+  },
+  {
+    q: 'And what about traffic — any spike worth knowing about?',
+    a: "**12,847 pageviews** this week (Google Analytics), up **6%** vs. last week.\n\nWednesday's session count spiked too — likely the same audience that drove the revenue bump.",
+  },
 ]
 
 function answerFor(content: string): string {

@@ -56,7 +56,7 @@ export function DashboardAgentSwitch({
         onClick={() => onChange('agent')}
         fullWidth={fullWidth}
       >
-        AI Agent
+        Agent mode
       </SwitchButton>
     </div>
   )

@@ -19,7 +19,6 @@ import { DemoSidebar } from './DemoSidebar'
 import { DemoHomePage } from './pages/DemoHomePage'
 import { DemoConnectionsPage } from './pages/DemoConnectionsPage'
 import { DemoSettingsPage } from './pages/DemoSettingsPage'
-import { DemoAskAIPage } from './pages/DemoAskAIPage'
 import { DemoProjectPage } from './pages/DemoProjectPage'
 
 const DEMO_UNSUPPORTED_NOTICE = "This feature isn't available in the demo."
@@ -126,7 +125,9 @@ function DemoContent() {
         {pageOpen === 'project' && <DemoProjectPage />}
         {pageOpen === 'connections' && <DemoConnectionsPage />}
         {pageOpen === 'settings' && <DemoSettingsPage />}
-        {pageOpen === 'agent-chat' && <DemoAskAIPage />}
+        {/* Agent chat is no longer a separate page — it now lives
+            embedded inside <DemoHomePage> under the Agent mode switch,
+            matching the real /hub/home dashboard. */}
       </DemoErrorBoundary>
       <DemoNotice />
     </div>

@@ -5,6 +5,7 @@ import FeaturesSection from '@/app/(sections)/Features'
 import DemoSection from '@/app/(sections)/DemoSection'
 import ConnectSection from '@/app/(sections)/ConnectSection'
 import VideoSection from '@/app/(sections)/VideoSection'
+import AgentModeSection from '@/app/(sections)/AgentModeSection'
 import Pricing from '@/app/(sections)/Pricing'
 import FAQ from '@/app/(sections)/FAQ'
 import Contact from '@/app/(sections)/Contact'
@@ -123,6 +124,7 @@ export default function LandingPage() {
       <ConnectSection />
       <VideoSection />
       <FeaturesSection />
+      <AgentModeSection />
       <Pricing />
       <FAQ />
       <Contact />

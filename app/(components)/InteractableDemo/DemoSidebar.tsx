@@ -22,7 +22,6 @@ import { useMobileBreakpoint } from '@/hooks/useMobileBreakpoint'
 import {
   House,
   SquaresFour,
-  ChatCircleDots,
   Gear,
   CaretRight,
   Folder,
@@ -270,7 +269,11 @@ function DemoSidebarContents({
 
       <nav className="px-2 space-y-0.5" onClick={e => e.stopPropagation()}>
         <DemoNavItem page="home" label="Home" icon={House} current={pageOpen} onClick={handleNav} />
-        <DemoNavItem page="agent-chat" label="Agent" icon={ChatCircleDots} current={pageOpen} onClick={handleNav} />
+        {/* Agent moved OUT of the sidebar — it now lives as a
+            Dashboard/Agent mode switch at the top of the home page,
+            mirroring the real `/hub/home` dashboard. The sidebar
+            slot is freed up and the agent surface is reachable in
+            one click from the page where users actually land. */}
         <DemoNavItem page="connections" label="Connections" icon={SquaresFour} current={pageOpen} onClick={handleNav} />
         <DemoNavItem page="settings" label="Settings" icon={Gear} current={pageOpen} onClick={handleNav} />
       </nav>
