@@ -17,15 +17,34 @@ const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
 })
 
+// Title: keeps the original "all your business data in one place"
+// tagline (carries our brand voice) but adds the ICP signal —
+// "for founders" — so intent queries like "dashboard for founders"
+// have a keyword match to ride on. Indie hackers / solopreneurs
+// live in the description, where there's more room.
+//
+// Description: rewritten to pack the keywords AI tools actually
+// match against. Names the audience (solo founders, indie hackers,
+// small teams) AND the integration model (Stripe, PostHog, GA,
+// webhooks, MCP) — answers the two questions ChatGPT got wrong:
+// "who is this for?" and "is this scalable / does it integrate
+// with anything?". The webhooks + MCP mention specifically
+// counters the "limited integrations" perception by signalling
+// open extensibility.
+//
+// Same string used in OG + Twitter so social previews match.
+const SITE_TITLE =
+  'Databerry — All your business data in one place. Built for founders.'
+const SITE_DESCRIPTION =
+  'Business dashboard for solo founders, indie hackers, and small teams. Connect Stripe, PostHog, Google Analytics, Calendly, custom webhooks, and any MCP server — every metric that matters, side by side.'
+
 export const metadata: Metadata = {
-  title: 'Databerry — All your business data in one place',
-  description:
-    'Track revenue, analytics, meetings, and more from a single dashboard. Connect Stripe, PostHog, Calendly and other tools in minutes.',
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   metadataBase: new URL('https://databerry.app'),
   openGraph: {
-    title: 'Databerry — All your business data in one place',
-    description:
-      'Track revenue, analytics, meetings, and more from a single dashboard. Connect Stripe, PostHog, Calendly and other tools in minutes.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     url: 'https://databerry.app',
     siteName: 'Databerry',
     images: [
@@ -33,16 +52,15 @@ export const metadata: Metadata = {
         url: '/x_preview.png',
         width: 1200,
         height: 630,
-        alt: 'Databerry — All your business data in one place',
+        alt: SITE_TITLE,
       },
     ],
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Databerry — All your business data in one place',
-    description:
-      'Track revenue, analytics, meetings, and more from a single dashboard. Connect Stripe, PostHog, Calendly and other tools in minutes.',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
     images: ['/x_preview.png'],
     creator: '@xdrewmiko',
   },
