@@ -57,14 +57,12 @@ const REPLY_TYPING_MS = 1500
 const POST_REPLY_PAUSE_MS = 2200
 
 export function DemoAgentBody() {
-  const { chat, sendChatMessage, pushChatMessage, goToPage } = useDemoContext()
+  const { chat, sendChatMessage, pushChatMessage, clearChat, goToPage } =
+    useDemoContext()
   const [inputValue, setInputValue] = useState('')
-  const [autoPlaying, setAutoPlaying] = useState(false)
+  const [autoPlaying, setAutoPlaying] = useState(true)
   // Drives the typing indicator between scripted "send" and reply.
   const [waitingForReply, setWaitingForReply] = useState(false)
-  // Per-mount guard so we don't restart auto-play when state ticks
-  // re-run the mount effect (StrictMode double-invokes, etc.).
-  const startedRef = useRef(false)
   // Inner scroll container — `scrollTop` is set on THIS element so
   // the landing page never moves. Replaces the old `bottomRef +
   // scrollIntoView` pattern, which scrolled the whole window.
@@ -75,18 +73,17 @@ export function DemoAgentBody() {
     const el = scrollRef.current
     if (!el) return
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
-  }, [chat, waitingForReply])
+  }, [chat, waitingForReply, inputValue])
 
   // ── Auto-play state machine ─────────────────────────────────────
+  //
+  // Always runs on mount (toggling to Agent mode replays the demo).
+  // Calls `clearChat` first so a partial run from a previous mount
+  // (cancelled mid-flight by a Strict-Mode cleanup or a fast
+  // toggle) doesn't leave orphan messages dangling at the top of
+  // the fresh play. The `cancelled` closure flag + cleanup function
+  // mean cancelled timers can never push messages after unmount.
   useEffect(() => {
-    if (startedRef.current) return
-    // Skip auto-play if the user already has chat history from a
-    // previous interaction — they don't want their conversation
-    // wiped just because they toggled away and back.
-    if (chat.length > 0) return
-    startedRef.current = true
-    setAutoPlaying(true)
-
     let cancelled = false
     const timers: ReturnType<typeof setTimeout>[] = []
     const schedule = (ms: number, fn: () => void) => {
@@ -95,6 +92,13 @@ export function DemoAgentBody() {
       }, ms)
       timers.push(t)
     }
+
+    // Reset to a clean canvas. Visitor sees the empty-state title +
+    // MCP chips for ~one beat before typing starts.
+    clearChat()
+    setInputValue('')
+    setWaitingForReply(false)
+    setAutoPlaying(true)
 
     const typeQuestion = (i: number, charIdx: number) => {
       if (cancelled) return
@@ -122,7 +126,9 @@ export function DemoAgentBody() {
       })
     }
 
-    typeQuestion(0, 0)
+    // Slight grace period so visitors register the empty state +
+    // MCP chips BEFORE characters start flowing.
+    schedule(500, () => typeQuestion(0, 0))
 
     return () => {
       cancelled = true
@@ -318,13 +324,21 @@ function DemoConfigMcpChip({ onClick }: { onClick: () => void }) {
  *   - Brand-orange Sparkle icon top-left as the AI affordance.
  *   - Brand-orange ArrowUp square in the bottom-right as the send.
  *
- * `locked={true}` means the auto-play is driving the value — the
- * textarea becomes read-only (so a stray keystroke doesn't fight
- * the animation) and the send button greys out. Cleared once
- * auto-play finishes; the visitor can then type normally.
+ * Two display modes, controlled by `locked`:
  *
- * Enter to send, Shift+Enter for newline — same keyboard contract
- * the real product ships. Enter is ignored when `locked`.
+ *   1. `locked={true}` — auto-play is driving the value. We render
+ *      a STATIC div displaying the current typed text plus an
+ *      animated blinking caret (same trick the landing page's
+ *      `ShowcaseInput` uses). Real textareas only show a caret when
+ *      focused, so without focus the typing animation read as
+ *      "nothing happening" — the explicit caret fixes that.
+ *
+ *   2. `locked={false}` — auto-play is done. We swap to a real
+ *      interactive `<textarea>` so the visitor can type normally
+ *      and submit with Enter.
+ *
+ * The send button is present in both modes but greys to 40 % when
+ * `locked` or when there's nothing to send.
  */
 function DemoInput({
   value,
@@ -353,15 +367,34 @@ function DemoInput({
           weight="fill"
           className="text-brand shrink-0 mt-0.5"
         />
-        <textarea
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="Ask anything"
-          rows={1}
-          readOnly={locked}
-          className="flex-1 bg-transparent outline-none resize-none text-xs text-grey-darkest placeholder:text-grey-light disabled:opacity-60 leading-relaxed"
-        />
+        {locked ? (
+          // Auto-play display: static text + blinking caret. `min-h`
+          // matches the unlocked textarea's intrinsic height so the
+          // pill doesn't jitter when modes swap. `pr-9` keeps text
+          // from sliding under the absolute-positioned send button.
+          <div className="flex-1 text-xs text-grey-darkest leading-relaxed min-h-[1.75rem] pr-9">
+            {value ? (
+              <span>
+                {value}
+                <span
+                  aria-hidden
+                  className="inline-block align-baseline w-[1px] h-[1em] bg-grey-darkest ml-0.5 animate-pulse"
+                />
+              </span>
+            ) : (
+              <span className="text-grey-light">Ask anything</span>
+            )}
+          </div>
+        ) : (
+          <textarea
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Ask anything"
+            rows={1}
+            className="flex-1 bg-transparent outline-none resize-none text-xs text-grey-darkest placeholder:text-grey-light leading-relaxed"
+          />
+        )}
       </div>
       <button
         type="button"
