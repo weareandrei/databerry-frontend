@@ -54,7 +54,7 @@ export default function AgentModeSection() {
     // the glass effect is invisible.
     <section
       id="agent-mode"
-      className="relative px-[10vw] py-32 bg-gradient-to-b from-white via-gray-50 to-white overflow-x-clip"
+      className="relative px-4 md:px-[10vw] py-32 bg-gradient-to-b from-white via-gray-50 to-white overflow-x-clip"
     >
       {/* Header cluster — H2 + subhead, centred. The orange "Demo"
           eyebrow was removed at the user's request; the floating

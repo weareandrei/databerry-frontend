@@ -363,7 +363,7 @@ const FeaturesSection = () => {
   const ActivePreview = FEATURES[activeIndex].Preview
 
   return (
-    <section id="features-section" className="relative px-[10vw] flex flex-col bg-white">
+    <section id="features-section" className="relative px-8 md:px-[10vw] flex flex-col bg-white">
       {/*
         Inner wrapper acts as the sticky header's *containing block* —
         sticky releases when this wrapper's bottom edge reaches the

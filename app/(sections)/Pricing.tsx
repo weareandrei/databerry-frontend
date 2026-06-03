@@ -22,7 +22,7 @@ import { PricingTable } from '@/components/pricing/PricingTable'
 
 export default function Pricing() {
   return (
-    <section id="pricing" className="relative px-[10vw] py-24 bg-white">
+    <section id="pricing" className="relative px-4 md:px-[10vw] py-24 bg-white">
       {/* Centered header cluster — eyebrow + heading + subtext.
           Same composition the FAQ + Features sections use so the
           three "anchor" sections (Features → Pricing → FAQ) read
