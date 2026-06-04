@@ -81,7 +81,41 @@ export function captureError(
 
 export function identifyUser(userId: string, properties?: Record<string, unknown>) {
   if (typeof window === 'undefined') return
+
+  // ── Cross-device / cross-context alias ────────────────────────────
+  //
+  // PostHog auto-merges anonymous events into the identified person
+  // ONLY the first time a user identifies. On every subsequent
+  // device — same human, new browser → new anonymous distinct_id —
+  // `identify()` finds the person already exists and *refuses* to
+  // merge the new anonymous ID (PostHog's intentional safeguard
+  // against accidentally collapsing two real users on a shared
+  // computer). The orphan side-effect: anonymous pre-login events on
+  // a second device stay attached to a ghost person nobody owns.
+  //
+  // `alias(userId, anonId)` explicitly tells PostHog those two
+  // distinct_ids are the same human, so the second device's
+  // anonymous activity collapses into the main person. Phone-then-
+  // PC, wishlist-email-then-real-auth, "I cleared cookies last
+  // week" — all collapse correctly.
+  //
+  // We capture the anonymous id BEFORE `identify()` because identify
+  // immediately rewrites `distinct_id` to `userId` — calling
+  // `get_distinct_id()` afterwards would return `userId` and we'd
+  // skip the alias.
+  //
+  // The `anonId !== userId` guard skips the call when the user is
+  // already identified on this device (returning visitor on same
+  // browser) — alias would be a no-op there anyway, but skipping
+  // saves a network round trip.
+  const anonId = posthog.get_distinct_id()
+
   posthog.identify(userId, properties)
+
+  if (anonId && anonId !== userId) {
+    posthog.alias(userId, anonId)
+  }
+
   // Register `user_id` as a super property so every subsequent event
   // automatically includes it. The distinct_id already equals the
   // userId after identify, but having it as an explicit event

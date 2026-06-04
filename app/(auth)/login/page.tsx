@@ -19,7 +19,8 @@ import Navbar from '@/app/(components)/navbar'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { GoogleButton } from '@/app/(auth)/(components)/GoogleButton'
-import { EVENT, trackEvent } from '@/lib/posthog'
+// `logged_in` is now fired centrally from `AuthContext` so it covers
+// the OAuth callback path too; no PostHog imports needed here.
 
 /**
  * Translate Supabase's terse error messages into something a user can
@@ -80,7 +81,10 @@ export default function LoginPage() {
       return
     }
 
-    trackEvent(EVENT.LOGGED_IN, { method: 'email' })
+    // `logged_in` is fired centrally from `AuthContext` so the OAuth
+    // path (which can't run PostHog from its server-side callback)
+    // is counted too. Don't fire it here or email/password would
+    // double-count.
     router.push('/hub/home')
   }
 

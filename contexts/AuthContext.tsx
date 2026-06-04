@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { identifyUser, resetUser } from '@/lib/posthog'
+import { EVENT, identifyUser, resetUser, trackEvent } from '@/lib/posthog'
 import type { User } from '@supabase/supabase-js'
 
 interface AuthContextValue {
@@ -26,13 +26,87 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null
       setUser(u)
-      if (u) {
-        identifyUser(u.id, { email: u.email })
-      } else {
+      if (!u) {
         resetUser()
+        return
+      }
+
+      identifyUser(u.id, { email: u.email })
+
+      // ── signed_up / logged_in attribution ────────────────────────
+      //
+      // Why this lives here, not in the form pages: the OAuth flow
+      // (`GoogleButton` → Google → `/auth/callback` → `/hub/home`)
+      // bounces through a SERVER route handler that can't fire
+      // PostHog. The email/password forms used to fire signed_up /
+      // logged_in themselves, which silently dropped ~90% of real
+      // signups (every Google user). Centralising it here covers
+      // both paths.
+      //
+      // The two interesting Supabase events:
+      //   - `SIGNED_IN`        → real sign-in transition (form submit,
+      //                          recovery callback). NOT page reload.
+      //   - `INITIAL_SESSION`  → session restoration on mount. Fires
+      //                          on EVERY page load, BUT also on the
+      //                          OAuth callback redirect (server set
+      //                          the session cookie, client picks it
+      //                          up here for the first time).
+      //
+      // Both can carry a fresh sign-in. We dedupe via a localStorage
+      // flag keyed on user.id so:
+      //   - Fresh user this browser → fire signed_up (created_at fresh)
+      //                               or logged_in (older account being
+      //                               seen here the first time).
+      //   - Already-seen user → fire logged_in only on `SIGNED_IN`
+      //                         (not on INITIAL_SESSION page reloads),
+      //                         so a refresh doesn't pad the count.
+      //
+      // The flag is per-browser, never cleared on sign-out — that's
+      // intentional. After signing out and back in, we still want
+      // logged_in (not signed_up) to fire, even if the user is on
+      // the same machine.
+      if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return
+
+      const method =
+        (u.app_metadata?.provider as string | undefined) ?? 'email'
+      const flagKey = `db_first_seen_${u.id}`
+
+      let alreadySeen = false
+      try {
+        alreadySeen = localStorage.getItem(flagKey) === '1'
+      } catch {
+        /* private mode / disabled — fall through and treat as unseen */
+      }
+
+      if (alreadySeen) {
+        // Returning user. Only count an actual sign-in, not the page
+        // reload that triggers INITIAL_SESSION on every navigation.
+        if (event === 'SIGNED_IN') {
+          trackEvent(EVENT.LOGGED_IN, { method })
+        }
+        return
+      }
+
+      // First time we see this user in this browser. Brand-new
+      // account (just signed up) vs returning user on a new device
+      // is decided by created_at age. 24 h tolerance covers email-
+      // confirmation flows where created_at is set on form submit
+      // but the user clicks the email link later.
+      const createdMs = new Date(u.created_at).getTime()
+      const isFreshAccount = Date.now() - createdMs < 24 * 60 * 60 * 1000
+
+      trackEvent(
+        isFreshAccount ? EVENT.SIGNED_UP : EVENT.LOGGED_IN,
+        { method },
+      )
+
+      try {
+        localStorage.setItem(flagKey, '1')
+      } catch {
+        /* private mode — re-firing on next page load is acceptable */
       }
     })
 

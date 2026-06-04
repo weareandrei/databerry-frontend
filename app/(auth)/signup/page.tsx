@@ -33,7 +33,8 @@ import Navbar from '@/app/(components)/navbar'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { GoogleButton } from '@/app/(auth)/(components)/GoogleButton'
-import { EVENT, trackEvent } from '@/lib/posthog'
+// `signed_up` is now fired centrally from `AuthContext` so it covers
+// the OAuth callback path too; no PostHog imports needed here.
 
 export default function SignupPage() {
   const router = useRouter()
@@ -64,14 +65,12 @@ export default function SignupPage() {
       return
     }
 
-    // Fire BEFORE AuthContext sees the new user, so the event lands
-    // on the pre-identify anonymous distinct_id. PostHog's identify
-    // merges sessions, so we don't lose attribution.
-    trackEvent(EVENT.SIGNED_UP, {
-      method: 'email',
-      needsConfirmation: !data.session,
-    })
-
+    // `signed_up` is NOT fired here — it's centralised in
+    // `AuthContext.onAuthStateChange`, which catches BOTH this path
+    // (email/password) and the OAuth callback path (Google,
+    // GitHub, …) that we can't instrument from the form. Before
+    // that move, ~90% of signups were silently dropped because
+    // OAuth bounces through a server route that can't run PostHog.
     if (data.session) {
       // Email confirmation disabled — user is logged in.
       router.push('/hub/home')

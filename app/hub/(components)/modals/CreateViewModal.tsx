@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, X } from '@phosphor-icons/react'
+import { Cube, Plus, X } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import {
   BottomDialog,
   type BottomDialogPageSlotContext,
@@ -74,6 +75,27 @@ type RetentionStep = {
   period: 'day' | 'week'
   cohortCount: number
   retentionPeriods: number
+}
+
+/**
+ * Connection-pick sub-page state. Pushed AHEAD of every other sub-page
+ * (display-mode picker, events picker, funnel/retention/webhook
+ * builders) when the user clicks a view-type bar AND the integration
+ * has 2+ matching connections under the current scope. Until this
+ * lands the modal silently picked `connList[0]` — fine for users with
+ * a single PostHog (or Stripe, GA, etc.) account, very confusing for
+ * anyone with multiple, since the view would silently bind to one
+ * specific connection with no UI hint of which.
+ *
+ * The picker remembers the integration + the view option the user
+ * originally clicked so that, once they pick a connection, the rest
+ * of the routing (display-mode / events / funnel / commit) can run
+ * exactly as it would have for a single-connection user.
+ */
+type ConnectionPickerStep = {
+  integration: string
+  option: ViewOption
+  candidates: Connection[]
 }
 
 /**
@@ -204,6 +226,8 @@ export function CreateViewModal() {
   const [funnelStep, setFunnelStep] = useState<FunnelStep | null>(null)
   const [retentionStep, setRetentionStep] = useState<RetentionStep | null>(null)
   const [displayModeStep, setDisplayModeStep] = useState<DisplayModeStep | null>(null)
+  const [connectionPickerStep, setConnectionPickerStep] =
+    useState<ConnectionPickerStep | null>(null)
   const [selectedEvents, setSelectedEvents] = useState<Set<string>>(new Set())
   const [tracking, setTracking] = useState(false)
   // Synchronous re-entry gate paired with `tracking`. State alone
@@ -247,6 +271,7 @@ export function CreateViewModal() {
     setFunnelStep(null)
     setRetentionStep(null)
     setDisplayModeStep(null)
+    setConnectionPickerStep(null)
     setSelectedEvents(new Set())
   }
 
@@ -415,12 +440,44 @@ export function CreateViewModal() {
 
     const connList = connectionsByIntegration.get(integration) ?? []
     if (connList.length === 0) return // bar should be disabled
-    // For now, when multiple connections of the same integration exist,
-    // attach the view to the first one (matches the current behavior of
-    // the modal's per-connection rows, which exposed each separately).
-    // Future iteration: push a connection-picker sub-page when count > 1.
-    const conn = connList[0]
 
+    // 2+ connections of this type → push the connection picker sub-page.
+    // The picker remembers the option the user clicked so we can resume
+    // the per-option routing in `proceedWithConnection` once they pick.
+    // This replaces the prior behaviour of silently binding to
+    // `connList[0]` — which made views unpredictably attach to whichever
+    // connection happened to come back first from the database.
+    if (connList.length > 1) {
+      setConnectionPickerStep({
+        integration,
+        option,
+        candidates: connList,
+      })
+      return
+    }
+
+    // Single matching connection → no choice to make, proceed directly.
+    proceedWithConnection(integration, option, connList[0])
+  }
+
+  /**
+   * Resume the per-option routing once a concrete connection is known.
+   * Called either:
+   *   - directly from `handlePickViewOption` when the integration has
+   *     exactly one matching connection, or
+   *   - from `handlePickConnection` after the user resolves the
+   *     2+-connection ambiguity via the connection-picker sub-page.
+   *
+   * The branches below are the original routing that used to live
+   * inline in `handlePickViewOption`. The only structural change is
+   * that `conn` now arrives as a parameter instead of being closed
+   * over from `connList[0]`.
+   */
+  const proceedWithConnection = (
+    integration: string,
+    option: ViewOption,
+    conn: Connection,
+  ) => {
     // Webhook gauge / append → field-name sub-page (single mode each;
     // the value/list distinction is just visual, no displayMode picker).
     if (
@@ -501,6 +558,20 @@ export function CreateViewModal() {
       name: option.name,
       config: { displayMode: option.modes[0] },
     })
+  }
+
+  /**
+   * Click handler for the rows on the connection-picker sub-page.
+   * Clears the picker first (so the next step's render gate opens),
+   * then re-enters the per-option routing with the user-picked
+   * connection. Mirrors the way `handlePickDisplayMode` consumes
+   * `displayModeStep`.
+   */
+  const handlePickConnection = (conn: Connection) => {
+    if (!connectionPickerStep) return
+    const { integration, option } = connectionPickerStep
+    setConnectionPickerStep(null)
+    proceedWithConnection(integration, option, conn)
   }
 
   const handlePickDisplayMode = (mode: ViewKind) => {
@@ -1225,11 +1296,83 @@ export function CreateViewModal() {
           </BottomDialog.Page>
         )}
 
+      {/* Connection picker — pushed when the clicked view type has
+          2+ matching connections under the current scope. Sits between
+          the main picker and the next per-option step (display mode,
+          events, etc.) so the user resolves the connection-of-record
+          BEFORE answering option-specific questions. Per `BottomDialog`
+          page priority, sub-pages above this (events / webhook / funnel
+          / retention / displayMode) win — but in practice they never
+          co-exist with the connection picker, because once a connection
+          is picked `handlePickConnection` clears this state before
+          pushing whichever next step is appropriate. */}
       {!eventsStep &&
         !webhookStep &&
         !funnelStep &&
         !retentionStep &&
-        !displayModeStep && (
+        !displayModeStep &&
+        connectionPickerStep && (
+          <BottomDialog.Page
+            title="Pick a connection"
+            pageKey={`connectionPicker:${connectionPickerStep.integration}:${connectionPickerStep.option.type}`}
+            onBack={() => setConnectionPickerStep(null)}
+          >
+            <p className="-mt-1 mb-3 text-xs text-muted-foreground">
+              You have{' '}
+              {connectionPickerStep.candidates.length}{' '}
+              {CONNECTION_DISPLAY_NAMES[connectionPickerStep.integration] ??
+                connectionPickerStep.integration}{' '}
+              connections. Pick which one this{' '}
+              <span className="font-medium text-foreground">
+                {connectionPickerStep.option.name}
+              </span>{' '}
+              view should read from.
+            </p>
+            <div className="space-y-1.5">
+              {connectionPickerStep.candidates.map(c => {
+                // Scope chip mirrors the `TrafficConnectionPicker` row:
+                // "Common" for project-unscoped connections, the
+                // project's name otherwise. Lets the user tell two
+                // PostHogs apart when their `name`s are similar.
+                const scopeLabel =
+                  c.projectId == null
+                    ? 'Common'
+                    : projects.projects.find(p => p.id === c.projectId)?.name ??
+                      'Other project'
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => handlePickConnection(c)}
+                    className="flex w-full items-center gap-3 rounded-md border border-stroke bg-card px-3 py-2.5 text-left transition-colors hover:border-foreground/30 cursor-pointer"
+                  >
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted/60">
+                      <ConnectionIcon
+                        type={c.type}
+                        size={22}
+                        className="text-muted-foreground/85"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{c.name}</p>
+                      <p className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <Cube size={9} weight="bold" />
+                        {scopeLabel}
+                      </p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </BottomDialog.Page>
+        )}
+
+      {!eventsStep &&
+        !webhookStep &&
+        !funnelStep &&
+        !retentionStep &&
+        !displayModeStep &&
+        !connectionPickerStep && (
           <BottomDialog.Page
             // Title slot is replaced by the headerLeft cluster (title +
             // subheader stack). Rendering both would put the title in
@@ -1294,8 +1437,15 @@ export function CreateViewModal() {
                     <p className="mb-2 text-[11.5px] font-medium uppercase tracking-wide text-muted-foreground">
                       {sectionLabel}
                       {integration !== 'composite' && connList.length > 1 && (
+                        // We used to hint "saves to {first connection name}"
+                        // here as a band-aid for the silent connList[0]
+                        // binding. Now that clicking a bar with 2+
+                        // matching connections opens the picker sub-page,
+                        // the hint shifts from "FYI it'll go to X" to a
+                        // promise that the user will get to choose.
                         <span className="ml-2 normal-case font-normal text-foreground/60">
-                          {connList.length} connections — saves to {connList[0].name}
+                          {connList.length} connections — pick one when
+                          you add a view
                         </span>
                       )}
                     </p>
