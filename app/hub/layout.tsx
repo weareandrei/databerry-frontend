@@ -8,6 +8,10 @@ import { CreateProjectModal } from '@/app/hub/(components)/modals/CreateProjectM
 import { CreateFolderModal } from '@/app/hub/(components)/modals/CreateFolderModal'
 import { CreateConnectionModal } from '@/app/hub/(components)/modals/CreateConnectionModal'
 import { CreateViewModal } from '@/app/hub/(components)/modals/CreateViewModal'
+import { FeedbackWidget } from '@/app/hub/(components)/FeedbackWidget'
+// SubscriptionGate temporarily unmounted below — import kept commented
+// so re-enabling is a two-line uncomment.
+// import { SubscriptionGate } from '@/app/hub/(components)/SubscriptionGate'
 
 const jakarta = Plus_Jakarta_Sans({
   variable: '--font-jakarta',
@@ -73,6 +77,21 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
                 Renders nothing of its own — sits at the layout
                 root so every navigation back into `/hub` sees it. */}
             <BillingReturnHandler />
+            {/* Founder-only satisfaction survey. Fixed bottom-right
+                pill that opens a small popover with the 5-emoji
+                ladder + optional comment textarea. Submits to
+                `POST /feedback`, which mails the result to the
+                founder's personal inbox via Resend. Mounted at the
+                layout root so it follows the user across every
+                `/hub/*` route — see `FeedbackWidget` docblock. */}
+            <FeedbackWidget />
+            {/* Full-viewport blocker when the user's subscription
+                is inactive (trial expired, paid sub lapsed, etc).
+                TEMPORARILY DISABLED — the 5-second test timer was
+                firing on every page load during testing. Re-enable
+                by un-commenting once the real trial-status trigger
+                is wired in (see `SubscriptionGate`'s docblock).
+                <SubscriptionGate /> */}
           </UserSettingsProvider>
         </DashboardProvider>
       </StoreProvider>

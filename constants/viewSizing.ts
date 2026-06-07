@@ -63,6 +63,9 @@ const VIEW_SIZING: Record<string, CellSpan> = {
   // count chart). Keeps the grid visually coherent: charts at 2,
   // lists at 3, funnels at 3, retention at 4.
   custom_chart:             { cols: 2,      rows: 2 },
+  // Cross-platform users list — same footprint as the PostHog users
+  // list and other list tiles (3 wide, 2 tall).
+  project_users:            { cols: 3,      rows: 2 },
 
   // ── PostHog ──────────────────────────────────────────────────────────
   daily_counter:    { cols: 1, rows: 1 },   // value-mode default (chart → 3×2)

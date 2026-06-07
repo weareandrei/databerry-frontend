@@ -57,7 +57,7 @@ export default function Pricing() {
           ultrawides. The component handles its own mobile / desktop
           responsive swap (stacked cards on phones, grid on `md+`). */}
       <RevealOnScroll delay={0.15} y={20}>
-        <div className="max-w-7xl mx-auto">
+        <div className="mx-auto max-w-7xl">
           <PricingTable variant="signup" />
         </div>
       </RevealOnScroll>

@@ -1,0 +1,196 @@
+'use client'
+
+/**
+ * "General → Users" tile — lists the project's cross-platform people
+ * (the identity graph populated from Stripe / PostHog / GA), newest
+ * first. Connection-less, like the other composite views: it reads
+ * the `people` graph for `view.projectId` directly rather than a
+ * single connection, so there's no reattach / connection-missing
+ * chrome.
+ *
+ * Self-contained (fetch + presentation in one) — unlike the chart
+ * tiles there's no per-tile config to persist, so the 3-file
+ * connected/presentation/hook split would be overkill. Mirrors the
+ * row shell of `ViewCardUsers` (avatar + primary line + subline +
+ * right-aligned relative time) so "Users" reads as a sibling of the
+ * PostHog users tile.
+ */
+
+import { useCallback, useEffect, useState } from 'react'
+import { ArrowsClockwise, User } from '@phosphor-icons/react'
+import { ViewWrapper } from './ViewWrapper'
+import { ViewHeader } from './ViewHeader'
+import { FetchErrorBadge } from './ViewCard'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { ALGORITHM, type PersonRow } from '@/lib/api'
+import type { View } from '@/types/view'
+
+// Relative-time formatter — same shape as `ViewCardUsers` so the two
+// tiles read identically. Keeps rows dense vs. a full ISO string.
+function formatRelative(iso: string): string {
+  if (!iso) return '—'
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return iso
+  const deltaSec = Math.max(0, (Date.now() - ms) / 1000)
+  if (deltaSec < 90) return 'just now'
+  if (deltaSec < 3600) return `${Math.round(deltaSec / 60)}m ago`
+  if (deltaSec < 86400) return `${Math.round(deltaSec / 3600)}h ago`
+  return `${Math.round(deltaSec / 86400)}d ago`
+}
+
+function looksLikeEmail(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)
+}
+
+/**
+ * Initials for the avatar: first letter of a name's two tokens, or
+ * the first letter of an email, else null (caller renders the
+ * generic User icon). Mirrors `ViewCardUsers.initialsFor`.
+ */
+function initialsFor(person: PersonRow): string | null {
+  const name = person.displayName?.trim()
+  if (name) {
+    const tokens = name.split(/\s+/).filter(Boolean)
+    if (tokens.length >= 2) {
+      return `${tokens[0]![0]!}${tokens[tokens.length - 1]![0]!}`.toUpperCase()
+    }
+    return name[0]!.toUpperCase()
+  }
+  if (person.primaryEmail) return person.primaryEmail[0]!.toUpperCase()
+  return null
+}
+
+function PersonRowItem({ person }: { person: PersonRow }) {
+  // Primary line: name if known, else email, else a short id. The
+  // identity graph fills name/email as platforms surface them, so a
+  // freshly-ingested anonymous person shows the id until enriched.
+  const primary =
+    person.displayName ||
+    person.primaryEmail ||
+    `${person.id.slice(0, 8)}…`
+
+  // Subline: email (when it's not already the primary), else a quiet
+  // "added" date so the row isn't bare for anonymous people.
+  const sublineParts: string[] = []
+  if (person.primaryEmail && person.primaryEmail !== primary) {
+    sublineParts.push(person.primaryEmail)
+  }
+  sublineParts.push(`added ${formatRelative(person.createdAt)}`)
+  const subline = sublineParts.join(' · ')
+
+  const initials = initialsFor(person)
+
+  return (
+    <div className="flex items-center gap-3 py-2 border-b last:border-b-0 border-black/[0.06]">
+      <Avatar size="sm" className="shrink-0">
+        <AvatarFallback>
+          {initials ? (
+            initials
+          ) : (
+            <User size={12} weight="bold" className="text-muted-foreground" />
+          )}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate" title={primary}>
+          {primary}
+        </p>
+        <p className="text-xs text-muted-foreground truncate mt-0.5">{subline}</p>
+      </div>
+      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+        {formatRelative(person.updatedAt)}
+      </span>
+    </div>
+  )
+}
+
+interface Props {
+  view: View
+  onUntrack?: (id: string) => void
+  onPin?: (id: string) => void
+  isPinned?: boolean
+  projectName?: string
+  chromeless?: boolean
+}
+
+export function ViewCardProjectUsersConnected({
+  view,
+  onUntrack,
+  onPin,
+  isPinned,
+  projectName,
+  chromeless = false,
+}: Props) {
+  const [people, setPeople] = useState<PersonRow[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    setError(false)
+    try {
+      const rows = await ALGORITHM.getPeople(view.projectId, { limit: 200 })
+      setPeople(rows)
+    } catch {
+      setError(true)
+      setPeople(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [view.projectId])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  return (
+    <ViewWrapper
+      className="col-span-3 row-span-2"
+      variant={chromeless ? 'borderless' : 'default'}
+    >
+      <ViewHeader
+        name={view.name}
+        connectionType={view.connectionType}
+        connectionLabel="All platforms"
+        onUntrack={onUntrack}
+        viewId={view.id}
+        projectName={projectName}
+        onRefresh={() => void load()}
+        refreshing={loading}
+        // ViewHeader's onPin is no-arg; bind the view id here so the
+        // parent's `(id) => …` handler gets what it needs.
+        onPin={onPin ? () => onPin(view.id) : undefined}
+        isPinned={isPinned}
+      />
+
+      {/* `data-no-dnd` so scrolling/selecting inside the list doesn't
+          start a tile drag — matches every other list tile. */}
+      <div
+        data-no-dnd="true"
+        className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2"
+      >
+        {loading ? (
+          <div className="flex items-center gap-1.5 py-2">
+            <ArrowsClockwise
+              size={13}
+              weight="bold"
+              className="text-muted-foreground animate-spin"
+            />
+            <span className="text-xs text-muted-foreground">Loading users…</span>
+          </div>
+        ) : error ? (
+          <div className="py-2">
+            <FetchErrorBadge message="Couldn't load users" />
+          </div>
+        ) : people && people.length === 0 ? (
+          <p className="text-xs text-muted-foreground py-2">
+            No users yet. Connect Stripe, PostHog or GA and we&apos;ll start
+            building this list.
+          </p>
+        ) : people ? (
+          people.map(p => <PersonRowItem key={p.id} person={p} />)
+        ) : null}
+      </div>
+    </ViewWrapper>
+  )
+}

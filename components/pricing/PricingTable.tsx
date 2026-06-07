@@ -1,83 +1,86 @@
 'use client'
 
 /**
- * Plan-comparison table — renders on the landing page (above the
+ * Plan-comparison surface — renders on the landing page (above the
  * FAQ) AND inside `<TierPickerSheet>` (the dashboard upgrade sheet).
- * One component, one set of cells, responsive sizing for both
+ * Same component, same set of cards, responsive sizing for both
  * contexts.
  *
- * Layout (every viewport):
- *   - First column is feature labels, left-aligned. The top-left
- *     cell is intentionally empty so the plan-header cards anchor
- *     the visual top of each column.
- *   - Each plan column starts with a rich PLAN-HEADER CARD:
- *     plan name + optional "Popular" badge + large price +
- *     tagline. NO CTA at the top — the only CTA lives at the
- *     bottom of the column.
- *   - Feature rows fill the middle (Projects, Views per project,
- *     Connections per integration, Integrations, Support). Values
- *     center-align under their plan columns.
- *   - The bottom row is the CTA — "Get started" pill button for
- *     every plan (Enterprise / custom plans surface "Contact us"
- *     instead, since they route to a different flow).
- *   - The "Pro" column carries a subtle brand-tinted vertical band
- *     that runs from the plan-header card to the CTA, anchoring
- *     it as the highlighted upsell tier.
- *
- * Layout (mobile, `<md`):
- *   - Same grid structure, smaller padding + text. A `min-w` floor
- *     on the inner grid (~620 px) means phones smaller than that
- *     scroll horizontally — the rounded outer card frames the
- *     scroll region cleanly so it still reads as one table.
- *
- * Data comes from `usePlans()` (Supabase `subscriptions` table)
- * sorted by `display_order`. Custom plans (`isCustomPlan: true`)
- * display "Custom" for every limit and "Contact us" for both price
- * and CTA — Enterprise is the only such plan today.
+ * Layout:
+ *   - TWO cards in a 1-column-on-mobile / 2-column-on-desktop grid.
+ *     Only paid, non-custom tiers (Starter + Pro today). Free and
+ *     Enterprise are filtered out client-side so the picker stays
+ *     correct even if the `subscriptions` DB row for either is
+ *     still present mid-migration.
+ *   - Each card:
+ *       Plan name (+ "Popular" badge on Pro)
+ *       Big price + optional intro-pricing subline
+ *       Short tagline
+ *       Bulleted feature list (limits + support tier)
+ *       CTA at the bottom (flex-1 above + auto-margin so all CTAs
+ *       sit at the same vertical position when one card has more
+ *       feature lines than the other)
+ *   - Beneath the grid: a small "Need a custom solution? Contact
+ *     us" line that anchors to the landing-page contact form (or
+ *     navigates there from the dashboard).
  *
  * Two CTA modes via `variant`:
- *   - `'signup'`: landing-page mode. CTAs are "Get started" links
- *     to /signup (or contact for Enterprise). No "Current plan"
- *     concept since there's no signed-in user on the landing page.
- *   - `'upgrade'`: dashboard mode. CTAs call `onSelect(planId)`
- *     and label themselves "Upgrade to X" / "Downgrade to X" /
- *     dashed "Current plan" depending on direction relative to
- *     `currentPlanId`.
+ *   - `'signup'`: landing page. CTAs link to `/signup`. Custom-
+ *     solution link uses an in-page anchor (`#contact`) so the
+ *     browser smooth-scrolls to the form.
+ *   - `'upgrade'`: dashboard upgrade sheet. CTAs call
+ *     `onSelect(planId)` and self-label "Upgrade to X" / "Downgrade
+ *     to X" / dashed "Current plan" based on direction relative to
+ *     `currentPlanId`. The custom-solution link goes to `/#contact`
+ *     (router-level navigation back to the landing page).
  */
 
+import { useState } from 'react'
 import Link from 'next/link'
-import {
-  ArrowsClockwise,
-  CaretDown,
-  CaretUp,
-  ChatCircle,
-} from '@phosphor-icons/react'
+import { ArrowRight, ArrowsClockwise, CheckCircle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import {
-  formatPrice,
-  type Plan,
-  type PlanId,
-} from '@/constants/plans'
+import { formatPrice, type Plan, type PlanId } from '@/constants/plans'
 import { usePlans } from '@/hooks/usePlans'
 import { EVENT, trackEvent } from '@/lib/posthog'
+import { RollingNumber } from './RollingNumber'
+import { EventVolumeSlider, EVENT_TIERS } from './EventVolumeSlider'
 
-/** Email used by the Enterprise / contact CTAs. */
+/**
+ * Resolve the monthly price (in cents) for a base plan at a given
+ * event tier. The base plan row covers its own default tier (50K);
+ * higher tiers live as `is_variation` rows linked via
+ * `variation_of === base.rawId` + `max_events_monthly === events`.
+ * Falls back to the base price if a variation is missing (defensive
+ * — e.g. a tier the user hasn't seeded yet).
+ */
+function priceCentsForTier(base: Plan, events: number, allPlans: Plan[]): number {
+  if (base.maxEventsMonthly === events || base.maxEventsMonthly == null) {
+    return base.priceMonthlyCents
+  }
+  const variation = allPlans.find(
+    p =>
+      p.isVariation &&
+      p.variationOf === base.rawId &&
+      p.maxEventsMonthly === events,
+  )
+  return variation?.priceMonthlyCents ?? base.priceMonthlyCents
+}
+
+/** Founder support inbox. Surfaced in the loading-failure card. */
 const CONTACT_EMAIL = 'team@heavenmade.org'
 
 interface PricingTableProps {
   /**
-   * `signup` — landing page: CTAs link to /signup (or open a
-   *            mailto for Enterprise), no "Current plan" markup.
-   * `upgrade` — dashboard: CTAs call `onSelect(planId)` (free →
-   *            handled by caller; pro/starter → Stripe Checkout;
-   *            enterprise → mailto). The plan whose id matches
-   *            `currentPlanId` gets the dashed badge.
+   * `signup`  — landing page. CTAs link to `/signup`.
+   * `upgrade` — dashboard. CTAs call `onSelect(planId)`.
+   *             Whichever plan id matches `currentPlanId` renders a
+   *             dashed "Current plan" badge instead of a button.
    */
   variant: 'signup' | 'upgrade'
-  /** Required for `variant='upgrade'`. The user's active plan. */
+  /** Required for `variant='upgrade'`. The user's active plan id. */
   currentPlanId?: PlanId
-  /** Required for `variant='upgrade'`. Fired when a non-current
+  /** Required for `variant='upgrade'`. Fires when a non-current
    *  plan's CTA is clicked. */
   onSelect?: (planId: PlanId) => void
 }
@@ -88,6 +91,9 @@ export function PricingTable({
   onSelect,
 }: PricingTableProps) {
   const { plans, loading, error } = usePlans()
+  // Selected event-volume tier (index into `EVENT_TIERS`). 0 = 50K,
+  // the default/minimum. Drives the price shown on every card.
+  const [tierIndex, setTierIndex] = useState(0)
 
   if (loading) {
     return (
@@ -102,7 +108,7 @@ export function PricingTable({
     return (
       <div className="mx-auto max-w-md rounded-xl border border-dashed border-stroke bg-white p-6 text-center">
         <p className="text-sm text-grey-darkest mb-1">
-          Couldn't load plans.
+          Couldn&apos;t load plans.
         </p>
         <p className="text-xs text-grey-light">
           Try again in a moment, or email{' '}
@@ -112,361 +118,302 @@ export function PricingTable({
     )
   }
 
+  // Filter the plan list down to the picker's intended scope:
+  //   - Skip plans marked `disabled` in the DB. The `disabled`
+  //     column is how retired tiers (today: Free) signal "exists
+  //     for legacy account-row references, but don't show me in
+  //     the picker". This replaces the previous Free-specific
+  //     filter — single source of truth lives in the DB now.
+  //   - Skip custom / Enterprise plans (`isCustomPlan === true`).
+  //     The custom-solution path is the "Contact us" line below
+  //     the cards, not a card of its own.
+  //   - Skip event-tier VARIATIONS (`isVariation`). They aren't
+  //     cards — they feed the event-volume slider, which swaps the
+  //     displayed price on the base card.
+  // Sorted by `displayOrder` so Starter sits left of Pro.
+  const visiblePlans = plans
+    .filter(p => !p.disabled && !p.isCustomPlan && !p.isVariation)
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+
+  if (visiblePlans.length === 0) {
+    // Defensive: every plan was filtered out (someone wiped paid
+    // plans from the DB by mistake). Render the same "couldn't load"
+    // card so the page doesn't surface an empty grid with no
+    // explanation.
+    return (
+      <div className="mx-auto max-w-md rounded-xl border border-dashed border-stroke bg-white p-6 text-center">
+        <p className="text-sm text-grey-darkest mb-1">
+          No paid plans configured.
+        </p>
+        <p className="text-xs text-grey-light">
+          Email <span className="font-medium">{CONTACT_EMAIL}</span> and we&apos;ll
+          sort this out.
+        </p>
+      </div>
+    )
+  }
+
   // Resolve the user's current plan's display_order so each CTA
   // can decide whether it's an upgrade (CTA above) or a downgrade
-  // (CTA below). On landing (signup variant) this stays null —
-  // every CTA is a "Get started" link.
+  // (CTA below). On landing this stays `null` — every CTA is a
+  // "Get started" link, no direction to compute.
   const currentOrder = (() => {
     if (variant !== 'upgrade' || !currentPlanId) return null
     const found = plans.find(p => p.id === currentPlanId)
     return found?.displayOrder ?? null
   })()
 
+  const selectedEvents = EVENT_TIERS[tierIndex].events
+
   return (
-    // Outer card chrome — rounded, soft shadow. `overflow-hidden`
-    // crops the Pro column's brand-tint band to the rounded outer
-    // corners cleanly. `overflow-x-auto` on the inner wrapper
-    // turns ON the horizontal scroll for phones; `md:overflow-
-    // visible` switches it off on desktop so a sticky header
-    // wouldn't capture wheel events.
-    <div className="rounded-2xl border border-stroke bg-white shadow-card overflow-hidden">
-      <div className="overflow-x-auto md:overflow-visible">
-        <div
-          className="grid min-w-[760px] md:min-w-0"
-          style={{
-            // Label column: `minmax(110px, 0.8fr)` — narrower than
-            // the plan columns since it only holds short labels
-            // ("Projects", "Views", "Support"). The 0.8fr ratio
-            // keeps it slim on desktop (~155 px on a max-w-7xl
-            // container) so the plan cards get the visual weight.
-            // Plan columns: `minmax(160px, 1fr)` — wide enough on
-            // mobile that "$15/mo" + "first month $5" fits on one
-            // line and "Get started" doesn't pinch. On desktop the
-            // 1fr ratio expands them evenly.
-            gridTemplateColumns: `minmax(110px, 0.8fr) repeat(${plans.length}, minmax(160px, 1fr))`,
-          }}
+    <div className="flex flex-col items-center justify-center">
+      {/* Event-volume slider — sits above the cards. Dragging it
+          changes `tierIndex`, which re-resolves each card's price
+          from its matching variation row (with a rolling-number
+          animation on the price). */}
+      <div className="mb-10 w-full">
+        <EventVolumeSlider index={tierIndex} onChange={setTierIndex} />
+      </div>
+
+      {/* Card grid. `items-stretch` (default on grid) keeps both
+          cards at the same height; the `flex-1` between feature
+          list and CTA inside each card consumes the slack so CTAs
+          line up across columns. */}
+      <div className="flex flex-row items-center gap-6">
+        {visiblePlans.map(plan => (
+          <PlanCard
+            key={plan.id}
+            plan={plan}
+            variant={variant}
+            isCurrent={variant === 'upgrade' && plan.id === currentPlanId}
+            currentOrder={currentOrder}
+            onSelect={onSelect}
+            priceCents={priceCentsForTier(plan, selectedEvents, plans)}
+          />
+        ))}
+      </div>
+
+      {/* Custom-solution callout. Sits below the grid as a
+          deliberately small line of copy — not a third card —
+          because the message is "the path through here is OK, but
+          if you need something different we'll talk." Treating it
+          as equal weight to the cards would muddy the default
+          choice for the 95% of users who DON'T need custom.
+
+          On landing, `#contact` smooth-scrolls to the form (the
+          section uses `id="contact"`); from the dashboard upgrade
+          sheet, the same href routes to `/#contact` on landing.
+          We use a root-relative `/` prefix so both contexts land on
+          the actual contact form regardless of the current path. */}
+      <div className="mt-8 md:mt-10 text-center text-sm text-grey-dark">
+        Need a custom solution?{' '}
+        <Link
+          href="/#contact"
+          onClick={() =>
+            trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+              tier: 'custom',
+              destination: 'contact',
+              location: variant === 'signup' ? 'landing_pricing' : 'dashboard_picker',
+            })
+          }
+          className="text-brand font-medium hover:underline cursor-pointer"
         >
-          {/* ── Top row: empty leading cell + plan-header cards ── */}
-          <EmptyCell which="top-left" />
-          {plans.map(plan => (
-            <PlanHeaderCell
-              key={plan.id}
-              plan={plan}
-              highlight={plan.id === 'pro'}
-            />
-          ))}
-
-          {/* ── Projects ────────────────────────────────────────── */}
-          <RowLabel mobileLabel="Projects">Projects</RowLabel>
-          {plans.map(plan => (
-            <ValueCell
-              key={plan.id}
-              highlight={plan.id === 'pro'}
-              value={plan.isCustomPlan ? 'Custom' : String(plan.maxProjects)}
-            />
-          ))}
-
-          {/* ── Views per project ────────────────────────────────── */}
-          <RowLabel mobileLabel="Views">Views per project</RowLabel>
-          {plans.map(plan => (
-            <ValueCell
-              key={plan.id}
-              highlight={plan.id === 'pro'}
-              value={
-                plan.isCustomPlan ? 'Custom' : String(plan.maxViewsPerProject)
-              }
-            />
-          ))}
-
-          {/* ── Connections per integration ─────────────────────── */}
-          <RowLabel mobileLabel="Conn./type">Connections per integration</RowLabel>
-          {plans.map(plan => (
-            <ValueCell
-              key={plan.id}
-              highlight={plan.id === 'pro'}
-              value={
-                plan.isCustomPlan
-                  ? 'Custom'
-                  : String(plan.maxConnectionsPerType)
-              }
-            />
-          ))}
-
-          {/* ── Integrations included ───────────────────────────── */}
-          <RowLabel mobileLabel="Integrations">Integrations included</RowLabel>
-          {plans.map(plan => (
-            <IntegrationsCell
-              key={plan.id}
-              plan={plan}
-              highlight={plan.id === 'pro'}
-            />
-          ))}
-
-          {/* ── Support ─────────────────────────────────────────── */}
-          <RowLabel mobileLabel="Support">Support</RowLabel>
-          {plans.map(plan => (
-            <ValueCell
-              key={plan.id}
-              highlight={plan.id === 'pro'}
-              value={plan.isCustomPlan ? 'Custom' : plan.support ?? '—'}
-            />
-          ))}
-
-          {/* ── Bottom row: empty leading cell + CTAs ───────────── */}
-          <EmptyCell which="bottom-left" />
-          {plans.map((plan, i) => (
-            <CtaCell
-              key={plan.id}
-              highlight={plan.id === 'pro'}
-              isLast={i === plans.length - 1}
-            >
-              <PlanCta
-                plan={plan}
-                isCurrent={variant === 'upgrade' && plan.id === currentPlanId}
-                currentOrder={currentOrder}
-                variant={variant}
-                onSelect={onSelect}
-              />
-            </CtaCell>
-          ))}
-        </div>
+          Contact us
+        </Link>
       </div>
     </div>
   )
 }
 
-// ─── Cells ─────────────────────────────────────────────────────────────────
+// ─── Plan card ─────────────────────────────────────────────────────────────
 
-/**
- * Empty spacer cell — used in the leftmost column of both the top
- * (plan-header) row and the bottom (CTA) row. The plan-header
- * cards visually anchor the column starts; a "Feature" label cell
- * to their left would compete. Same for the CTA row.
- *
- * The top variant carries the bottom border so the divider
- * between header and feature rows runs uninterrupted across the
- * grid. The bottom variant has no bottom border (it's the last
- * row).
- */
-function EmptyCell({ which }: { which: 'top-left' | 'bottom-left' }) {
-  return (
-    <div
-      className={cn(
-        which === 'top-left' && 'border-b border-stroke/60',
-      )}
-    />
-  )
-}
-
-/**
- * Plan-header card — the rich top cell for each plan column. Left-
- * aligned (reads as a card, not a table header). Contains:
- *   - Plan name (bold) + optional "Popular" badge inline.
- *   - Price (big numeric for `$X/mo`, large "Free" or "Custom"
- *     fallbacks for the edge cases).
- *   - Intro-pricing subline if applicable.
- *   - Tagline (grey, smaller).
- *
- * No CTA here — the only CTA per column lives at the bottom of
- * the table.
- */
-function PlanHeaderCell({
+function PlanCard({
   plan,
-  highlight = false,
+  variant,
+  isCurrent,
+  currentOrder,
+  onSelect,
+  priceCents,
 }: {
   plan: Plan
-  highlight?: boolean
+  variant: 'signup' | 'upgrade'
+  isCurrent: boolean
+  currentOrder: number | null
+  onSelect?: (planId: PlanId) => void
+  /** Resolved price for the currently-selected event tier (cents). */
+  priceCents: number
 }) {
+  // Pro is still flagged as the recommended path, but the cue is
+  // now the "Popular" badge ALONE — no brand-orange wash on the
+  // outer wrapper any more. Both cards share the same chrome so
+  // the choice reads as "two valid plans, here's our pick" rather
+  // than "one is special, the other is consolation". The shared
+  // grey is a touch darker than the previous `gray-50` so the
+  // layered look (grey tray, white inner card) is still legible
+  // without leaning on colour.
+  const highlight = plan.id === 'pro'
+  // Plans with intro pricing get a small tilted "First month $X"
+  // badge anchored to the top-right corner — calls attention to
+  // the discount without taking up real estate inside the white
+  // card. The intro AMOUNT still flows from the existing
+  // `introPriceMonthlyCents` column; the badge is purely visual.
   const hasIntro =
     plan.introPriceMonthlyCents != null && plan.introDurationMonths != null
+
   return (
-    <div
-      className={cn(
-        'px-4 md:px-6 pt-5 md:pt-7 pb-5 md:pb-7 border-b border-stroke/60 flex flex-col items-start text-left',
-        highlight && 'bg-brand/[0.07]',
+    // Outer wrapper — the "tray" the white inner card sits on. The
+    // small inner padding (`p-2.5 md:p-3`) creates a visible band
+    // of grey around all four sides of the white card, which is
+    // what makes the layered look read. Without it the white card
+    // would consume the wrapper and the design would collapse to a
+    // single-surface card again.
+    //
+    // `bg-gray-100` (was `gray-50`) is one notch darker — still
+    // very pale, but enough contrast against the white inner card
+    // that the layering is obvious even on bright monitors. Same
+    // colour on both cards now.
+    <div className="relative rounded-[32px] w-full md:w-[400px] 2xl:w-[430px] p-2.5 md:p-3 flex flex-col bg-gray-100">
+      {/* Intro-pricing badge — tilted pill that pokes out of the
+          top-right corner of the card. Anchored to the OUTER
+          wrapper (not the white inner card) so it sits above the
+          card's rounded corner cleanly. `-rotate-6` gives the
+          playful slant; `z-10` keeps it above the white card's
+          drop shadow so the badge doesn't get partially masked.
+          Renders only when the plan has intro pricing — Pro today,
+          potentially others later. */}
+      {hasIntro && (
+        <span
+          aria-label={`First month ${formatPrice(plan.introPriceMonthlyCents!)}`}
+          className="absolute -top-3 right-4 md:-top-4 md:right-6 z-10 inline-flex items-center rounded-xl border border-brand/50 bg-brand/[0.08] px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold text-brand -rotate-6 shadow-sm whitespace-nowrap"
+        >
+          First month {formatPrice(plan.introPriceMonthlyCents!)}
+        </span>
       )}
-    >
-      {/* Plan name + Popular badge */}
-      <div className="flex items-center gap-2 mb-3 md:mb-4">
-        <h3 className="text-base md:text-xl font-bold text-grey-darkest leading-none">
-          {plan.name}
-        </h3>
-        {plan.id === 'pro' && (
-          <span className="rounded-md bg-brand/10 px-1.5 py-0.5 text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-brand">
-            Popular
-          </span>
+
+      {/* WHITE inner card — main info + CTA all live here so the
+          "primary surface" of the plan is visually concentrated.
+          The arbitrary-value shadow gives it a softer, more
+          diffuse drop than `shadow-md` (which is sharper and too
+          near to the card's edges) — reads as a proper "lifted
+          card" against the grey tray rather than a hard outline. */}
+      <div className="bg-white rounded-[32px] border border-stroke/40 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] p-3 md:p-6">
+        {/* Plan name + badge */}
+        <div className="flex items-center gap-2 mt-2">
+          {/* "Plan" suffix appended in the view rather than baked
+              into the DB `name` column. The bare name is still useful
+              elsewhere (sidebar plan badge, upgrade-direction CTA
+              labels like "Upgrade to Pro" — adding "Plan" to those
+              would read awkwardly). Card headers are the only place
+              where the longer "Pro Plan" / "Starter Plan" framing
+              fits, so the suffix lives here. */}
+          <h3 className="text-2xl md:text-3xl font-semibold text-grey-darkest leading-none">
+            {plan.name} Plan
+          </h3>
+          {highlight && (
+            <span className="rounded-full bg-brand/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand">
+              Popular
+            </span>
+          )}
+        </div>
+
+        {/* Tagline. Moved ABOVE the price (was below the price in
+            the table layout) — in the card-on-card design the
+            tagline reads as a one-line subtitle for the plan name,
+            so it sits with the name cluster. */}
+        {plan.tagline && (
+          <p className="text-sm text-grey-light leading-relaxed mt-1 mb-4 md:mb-5">
+            {plan.tagline}
+          </p>
         )}
+
+        {/* Price. Intro-pricing line is intentionally absent for now
+            ("first month $5") — the trial replaces it as the
+            cheap-entry mechanic. Easy to re-add later if/when we
+            run promotions; the slot just isn't earning its space
+            today. Slash + lowercase "month" with spaces on both
+            sides matches the screenshot's typography. */}
+        <div className="mb-5 md:mb-6 flex items-end gap-1.5">
+          {/* `$` + rolling digits share the big price type. The whole
+              row is `items-end` so the `$`, the odometer digits, and
+              the "/ month" all sit on one baseline as the digits
+              roll. `priceCents` is the tier-resolved price from the
+              slider — changing tiers animates the figures. */}
+          <p className="text-3xl md:text-4xl font-bold text-grey-darkest leading-none tabular-nums flex items-end">
+            <span>$</span>
+            <RollingNumber value={priceCents / 100} />
+          </p>
+          <p className="text-sm md:text-base text-grey-light font-medium">
+            / month
+          </p>
+        </div>
+
+        {/* CTA lives INSIDE the white card — part of the "main info"
+            surface, not in the grey area below. */}
+        <PlanCta
+          plan={plan}
+          isCurrent={isCurrent}
+          currentOrder={currentOrder}
+          variant={variant}
+          highlight={highlight}
+          onSelect={onSelect}
+        />
       </div>
 
-      {/* Price block — structured as two stacked rows of RESERVED
-          height so every plan card shares the same price baseline
-          AND the same total price-area height:
-            1. Price line (`leading-none`, top-aligned in the block)
-               — "$15", "Free", "Custom" all sit at the same Y.
-            2. Intro-pricing line — reserved row even when empty so
-               the tagline below stays vertically aligned across all
-               four columns. Pro is the only plan that fills it
-               today; the empty reserved space under Free/Starter/
-               Enterprise is intentional. */}
-      <div className="mb-3 md:mb-4">
-        <div className="flex items-baseline gap-1">
-          {plan.isCustomPlan ? (
-            <p className="text-2xl md:text-4xl font-bold text-grey-darkest leading-none tabular-nums">
-              Custom
-            </p>
-          ) : plan.priceMonthlyCents === 0 ? (
-            <p className="text-2xl md:text-4xl font-bold text-grey-darkest leading-none">
-              Free
-            </p>
-          ) : (
-            <>
-              <p className="text-2xl md:text-4xl font-bold text-grey-darkest leading-none tabular-nums">
-                {formatPrice(plan.priceMonthlyCents)}
-              </p>
-              <p className="text-xs md:text-sm text-grey-light">/mo</p>
-            </>
-          )}
-        </div>
-        {/* Reserved intro-line slot. `h-4 md:h-5 mt-1.5` matches the
-            line-height + margin we'd use if intro pricing exists,
-            so Free/Starter/Enterprise have an empty gap of exactly
-            the same size as Pro's "first month $5" line. */}
-        <div className="h-4 md:h-5 mt-1.5">
-          {hasIntro && (
-            <p className="text-[10px] md:text-xs text-grey-light leading-tight">
-              first month {formatPrice(plan.introPriceMonthlyCents!)}
-            </p>
-          )}
-        </div>
+      {/* Feature list — lives in the grey area below the white card.
+          The eyebrow + bulleted list reads as "and here's what
+          you're actually getting", subordinate to the white card's
+          "what does it cost / how do I start". */}
+      <div className="px-3 md:px-4 pt-4 md:pt-5 pb-1 md:pb-2 flex-1">
+        {/* Eyebrow framed as an action ("Get started with") instead
+            of a noun ("What's included") — reads as "here's what
+            you can DO" rather than a feature checklist, which fits
+            the trial-first framing better. */}
+        <p className="text-[10px] md:text-[11px] uppercase tracking-wider text-grey-light font-semibold mb-3 md:mb-4">
+          Get started with
+        </p>
+        <ul className="space-y-2.5">
+          <FeatureItem>
+            <strong className="font-semibold">{plan.maxProjects}</strong>{' '}
+            {plan.maxProjects === 1 ? 'project' : 'projects'}
+          </FeatureItem>
+          <FeatureItem>
+            <strong className="font-semibold">{plan.maxViewsPerProject}</strong>{' '}
+            views per project
+          </FeatureItem>
+          <FeatureItem>
+            <strong className="font-semibold">
+              {plan.maxConnectionsPerType}
+            </strong>{' '}
+            connection{plan.maxConnectionsPerType === 1 ? '' : 's'} per
+            integration
+          </FeatureItem>
+          <FeatureItem>
+            {plan.allowedConnectionTypes == null
+              ? 'All integrations'
+              : prettyConnectionList(plan.allowedConnectionTypes)}
+          </FeatureItem>
+          {plan.support && <FeatureItem>{plan.support} support</FeatureItem>}
+        </ul>
       </div>
-
-      {/* Tagline — small grey, 1-3 lines depending on length. The
-          `min-h` keeps all four plan-header cards the same height
-          even when one plan has a long tagline and another has
-          none (otherwise the grid rows below would slide up under
-          the shorter cards). */}
-      <p className="text-xs md:text-sm text-grey-light leading-snug min-h-[2.5em]">
-        {plan.tagline ?? ''}
-      </p>
     </div>
   )
 }
 
-/**
- * Row label — first column of every feature row. Renders the
- * full descriptive label on desktop and a shorter version on
- * mobile (via the `mobileLabel` prop) so labels like "Connections
- * per integration" don't wrap to three lines in the narrow mobile
- * label column.
- */
-function RowLabel({
-  children,
-  mobileLabel,
-}: {
-  children: React.ReactNode
-  mobileLabel?: string
-}) {
-  // Slim horizontal padding — the label column is intentionally the
-  // narrowest in the grid, and the labels themselves are short
-  // ("Projects", "Views per project", "Support"). Bigger padding
-  // here just shoves the labels off the left edge and creates dead
-  // space between them and the plan-value columns.
+function FeatureItem({ children }: { children: React.ReactNode }) {
+  // `CheckCircle weight="fill"` matches the design-inspiration's
+  // filled-circle-with-check icon, but in the brand orange instead
+  // of the inspiration's black. Larger than the previous bare
+  // `Check` icon because it doubles as a visual bullet on the
+  // grey surface — has to be readable against a softer background.
   return (
-    <div className="pl-3 md:pl-4 pr-2 md:pr-3 py-3 md:py-4 text-xs md:text-sm text-grey-dark font-semibold flex items-center border-b border-stroke/60 leading-tight">
-      {mobileLabel ? (
-        <>
-          <span className="md:hidden">{mobileLabel}</span>
-          <span className="hidden md:inline">{children}</span>
-        </>
-      ) : (
-        children
-      )}
-    </div>
-  )
-}
-
-function ValueCell({
-  value,
-  highlight = false,
-}: {
-  value: string
-  highlight?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'px-3 md:px-5 py-3 md:py-4 text-xs md:text-sm text-grey-darkest border-b border-stroke/60 flex items-center justify-center text-center leading-tight',
-        highlight && 'bg-brand/[0.07]',
-      )}
-    >
-      {value}
-    </div>
-  )
-}
-
-function IntegrationsCell({
-  plan,
-  highlight = false,
-}: {
-  plan: Plan
-  highlight?: boolean
-}) {
-  // Two parallel labels — the comma-separated list is unreadable
-  // when squeezed into the mobile plan column, so we show just
-  // the count there. Desktop gets the full list. The Pro / "All"
-  // / "Custom" cases collapse to the same short word at both
-  // widths.
-  let mobileLabel: React.ReactNode
-  let desktopLabel: React.ReactNode
-  if (plan.isCustomPlan) {
-    mobileLabel = desktopLabel = 'Custom'
-  } else if (plan.allowedConnectionTypes == null) {
-    mobileLabel = desktopLabel = 'All'
-  } else if (plan.allowedConnectionTypes.length === 0) {
-    mobileLabel = desktopLabel = '—'
-  } else {
-    const count = plan.allowedConnectionTypes.length
-    mobileLabel = `${count} ${count === 1 ? 'tool' : 'tools'}`
-    desktopLabel = prettyConnectionList(plan.allowedConnectionTypes)
-  }
-
-  return (
-    <div
-      className={cn(
-        'px-3 md:px-5 py-3 md:py-4 text-xs md:text-sm text-grey-darkest border-b border-stroke/60 flex items-center justify-center text-center leading-tight',
-        highlight && 'bg-brand/[0.07]',
-      )}
-    >
-      <span className="md:hidden">{mobileLabel}</span>
-      <span className="hidden md:inline">{desktopLabel}</span>
-    </div>
-  )
-}
-
-function CtaCell({
-  children,
-  highlight = false,
-  isLast = false,
-}: {
-  children: React.ReactNode
-  highlight?: boolean
-  isLast?: boolean
-}) {
-  return (
-    <div
-      className={cn(
-        'px-3 md:px-5 py-4 md:py-6 flex items-center justify-center',
-        highlight && 'bg-brand/[0.07]',
-        // The Pro column's bottom-right is the table's rounded
-        // corner ONLY when Pro happens to be the last plan in
-        // order; otherwise the rounding belongs to whichever
-        // column is last. `isLast` + `highlight` overlap only when
-        // Pro is the last plan.
-        highlight && isLast && 'rounded-br-2xl',
-      )}
-    >
-      {children}
-    </div>
+    <li className="flex items-start gap-2.5 text-sm text-grey-darkest leading-snug">
+      <CheckCircle
+        size={18}
+        weight="fill"
+        className="text-brand shrink-0 mt-0.5"
+      />
+      <span>{children}</span>
+    </li>
   )
 }
 
@@ -494,130 +441,123 @@ function prettyConnectionList(types: string[]): string {
 
 // ─── Plan CTA ──────────────────────────────────────────────────────────────
 //
-// Decides which of four pill flavours to render based on:
-//   - `variant`: signup (landing) vs upgrade (dashboard)
-//   - `plan.isCustomPlan`: forces "Contact us" treatment
-//   - `currentOrder` + `plan.displayOrder`: upgrade vs downgrade direction
-//
-// Mapping:
-//   plan.isCustomPlan         → solid brand + chat icon, "Contact us"
-//   variant === 'signup'      → "Get started" (every non-custom plan).
-//                               Free plan uses an outlined treatment so
-//                               it doesn't compete with the upsell tiers'
-//                               solid-brand fills.
-//   variant === 'upgrade':
-//     plan === current        → dashed brand outline, "Current plan"
-//     plan.order > current    → solid brand,           "Upgrade to X" ⌃
-//     plan.order < current    → outlined neutral,      "Downgrade to X" ⌄
+// Three modes (in the order they're checked):
+//   1. `variant === 'signup'`         → "Get started" link to /signup.
+//                                       Solid brand on the highlighted
+//                                       (Pro) card, outlined on Starter,
+//                                       so Pro stands out as the
+//                                       recommended path.
+//   2. `variant === 'upgrade'` + isCurrent
+//                                     → dashed brand outline + "Current plan"
+//   3. `variant === 'upgrade'` + !isCurrent
+//                                     → "Upgrade to X" (solid brand) or
+//                                       "Downgrade to X" (outlined neutral),
+//                                       direction decided by displayOrder.
 
 function PlanCta({
   plan,
   isCurrent,
   currentOrder,
   variant,
+  highlight,
   onSelect,
 }: {
   plan: Plan
   isCurrent: boolean
   currentOrder: number | null
   variant: 'signup' | 'upgrade'
+  highlight: boolean
   onSelect?: (planId: PlanId) => void
 }) {
-  // Sizing + label classes paired so the same component renders
-  // compact on mobile (fits the narrow mobile plan column) and
-  // full-sized on desktop.
-  if (plan.isCustomPlan) {
+  if (variant === 'signup') {
     return (
-      <a
-        href="/#contact"
-        onClick={() =>
-          trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
-            tier: plan.id,
-            destination: 'contact',
-            location: variant === 'signup' ? 'landing_pricing' : 'dashboard_picker',
-          })
-        }
-        className="inline-flex items-center justify-center gap-1 md:gap-1.5 w-full rounded-full h-8 md:h-10 px-3 md:px-4 text-xs md:text-sm font-medium bg-brand hover:bg-brand/90 text-white transition-colors"
-      >
-        <ChatCircle size={12} weight="bold" className="md:hidden" />
-        <ChatCircle size={14} weight="bold" className="hidden md:inline" />
-        <span className="md:hidden">Contact</span>
-        <span className="hidden md:inline">Contact us</span>
-      </a>
+      // Two-line CTA. The main label is the offer ("Start 7-day
+      // free trial"); the subline answers the most common objection
+      // ("No card required") before the user has to scroll to find
+      // it elsewhere. Stacking them inside ONE button keeps the
+      // promise attached to the action — splitting it into a
+      // separate caption underneath would let users miss the
+      // reassurance entirely.
+      //
+      // Both cards now use the same solid-brand chrome (the
+      // outlined Starter variant is gone) — the card-level
+      // differentiation (Pro's tinted background + Popular badge)
+      // is enough to flag Pro as the recommended tier without the
+      // CTA having to carry that signal too. Identical CTAs also
+      // read as "both are equally easy to start," which is the
+      // truth: same trial, same flow.
+      // Wrapper so the button + the "No card required" caption stay
+      // grouped as one logical action block. The caption sits OUTSIDE
+      // the button now — reads as a quiet reassurance below the CTA,
+      // less visually noisy than the previous inside-the-button
+      // subline. Same promise, calmer placement.
+      <div>
+        <Link
+          href="/signup"
+          onClick={() =>
+            trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+              tier: plan.id,
+              destination: 'signup',
+              location: 'landing_pricing',
+            })
+          }
+          // Single-line CTA. `group` so the arrow can react to
+          // hover on the whole button. Neutral-black drop shadow
+          // (low alpha, generous blur) — reads as the button being
+          // lifted off the surface rather than glowing orange.
+          // No hover state on the button itself — bg stays brand,
+          // shadow stays put. The only hover motion is the arrow
+          // nudge (handled via `group-hover` on the icon below),
+          // which is enough to signal interactivity without the
+          // button visibly "twitching" on cursor entry.
+          className="group flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 gap-1.5 cursor-pointer bg-brand text-white shadow-[0_14px_32px_-8px_rgba(0,0,0,0.25)]"
+        >
+          <span className="text-sm md:text-base font-semibold">
+            Start 7-day free trial
+          </span>
+          <ArrowRight
+            size={16}
+            weight="bold"
+            className="transition-transform group-hover:translate-x-0.5"
+          />
+        </Link>
+        {/* Reassurance caption — answers "do I need to enter my
+            card?" right under the action so the user sees it
+            before they click. Outside the button so it doesn't
+            compete with the CTA's emphasis; centred to mirror
+            the button's centred label. */}
+        <p className="text-[11px] md:text-xs text-grey-light text-center mt-2">
+          No card required
+        </p>
+      </div>
     )
   }
 
-  if (variant === 'upgrade' && isCurrent) {
+  if (isCurrent) {
     return (
-      <span className="inline-flex items-center justify-center w-full rounded-full h-8 md:h-10 px-3 md:px-4 text-xs md:text-sm font-medium border border-dashed border-brand/50 text-brand bg-brand/[0.04] text-center leading-tight">
-        <span className="md:hidden">Current</span>
-        <span className="hidden md:inline">Current plan</span>
+      <span className="inline-flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium border border-dashed border-brand/50 text-brand bg-brand/[0.04]">
+        Current plan
       </span>
     )
   }
 
-  // Signup variant — every CTA is a "Get started" /signup link.
-  // Free uses outlined chrome; upsell tiers use solid brand fill.
-  if (variant === 'signup') {
-    return (
-      <Link
-        href="/signup"
-        onClick={() =>
-          trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
-            tier: plan.id,
-            destination: 'signup',
-            location: 'landing_pricing',
-          })
-        }
-        className={cn(
-          'inline-flex items-center justify-center w-full rounded-full h-8 md:h-10 px-3 md:px-4 text-xs md:text-sm font-medium transition-colors',
-          plan.id === 'free'
-            ? 'border border-stroke bg-white text-grey-darkest hover:bg-hover-fill'
-            : 'bg-brand hover:bg-brand/90 text-white',
-        )}
-      >
-        Get started
-      </Link>
-    )
-  }
-
-  // Upgrade variant — direction depends on plan.displayOrder vs
-  // the user's current plan's order. If we can't resolve current
-  // (currentOrder === null), treat as "neutral upgrade" — same
-  // visual as upgrade. Defensive only; in practice currentOrder is
-  // always set in upgrade variant.
-  const direction =
-    currentOrder == null
-      ? 'up'
-      : plan.displayOrder > currentOrder
-        ? 'up'
-        : plan.displayOrder < currentOrder
-          ? 'down'
-          : 'same' // unreachable because isCurrent caught it above
-  const isDowngrade = direction === 'down'
-  const desktopLabel = isDowngrade
+  const isDowngrade =
+    currentOrder != null && plan.displayOrder < currentOrder
+  const label = isDowngrade
     ? `Downgrade to ${plan.name}`
     : `Upgrade to ${plan.name}`
-  // Mobile: just the plan name — the caret already signals direction.
-  const mobileLabel = plan.name
 
   return (
     <Button
       onClick={() => onSelect?.(plan.id)}
       className={cn(
-        'w-full rounded-full h-8 md:h-10 px-3 md:px-4 gap-1 md:gap-1.5 text-xs md:text-sm font-medium',
+        'w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium cursor-pointer',
         isDowngrade
           ? 'border border-stroke bg-white text-grey-darkest hover:bg-hover-fill shadow-none'
           : 'bg-brand hover:bg-brand/90 text-white shadow-none',
       )}
     >
-      {isDowngrade ? (
-        <CaretDown size={11} weight="bold" />
-      ) : (
-        <CaretUp size={11} weight="bold" />
-      )}
-      <span className="md:hidden">{mobileLabel}</span>
-      <span className="hidden md:inline">{desktopLabel}</span>
+      {label}
     </Button>
   )
 }

@@ -63,11 +63,27 @@ interface SubscriptionRow {
   stripe_intro_coupon_id: string | null
   support: string | null
   is_custom_plan: boolean
+  /**
+   * `subscriptions.disabled` (nullable BOOLEAN). When `true`, the
+   * row exists in the DB but is suppressed from the picker. Null /
+   * missing → treated as `false`. See `Plan.disabled` docblock.
+   */
+  disabled: boolean | null
+  /** `subscriptions.max_events_monthly` — tracked-event cap. */
+  max_events_monthly: number | null
+  /** `subscriptions.is_variation` — alternate event-tier price row. */
+  is_variation: boolean | null
+  /** `subscriptions.variation_of` — base plan id this varies. */
+  variation_of: string | null
 }
 
 function rowToPlan(row: SubscriptionRow): Plan {
   return {
     id: asPlanId(row.id),
+    // Preserve the real id — `asPlanId` collapses variation ids
+    // ('starter_250k') to 'free', which would break the slider's
+    // variation lookup.
+    rawId: row.id,
     name: row.name,
     tagline: row.tagline,
     priceMonthlyCents: row.price_monthly_cents,
@@ -89,6 +105,13 @@ function rowToPlan(row: SubscriptionRow): Plan {
     stripeIntroCouponId: row.stripe_intro_coupon_id,
     support: row.support,
     isCustomPlan: row.is_custom_plan,
+    // Default to `false` when null (DB column hasn't been
+    // backfilled yet) so the absence of a flag is treated as "show
+    // this plan", not "hide it".
+    disabled: row.disabled === true,
+    maxEventsMonthly: row.max_events_monthly ?? null,
+    isVariation: row.is_variation === true,
+    variationOf: row.variation_of ?? null,
   }
 }
 
@@ -104,7 +127,7 @@ export function usePlans(): UsePlansResult {
     void supabase
       .from('subscriptions')
       .select(
-        'id, name, tagline, price_monthly_cents, intro_price_monthly_cents, intro_duration_months, features, max_projects, max_views_per_project, max_connections_per_type, allowed_connection_types, display_order, stripe_price_id, stripe_intro_coupon_id, support, is_custom_plan',
+        'id, name, tagline, price_monthly_cents, intro_price_monthly_cents, intro_duration_months, features, max_projects, max_views_per_project, max_connections_per_type, allowed_connection_types, display_order, stripe_price_id, stripe_intro_coupon_id, support, is_custom_plan, disabled, max_events_monthly, is_variation, variation_of',
       )
       .order('display_order', { ascending: true })
       .then(({ data, error: queryError }) => {

@@ -50,9 +50,38 @@ export type PlanId = 'free' | 'starter' | 'pro' | 'enterprise'
  */
 export interface Plan {
   id: PlanId
+  /**
+   * The RAW `subscriptions.id` string, before `asPlanId` narrowing.
+   * For base plans this equals `id` ('starter', 'pro'). For event-
+   * tier VARIATIONS (e.g. 'starter_250k') it preserves the real id —
+   * `id` would otherwise collapse to 'free' via `asPlanId`, losing
+   * the identity. Checkout / the slider lookup use this, not `id`.
+   */
+  rawId: string
   name: string
   tagline: string | null
   priceMonthlyCents: number
+  /**
+   * Monthly tracked-event cap for this plan/variation. `null` when
+   * the column isn't set (legacy rows). Base Starter/Pro = 50000;
+   * variations carry their breakpoint (250000 … 10000000).
+   */
+  maxEventsMonthly: number | null
+  /**
+   * True for event-tier VARIATION rows — alternate price points of a
+   * base plan at higher event caps. Variations are NOT rendered as
+   * their own cards; they feed the event-volume slider, which swaps
+   * the displayed price on the base card. Filter these out of any
+   * card list.
+   */
+  isVariation: boolean
+  /**
+   * For a variation, the raw id of the base plan it varies
+   * ('starter' | 'pro'). `null` for base plans. The slider matches
+   * `variationOf === base.rawId` + `maxEventsMonthly === selected`
+   * to resolve the price.
+   */
+  variationOf: string | null
   introPriceMonthlyCents: number | null
   introDurationMonths: number | null
   features: string[]
@@ -93,6 +122,16 @@ export interface Plan {
    * Checkout path; the button opens a mailto/contact form.
    */
   isCustomPlan: boolean
+  /**
+   * When true, the plan exists in the DB (so historical
+   * `accounts.plan_id` references still resolve) but should NOT
+   * appear in the public pricing surface or the upgrade picker.
+   * Used for retired tiers — e.g. Free, kept as a row so legacy
+   * accounts still have something to point at, but no longer
+   * offered as a choice to new users. Defaults to `false` when the
+   * DB column is null/missing.
+   */
+  disabled: boolean
 }
 
 /**

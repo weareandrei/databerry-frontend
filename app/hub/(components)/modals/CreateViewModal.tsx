@@ -210,8 +210,13 @@ function viewOptionsForIntegration(integration: string): ViewOption[] {
       //       paired with the composite chart, see `handlePickViewOption`'s
       //       composite branch)
       //   [2] custom_chart          → standalone chart, no sources
-      // We expose [0] AND [2] but skip [1].
-      return [COMPOSITE_VIEW_OPTIONS[0], COMPOSITE_VIEW_OPTIONS[2]]
+      //   [3] project_users         → cross-platform users list
+      // We expose [0], [2] AND [3] but skip [1].
+      return [
+        COMPOSITE_VIEW_OPTIONS[0],
+        COMPOSITE_VIEW_OPTIONS[2],
+        COMPOSITE_VIEW_OPTIONS[3],
+      ]
     default:
       return []
   }
@@ -420,6 +425,22 @@ export function CreateViewModal() {
     })
   }
 
+  /**
+   * "General → Users" — a single connection-less view that lists the
+   * project's cross-platform people (newest first). No metric config:
+   * the tile reads the `people` graph for the target project directly.
+   * Connection-less like the other composite views, so `connectionId`
+   * is null and `connectionType` is 'composite'.
+   */
+  const createProjectUsers = () =>
+    createView({
+      connectionId: null,
+      connectionType: 'composite',
+      type: 'project_users',
+      name: COMPOSITE_VIEW_OPTIONS[3].name,
+      config: {},
+    })
+
   // ── Click flow per ViewPickerBar ─────────────────────────────────────────
 
   const handlePickViewOption = async (
@@ -434,6 +455,8 @@ export function CreateViewModal() {
         createComposite()
       } else if (option.type === 'custom_chart') {
         createCustomChart()
+      } else if (option.type === 'project_users') {
+        createProjectUsers()
       }
       return
     }

@@ -798,6 +798,71 @@ export const ALGORITHM = {
       method: 'POST',
       body: JSON.stringify({ planId }),
     }),
+
+  // ── Feedback ─────────────────────────────────────────────────────────────
+  /**
+   * Send a satisfaction-survey result from the in-dashboard
+   * `<FeedbackWidget>`. The backend resolves the user's email
+   * server-side from their auth record (we don't pass it from the
+   * client — the body-as-source-of-truth design would let any user
+   * spoof a different sender in the founder's inbox).
+   *
+   * `rating` is the 1-5 emoji ladder picked in the widget (1 =
+   * very unhappy, 5 = very happy). `message` is the free-text
+   * comment, optional — the widget submits a rating-only result
+   * with `message: null` when the textarea is empty.
+   */
+  submitFeedback: (rating: number, message: string | null) =>
+    apiFetch<{ id: string; delivered: boolean }>('/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ rating, message }),
+    }),
+
+  // ── Suggestions ──────────────────────────────────────────────────────────
+  /**
+   * Send a feature-request from the sidebar "Suggest a feature"
+   * widget. Backend resolves the user's email from their auth
+   * record (mirrors `submitFeedback`'s no-client-trust pattern).
+   * The string is the suggestion text only — the rest of the
+   * envelope (subject line, footer, etc.) is composed server-side.
+   */
+  submitSuggestion: (suggestion: string) =>
+    apiFetch<{ id: string; delivered: boolean }>('/suggestions', {
+      method: 'POST',
+      body: JSON.stringify({ suggestion }),
+    }),
+
+  // ── People (cross-platform identity graph) ───────────────────────────────
+  /**
+   * List a project's end-users (people), newest-first. Backs the
+   * "General → Users" view. `limit` caps the page (backend clamps to
+   * 500). `search` does a cheap email/name match.
+   */
+  getPeople: (
+    projectId: string,
+    opts?: { limit?: number; search?: string },
+  ) => {
+    const params = new URLSearchParams({ projectId })
+    if (opts?.limit != null) params.set('limit', String(opts.limit))
+    if (opts?.search) params.set('search', opts.search)
+    return apiFetch<PersonRow[]>(`/people?${params.toString()}`)
+  },
+}
+
+/**
+ * One end-user in the cross-platform people graph. Mirrors the
+ * backend `PeopleService` camelCase shape. `displayName` /
+ * `primaryEmail` are null until some connected platform supplies
+ * them. `updatedAt` is "last time we observed activity/identity for
+ * this person" — the sort key for the recent-first users list.
+ */
+export interface PersonRow {
+  id: string
+  projectId: string
+  displayName: string | null
+  primaryEmail: string | null
+  createdAt: string
+  updatedAt: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

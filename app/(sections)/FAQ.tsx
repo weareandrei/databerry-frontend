@@ -236,12 +236,6 @@ export default function FAQ() {
 
       {/* Centered header cluster — eyebrow, heading, subtext, CTA. */}
       <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
-        <RevealOnScroll delay={0} y={16}>
-          <p className="text-xs font-medium text-orange-500 uppercase tracking-widest">
-            Support
-          </p>
-        </RevealOnScroll>
-
         <RevealOnScroll delay={0.05} y={16}>
           <h2
             className="mt-3 text-4xl md:text-5xl font-semibold tracking-tight text-gray-900"

@@ -45,6 +45,7 @@ import { EditProjectDialog } from './EditProjectDialog'
 import { DeleteProjectDialog } from './DeleteProjectDialog'
 import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
 import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
+import { ViewCardProjectUsersConnected } from '@/app/hub/(components)/view/ViewCardProjectUsersConnected'
 import { EVENT, trackEvent } from '@/lib/posthog'
 import {
   cellSpanClasses,
@@ -861,6 +862,17 @@ function ProjectBodyViews({
               view={view}
               dateFrom={dateFrom}
               dateTo={dateTo}
+              onUntrack={handleUntrack}
+              onPin={handlePin}
+            />
+          )
+        } else if (view.type === 'project_users') {
+          // Connection-less cross-platform users list. Date range
+          // doesn't apply (it reads the whole people graph), so no
+          // dateFrom/dateTo passed.
+          body = (
+            <ViewCardProjectUsersConnected
+              view={view}
               onUntrack={handleUntrack}
               onPin={handlePin}
             />

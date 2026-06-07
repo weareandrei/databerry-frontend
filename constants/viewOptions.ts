@@ -97,6 +97,17 @@ export const COMPOSITE_VIEW_OPTIONS: ViewOption[] = [
     kind: 'chart',
     modes: ['chart'],
   },
+  {
+    // Connection-less, like the other composite views — it reads the
+    // cross-platform `people` graph (populated from Stripe / PostHog /
+    // GA), not a single connection. Index [3]; surfaced in the picker
+    // via `viewOptionsForIntegration('composite')`.
+    type: 'project_users',
+    name: 'Users',
+    desc: 'Everyone who has used your app, newest first — merged across every connected platform',
+    kind: 'list',
+    modes: ['list'],
+  },
 ]
 
 // PostHog view types — funnel/retention/users join the existing dynamic

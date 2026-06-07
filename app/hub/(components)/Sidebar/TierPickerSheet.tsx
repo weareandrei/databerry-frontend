@@ -127,12 +127,32 @@ export function TierPickerSheet({
         // content overflowing the dialog scrolls in-place — no
         // need to wire scroll handling here.
       >
-        <div className="max-w-[92rem] my-[42px] mx-auto">
-          <PricingTable
-            variant="upgrade"
-            currentPlanId={currentPlanId}
-            onSelect={handleSelect}
-          />
+        {/* Full-bleed white body. The `BottomDialog` panel paints
+            `bg-main` (dashboard cream) and its body container adds
+            `px-5 pb-6 pt-1` of padding — the negative margins cancel
+            that padding so this white surface extends edge-to-edge
+            inside the dialog, then we re-apply equivalent inner
+            padding so content placement is unchanged.
+
+            Why white here and not the default cream: after the
+            pricing-card redesign, the cards now carry a `bg-gray-100`
+            tray that visually blended into the cream backdrop —
+            the layered "white-card-on-grey-tray" effect was lost.
+            Painting the dialog body white restores the contrast so
+            each card's grey wrapper reads as a distinct surface.
+
+            If `BottomDialog`'s body padding ever changes, those
+            three negative values need to update in lockstep — the
+            comment is here so a grep for "TierPickerSheet" lands
+            on the coupling. */}
+        <div className="bg-white -mx-5 -mt-1 -mb-6 px-5 pt-1 pb-6 min-h-full">
+          <div className="max-w-[92rem] my-[42px] mx-auto">
+            <PricingTable
+              variant="upgrade"
+              currentPlanId={currentPlanId}
+              onSelect={handleSelect}
+            />
+          </div>
         </div>
       </BottomDialog.Page>
     </BottomDialog>

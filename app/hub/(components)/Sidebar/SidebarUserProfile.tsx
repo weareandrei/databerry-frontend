@@ -1,8 +1,9 @@
 'use client'
 
 import Image from 'next/image'
-import { CaretUpDown, SignOut } from '@phosphor-icons/react'
+import { CaretUpDown, CreditCard, SignOut } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
+import { openTierPicker } from '@/hooks/useTierPicker'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +48,16 @@ export function SidebarUserProfile() {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="start" className="w-52">
+          {/* Manage plan — fires the global tier-picker broadcast.
+              The `<TierPickerSheet>` itself is owned by
+              `<SidebarPlanBadge>` at the bottom of the sidebar;
+              `openTierPicker()` flips its open state via the
+              module-level pub-sub bus, so this item doesn't need
+              to own or prop-drill the sheet. */}
+          <DropdownMenuItem onClick={() => openTierPicker()} className="gap-2 text-sm">
+            <CreditCard size={14} weight="bold" />
+            Manage plan
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={signOut} className="gap-2 text-sm">
             <SignOut size={14} weight="bold" />
