@@ -39,11 +39,21 @@ function RollingDigit({ digit }: { digit: number }) {
   // popping.
   const [shown, setShown] = useState(0)
   useEffect(() => {
-    // Next frame so the browser registers the initial `0` position
-    // before we change it — otherwise it'd collapse both into one
-    // paint and skip the transition.
-    const id = requestAnimationFrame(() => setShown(digit))
-    return () => cancelAnimationFrame(id)
+    // DOUBLE rAF. A single frame fires before the browser paints the
+    // initial `0`, so a freshly-mounted digit (the new leading digit
+    // when $5 → $15 or $99 → $149) would jump straight to its value
+    // with no transition to roll from. Waiting two frames guarantees
+    // the `0` (or the previous value) is painted first, so the
+    // transform transition actually animates. Persistent digits don't
+    // strictly need this, but it's harmless for them.
+    let r2 = 0
+    const r1 = requestAnimationFrame(() => {
+      r2 = requestAnimationFrame(() => setShown(digit))
+    })
+    return () => {
+      cancelAnimationFrame(r1)
+      cancelAnimationFrame(r2)
+    }
   }, [digit])
 
   return (
