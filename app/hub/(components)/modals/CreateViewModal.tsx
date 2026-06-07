@@ -211,12 +211,16 @@ function viewOptionsForIntegration(integration: string): ViewOption[] {
       //       composite branch)
       //   [2] custom_chart          → standalone chart, no sources
       //   [3] project_users         → cross-platform users list
-      // We expose [0], [2] AND [3] but skip [1].
-      return [
-        COMPOSITE_VIEW_OPTIONS[0],
-        COMPOSITE_VIEW_OPTIONS[2],
-        COMPOSITE_VIEW_OPTIONS[3],
-      ]
+      // We expose [0] AND [2] but skip [1].
+      //
+      // [3] `project_users` is TEMPORARILY HIDDEN while the people
+      // graph is still in development — we don't want users creating
+      // an always-empty / half-working tile yet. The option, its
+      // create handler (`createProjectUsers`), the renderer
+      // (`ViewCardProjectUsersConnected`), and the dispatch branch
+      // are all left intact; re-expose by adding
+      // `COMPOSITE_VIEW_OPTIONS[3]` back to this list.
+      return [COMPOSITE_VIEW_OPTIONS[0], COMPOSITE_VIEW_OPTIONS[2]]
     default:
       return []
   }
