@@ -84,7 +84,7 @@ export function SidebarPlanBadge() {
     setSubmittingSuggestion(true)
     try {
       await ALGORITHM.submitSuggestion(trimmed)
-      toast.success('Thanks — Andrei reads every suggestion.')
+      toast.success('Thanks for feedback!')
       setSuggestionText('')
       setSuggestionOpen(false)
     } catch (err) {
@@ -182,9 +182,8 @@ export function SidebarPlanBadge() {
               Suggest a feature
             </CenterDialogTitle>
             <CenterDialogDescription className="text-sm leading-relaxed">
-              What would make Databerry better for you? We build
-              what real users need — every suggestion lands directly
-              in Andrei&apos;s inbox.
+              What would make Databerry better for you?
+              Let us know and we'll build it!
             </CenterDialogDescription>
           </CenterDialogHeader>
 
