@@ -19,7 +19,7 @@
  */
 
 import { useDashboard } from '@/contexts/DashboardContext'
-import PinnedViews from '@/app/hub/home/(components)/PinnedViews'
+import { PinnedViews } from '@/app/hub/home/(components)/PinnedViews'
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
 import { MobileProjectsList } from './MobileProjectsList'
 

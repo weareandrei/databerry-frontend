@@ -23,10 +23,9 @@ export function SidebarUserProfile() {
   void user // keep the hook wired even though we ignore its email for now
 
   // Plan badge + tier picker sheet used to live inside this
-  // component (right under the email). They moved to
-  // `<SidebarPlanBadge>` at the bottom of the sidebar — that
-  // surface owns the picker now and the `useTierPickerListener`
-  // bus still works for limit-error broadcasts.
+  // component (right under the email). The `<IconRail>` owns the
+  // picker now; the `useTierPickerListener` bus still carries
+  // limit-error + "Manage plan" broadcasts to it.
 
   return (
     // No horizontal padding on the wrapper — the trigger owns its
@@ -49,11 +48,10 @@ export function SidebarUserProfile() {
 
         <DropdownMenuContent align="start" className="w-52">
           {/* Manage plan — fires the global tier-picker broadcast.
-              The `<TierPickerSheet>` itself is owned by
-              `<SidebarPlanBadge>` at the bottom of the sidebar;
-              `openTierPicker()` flips its open state via the
-              module-level pub-sub bus, so this item doesn't need
-              to own or prop-drill the sheet. */}
+              The `<TierPickerSheet>` itself is owned by the
+              `<IconRail>`; `openTierPicker()` flips its open state
+              via the module-level pub-sub bus, so this item doesn't
+              need to own or prop-drill the sheet. */}
           <DropdownMenuItem onClick={() => openTierPicker()} className="gap-2 text-sm">
             <CreditCard size={14} weight="bold" />
             Manage plan

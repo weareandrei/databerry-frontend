@@ -44,7 +44,11 @@ import type {
 function readConfig(view: View): ProjectOverviewChartConfig {
   const cfg = view.config as Partial<ProjectOverviewChartConfig>
   return {
-    primaryMetric: cfg.primaryMetric ?? 'visitors',
+    // `undefined` (legacy rows without the key) → 'visitors'. An
+    // explicit `null` (chart created while no traffic tool was
+    // connected) stays null so the metric dropdown renders its
+    // "Select metric" placeholder instead of pretending data exists.
+    primaryMetric: cfg.primaryMetric === undefined ? 'visitors' : cfg.primaryMetric,
     secondaryMetric: cfg.secondaryMetric ?? null,
     // Connection overrides — explicitly carried through so the chart's
     // dropdown can display the picked connection metric's label
@@ -94,7 +98,7 @@ export function ViewCardOverviewChartConnected({
   withChrome = false,
 }: ViewCardOverviewChartConnectedProps) {
   const initialConfig = useMemo(() => readConfig(view), [view])
-  const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric>(
+  const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric | null>(
     initialConfig.primaryMetric,
   )
   const [secondaryMetric, setSecondaryMetric] = useState<OverviewSecondaryMetric>(

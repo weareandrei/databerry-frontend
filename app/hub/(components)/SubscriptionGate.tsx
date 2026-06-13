@@ -1,9 +1,9 @@
 'use client'
 
 /**
- * Full-viewport blocker shown when the user's subscription is
- * inactive — trial expired, paid sub lapsed (failed renewal), or any
- * other "we don't have valid billing for this user right now" state.
+ * Full-viewport blocker shown when the user's free trial has ended
+ * and they haven't subscribed — the "we don't have valid billing for
+ * this user right now" state.
  *
  * Visual design mirrors the signup / sign-in pages: shader gradient
  * canvas behind, decorative phone bezel, glassmorphism card frame,
@@ -13,20 +13,32 @@
  * trapped behind a generic paywall — which is the truth: they need
  * to (re-)pay to walk through again.
  *
+ * Trigger — all of (evaluated against the `/accounts/me` row via
+ * `useAccount`, re-checked every minute so an expiry mid-session
+ * gates without a reload):
+ *   - account fetch settled (`!loading`) — never gate on unknowns;
+ *     a network blip must not lock a paying user out (same fail-open
+ *     stance as `<OnboardingGate>`)
+ *   - `rawPlanId === 'free'` — an actual paid plan never gates,
+ *     regardless of any historical trial timestamps
+ *   - `trialEndsAt` exists AND is in the past — no matter how long
+ *     ago; a user returning a year later still lands here. A NULL
+ *     `trialEndsAt` means the trial never started (they haven't had
+ *     their first post-onboarding dashboard open yet) → no gate;
+ *     `<TrialKickoff>` handles that moment instead.
+ *
  * Behavioural details:
  *   - `fixed inset-0 z-[100]` covers the entire viewport, including
- *     above modals (`z-50`), the feedback widget (`z-40`) and the
- *     sidebar. The whole dashboard becomes uninteractive while this
- *     is mounted.
+ *     above modals (`z-50`), the feedback widget (`z-40`), the
+ *     onboarding gate (`z-[90]`) and the sidebar. The whole
+ *     dashboard becomes uninteractive while this is mounted.
  *   - Fades in over 1 s from opacity 0 → 100 once it decides to
  *     show. The two-RAF dance below ensures the initial opacity-0
  *     state actually paints to the DOM before we flip the flag, so
  *     the browser has something to interpolate from.
- *   - For now, the trigger is a 5-second test timer (see the
- *     `useEffect`). The real trigger will be "account subscription
- *     status is inactive AND trial_ends_at < now", which lives on
- *     the backend account row. Wire that in once the trial DB
- *     migration lands; the rest of the component stays unchanged.
+ *   - After the user buys a plan, the Stripe return flow broadcasts
+ *     an account refresh → `rawPlanId` flips to the paid plan → the
+ *     gate unmounts on its own.
  *
  * Security note: the only thing this component does is REFUSE TO
  * SHOW the dashboard. The dashboard's underlying data is fetched
@@ -47,17 +59,13 @@ import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { TierPickerSheet } from '@/app/hub/(components)/Sidebar/TierPickerSheet'
 import { useAccount } from '@/hooks/useAccount'
-
-/**
- * Test trigger. Fires the gate 5 seconds after the user lands on
- * any `/hub/*` route, every single mount, regardless of their
- * actual subscription state. Replace with the real condition (see
- * the docblock) once the trial DB column ships.
- */
-const TEST_TRIGGER_MS = 5_000
+import { trackEvent, EVENT } from '@/lib/posthog'
 
 /** Duration of the opacity 0 → 100 fade-in, in milliseconds. */
 const FADE_DURATION_MS = 1_000
+
+/** How often the "has the trial expired yet?" clock re-checks. */
+const RECHECK_INTERVAL_MS = 60_000
 
 export function SubscriptionGate() {
   // `mounted` controls whether the overlay is in the DOM at all.
@@ -68,27 +76,41 @@ export function SubscriptionGate() {
   const [mounted, setMounted] = useState(false)
   const [faded, setFaded] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const { planId } = useAccount()
+  const { planId, rawPlanId, trialEndsAt, loading } = useAccount()
 
+  // Re-evaluated every minute (and on every account change) so a
+  // session that outlives its trial gets gated without a reload —
+  // and a mid-session upgrade (account refresh broadcast flips
+  // `rawPlanId`) dissolves the gate the same way.
   useEffect(() => {
-    // Schedule the test trigger. The real implementation should
-    // compare `account.subscriptionStatus` + `account.trial_ends_at`
-    // against `now()` and only call `setMounted(true)` when the gate
-    // condition is satisfied.
-    const showTimer = setTimeout(() => {
-      setMounted(true)
-      // Two-RAF ensures the opacity-0 state lands in the DOM
-      // before we flip to opacity-1. One RAF alone occasionally
-      // collapses both writes into a single paint on Chromium —
-      // the transition silently no-ops because the browser never
-      // saw the starting value.
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => setFaded(true))
-      })
-    }, TEST_TRIGGER_MS)
+    const evaluate = () => {
+      const expired =
+        !loading &&
+        rawPlanId === 'free' &&
+        trialEndsAt !== null &&
+        Date.parse(trialEndsAt) < Date.now()
 
-    return () => clearTimeout(showTimer)
-  }, [])
+      setMounted(prev => {
+        if (expired && !prev) {
+          trackEvent(EVENT.TRIAL_ENDED_GATE_SHOWN, { trialEndsAt })
+          // Two-RAF ensures the opacity-0 state lands in the DOM
+          // before we flip to opacity-1. One RAF alone occasionally
+          // collapses both writes into a single paint on Chromium —
+          // the transition silently no-ops because the browser never
+          // saw the starting value.
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => setFaded(true))
+          })
+        }
+        if (!expired && prev) setFaded(false)
+        return expired
+      })
+    }
+
+    evaluate()
+    const timer = setInterval(evaluate, RECHECK_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [loading, rawPlanId, trialEndsAt])
 
   if (!mounted) return null
 
@@ -96,6 +118,7 @@ export function SubscriptionGate() {
     // `z-[100]` sits above EVERY other layer:
     //   - `z-50` dashboard modals
     //   - `z-40` feedback widget
+    //   - `z-[90]` onboarding gate
     //   - Sidebar (no explicit z, but inside layout flow)
     // `inset-0` pins it to all four viewport edges; `fixed`
     // means scrolling the body underneath has no effect.

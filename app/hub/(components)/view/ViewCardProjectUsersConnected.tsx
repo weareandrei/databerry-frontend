@@ -17,11 +17,13 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { ArrowsClockwise, User } from '@phosphor-icons/react'
+import { ArrowsClockwise, User, UsersThree } from '@phosphor-icons/react'
+import { toast } from 'sonner'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
 import { ALGORITHM, type PersonRow } from '@/lib/api'
 import type { View } from '@/types/view'
 
@@ -124,6 +126,7 @@ export function ViewCardProjectUsersConnected({
   const [people, setPeople] = useState<PersonRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -143,6 +146,35 @@ export function ViewCardProjectUsersConnected({
     void load()
   }, [load])
 
+  /**
+   * "Sync people" — pull people from every identity-bearing
+   * connection for this project, then reload the list. Used by both
+   * the empty-state button and the 3-dots menu item. Toasts the
+   * outcome so a long-running sync gives feedback; re-loads on
+   * success so newly-bridged people appear without a manual refresh.
+   */
+  const handleSync = useCallback(async () => {
+    if (syncing) return
+    setSyncing(true)
+    try {
+      const { processed } = await ALGORITHM.syncPeople(view.projectId)
+      toast.success(
+        processed > 0
+          ? `Synced ${processed} ${processed === 1 ? 'person' : 'people'}.`
+          : 'Sync complete — no people found in connected platforms yet.',
+      )
+      await load()
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? `Couldn't sync people — ${err.message}`
+          : "Couldn't sync people",
+      )
+    } finally {
+      setSyncing(false)
+    }
+  }, [syncing, view.projectId, load])
+
   return (
     <ViewWrapper
       className="col-span-3 row-span-2"
@@ -161,6 +193,25 @@ export function ViewCardProjectUsersConnected({
         // parent's `(id) => …` handler gets what it needs.
         onPin={onPin ? () => onPin(view.id) : undefined}
         isPinned={isPinned}
+        // "Sync people" lives in the 3-dots menu whenever the list is
+        // NON-empty (the empty state surfaces its own prominent
+        // button instead, so we don't double up). `onSelect`
+        // preventDefault keeps the menu from stealing focus mid-sync.
+        extraMenuItems={
+          people && people.length > 0 ? (
+            <DropdownMenuItem
+              onSelect={e => {
+                e.preventDefault()
+                void handleSync()
+              }}
+              disabled={syncing}
+              className="text-sm gap-2"
+            >
+              <UsersThree size={14} weight="bold" />
+              {syncing ? 'Syncing…' : 'Sync people'}
+            </DropdownMenuItem>
+          ) : undefined
+        }
       />
 
       {/* `data-no-dnd` so scrolling/selecting inside the list doesn't
@@ -183,10 +234,41 @@ export function ViewCardProjectUsersConnected({
             <FetchErrorBadge message="Couldn't load users" />
           </div>
         ) : people && people.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-2">
-            No users yet. Connect Stripe, PostHog or GA and we&apos;ll start
-            building this list.
-          </p>
+          // Empty state — prominent "Sync people" button right in the
+          // tile (vs. buried in the 3-dots menu) because with zero
+          // people the user's whole job here is "go find some". The
+          // sync pulls from every connected platform and bridges by
+          // email.
+          <div className="flex flex-col items-center justify-center text-center gap-3 py-8">
+            <div className="w-10 h-10 rounded-full bg-muted/60 flex items-center justify-center">
+              <UsersThree size={20} weight="bold" className="text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-grey-darkest">No users yet</p>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-[260px]">
+                Pull people from your connected platforms (Stripe,
+                PostHog…) and merge them by email.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleSync()}
+              disabled={syncing}
+              className="inline-flex items-center gap-1.5 rounded-full h-9 px-4 text-xs font-medium bg-brand hover:bg-brand/90 text-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {syncing ? (
+                <>
+                  <ArrowsClockwise size={13} weight="bold" className="animate-spin" />
+                  Syncing…
+                </>
+              ) : (
+                <>
+                  <UsersThree size={13} weight="bold" />
+                  Sync people
+                </>
+              )}
+            </button>
+          </div>
         ) : people ? (
           people.map(p => <PersonRowItem key={p.id} person={p} />)
         ) : null}

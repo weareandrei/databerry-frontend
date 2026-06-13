@@ -2,16 +2,16 @@ import { Plus_Jakarta_Sans } from 'next/font/google'
 import { StoreProvider } from '@/store/StoreProvider'
 import { DashboardProvider } from '@/contexts/DashboardContext'
 import { UserSettingsProvider } from '@/contexts/UserSettingsContext'
-import { Sidebar } from '@/app/hub/(components)/Sidebar/Sidebar'
+import { IconRail } from '@/app/hub/(components)/IconRail'
 import { BillingReturnHandler } from '@/app/hub/(components)/BillingReturnHandler'
 import { CreateProjectModal } from '@/app/hub/(components)/modals/CreateProjectModal'
 import { CreateFolderModal } from '@/app/hub/(components)/modals/CreateFolderModal'
 import { CreateConnectionModal } from '@/app/hub/(components)/modals/CreateConnectionModal'
 import { CreateViewModal } from '@/app/hub/(components)/modals/CreateViewModal'
 import { FeedbackWidget } from '@/app/hub/(components)/FeedbackWidget'
-// SubscriptionGate temporarily unmounted below — import kept commented
-// so re-enabling is a two-line uncomment.
-// import { SubscriptionGate } from '@/app/hub/(components)/SubscriptionGate'
+import { OnboardingGate } from '@/app/hub/(components)/OnboardingGate'
+import { TrialKickoff } from '@/app/hub/(components)/TrialKickoff'
+import { SubscriptionGate } from '@/app/hub/(components)/SubscriptionGate'
 
 const jakarta = Plus_Jakarta_Sans({
   variable: '--font-jakarta',
@@ -57,15 +57,18 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
               className={`${jakarta.variable} dashboard min-h-screen`}
               style={{ background: 'var(--c-main)', fontFamily: 'var(--font-jakarta), sans-serif' }}
             >
-              <Sidebar />
-              {/* `md:ml-64` reserves the desktop sidebar's 256-px gutter.
+              <IconRail />
+              {/* `md:ml-16` reserves the icon rail's 64-px gutter (the
+                  old 256-px labelled sidebar is gone — project detail
+                  nav now lives in the per-project sidebar mounted by
+                  `/hub/projects/[id]/layout.tsx`).
                   `pt-[60px] md:pt-0` reserves the gutter under the
                   fixed-position `<MobileTopBar>` on phones — that bar
                   sits `position: fixed` at viewport top, so without this
                   padding every page's first row would slip under it.
                   Desktop never paints the bar (`md:hidden`), so
                   `md:pt-0` keeps the desktop layout pixel-identical. */}
-              <main className="md:ml-64 flex flex-col min-h-screen pt-[60px] md:pt-0">{children}</main>
+              <main className="md:ml-16 flex flex-col min-h-screen pt-[60px] md:pt-0">{children}</main>
             </div>
             <CreateProjectModal />
             <CreateFolderModal />
@@ -85,13 +88,27 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
                 layout root so it follows the user across every
                 `/hub/*` route — see `FeedbackWidget` docblock. */}
             <FeedbackWidget />
-            {/* Full-viewport blocker when the user's subscription
-                is inactive (trial expired, paid sub lapsed, etc).
-                TEMPORARILY DISABLED — the 5-second test timer was
-                firing on every page load during testing. Re-enable
-                by un-commenting once the real trial-status trigger
-                is wired in (see `SubscriptionGate`'s docblock).
-                <SubscriptionGate /> */}
+            {/* Bounces users with `onboarding_complete = false` to
+                /onboarding from ANY hub route — including the
+                post-OAuth landings that would otherwise break the
+                onboarding flow mid-way. While the status is still
+                UNKNOWN it covers the dashboard with a full-screen
+                loading overlay (so fresh users never see dashboard
+                chrome before the bounce); a per-user localStorage
+                cache skips the overlay for users already known to
+                be onboarded. */}
+            <OnboardingGate />
+            {/* Starts the 7-day trial on the user's FIRST post-
+                onboarding dashboard open (stamps trial_started_at /
+                trial_ends_at via the backend) and celebrates with a
+                center popup + confetti. Renders nothing for users
+                whose trial already started or who pay. */}
+            <TrialKickoff />
+            {/* Full-viewport blocker once `trial_ends_at` is in the
+                past and the user still has no paid plan — no matter
+                how long ago the trial lapsed. Fail-open on unknown
+                account state; see its docblock for the trigger. */}
+            <SubscriptionGate />
           </UserSettingsProvider>
         </DashboardProvider>
       </StoreProvider>

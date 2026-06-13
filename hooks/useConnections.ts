@@ -10,7 +10,7 @@ import {
 } from '@/store/slices/connectionsSlice'
 import { openCreateConnectionModal, closeCreateConnectionModal } from '@/store/slices/uiSlice'
 import { ALGORITHM } from '@/lib/api'
-import { EVENT, trackEvent, captureError } from '@/lib/posthog'
+import { createConnectionRecord } from '@/lib/connections/connectionFlows'
 import type { Connection } from '@/types/connection'
 
 export function useConnections() {
@@ -40,41 +40,24 @@ export function useConnections() {
     body: Omit<Connection, 'id' | 'createdAt' | 'userId'> & { config?: Record<string, unknown> },
   ) => {
     try {
-      const created = await ALGORITHM.createConnection(body)
+      // The create + PostHog instrumentation (CONNECTION_CREATED /
+      // CONNECTION_CREATE_FAILED + exception capture) live in the
+      // shared flow lib now, so non-dashboard surfaces (onboarding)
+      // get identical analytics without this Redux-aware hook. This
+      // hook adds the dashboard-only parts: the store update and the
+      // soft-failure toast. OAuth-flow connections (Stripe Connect,
+      // GA, Calendly, Sentry) are created in the backend callback —
+      // those fire from `useOAuthCallback` on the
+      // `?<provider>=connected` redirect.
+      const created = await createConnectionRecord(body, 'manual')
       dispatch(addConnection(created))
-      // Centralised at the hook level so every entry point (PostHog
-      // form, Stripe manual, Webhook create, Vercel, …) gets the
-      // event for free without each modal step re-instrumenting it.
-      // OAuth-flow connections (Stripe Connect, GA, Calendly, Sentry)
-      // are created in the backend callback — those fire from
-      // `useOAuthCallback` on the `?<provider>=connected` redirect.
-      trackEvent(EVENT.CONNECTION_CREATED, {
-        connectionId: created.id,
-        connectionType: created.type,
-        source: 'manual',
-      })
       return created
     } catch (err) {
-      // Capture BOTH a PostHog exception (so the error shows up in
-      // the error-tracking view with its stack) AND a funnel event
-      // (so attempt-vs-success-vs-failure counts are query-able).
-      // Includes `connectionType` so a query like
-      // `connection_create_failed where connectionType = mcp` gives
-      // you MCP-only failure rate immediately.
-      //
-      // The backend's framed errors (`MCP server didn't respond
-      // within 10s`, `Stripe didn't accept this key`, …) flow
-      // through `err.message` since `ALGORITHM.createConnection`
-      // throws with the body of the 400.
-      captureError(EVENT.CONNECTION_CREATE_FAILED, err, {
-        connectionType: body.type,
-        source: 'manual',
-      })
       // User-facing toast: surface the actual server message when
-      // we have one, fall back to the generic copy otherwise. The
-      // previous `'Failed to create connection'` was confusing for
-      // MCP failures specifically — users had no idea WHY (auth
-      // wrong? URL wrong? timeout?).
+      // we have one ("MCP server didn't respond within 10s",
+      // "Stripe didn't accept this key", …), fall back to the
+      // generic copy otherwise. Soft-failure contract preserved:
+      // callers receive `undefined`, not a throw.
       const message =
         err instanceof Error && err.message
           ? err.message

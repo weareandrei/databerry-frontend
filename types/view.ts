@@ -48,7 +48,14 @@ export interface ProjectOverviewChartConfig {
   // Predefined metrics — the original, always-supported set. Existing
   // rows in `views.config` only have these fields; the new connection
   // refs below are additive and missing on legacy rows.
-  primaryMetric: OverviewPrimaryMetric
+  //
+  // `primaryMetric` is NULLABLE: a chart created while the project
+  // has no traffic tool (PostHog/GA) starts with an explicitly-empty
+  // left metric — the dropdown shows a "Select metric" placeholder
+  // instead of pretending Visitors data exists. Legacy rows with the
+  // key ABSENT still default to 'visitors' (see the readConfig
+  // fallbacks, which distinguish `undefined` from explicit `null`).
+  primaryMetric: OverviewPrimaryMetric | null
   secondaryMetric: OverviewSecondaryMetric
   // Connection-sourced override. When SET, takes priority over the
   // predefined field above and the chart plots data from the named

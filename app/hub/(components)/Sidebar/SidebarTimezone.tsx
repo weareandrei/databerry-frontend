@@ -5,7 +5,7 @@
  * to deep-link into Settings.
  *
  * This row sits *outside* the projects/workspace navigation — it's always
- * visible at the bottom of the sidebar. The `<SidebarPlanBadge>` card sits
+ * visible at the bottom of the sidebar. The `<SidebarSuggestCard>` card sits
  * directly above it and already provides a clear visual break (its own
  * border + shadow), so this row no longer carries its own `border-t` — a
  * second divider on top of the plan card's bottom edge read as a heavy

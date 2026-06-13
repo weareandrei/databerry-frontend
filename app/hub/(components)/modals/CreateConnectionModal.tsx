@@ -3,7 +3,6 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, Check, Info, Warning, Cube, CaretDown } from '@phosphor-icons/react'
-import { InlineErrorBanner } from './InlineErrorBanner'
 import { toast } from 'sonner'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
@@ -15,6 +14,7 @@ import {
   type BottomDialogPageSlotContext,
 } from '@/components/ui/Dialog'
 import { HeaderSaveCancel } from './HeaderSaveCancel'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { IntegrationGrid, type IntegrationCard } from '@/components/ui/IntegrationGrid'
 import {
   DropdownMenu,
@@ -24,7 +24,24 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+// Connection forms + flow logic are SHARED now (also used by the
+// /onboarding sequence) — the modal renders the forms and wires
+// their submit handlers to the flow lib + the Redux-aware
+// `connections.createConnection`.
+import {
+  PostHogForm,
+  PostHogProjectSelectForm,
+  StripeManualForm,
+  VercelTokenForm,
+  VercelProjectSelectForm,
+  WebhookForm,
+} from '@/components/connections/ConnectionForms'
+import {
+  POSTHOG_HOSTS,
+  fetchPosthogProjects,
+  fetchVercelProjects,
+  getOAuthUrlFor,
+} from '@/lib/connections/connectionFlows'
 
 const INTEGRATIONS: IntegrationCard[] = [
   { id: 'posthog', name: 'PostHog', description: 'Product analytics & event tracking' },
@@ -60,18 +77,6 @@ type View =
   | 'vercel-token'
   | 'vercel-project-select'
   | 'vercel-created'
-
-/**
- * Default PostHog hosts. Most users are on US Cloud; EU is the second
- * common case. Self-hosters can point at custom hosts post-hoc by
- * editing `connections_posthog.host` directly — the UI doesn't expose
- * that to keep the form simple. If we get demand for self-hosting,
- * add a third "Custom" option that reveals a free-form input.
- */
-const POSTHOG_HOSTS = [
-  { id: 'https://us.posthog.com', label: 'US Cloud' },
-  { id: 'https://eu.posthog.com', label: 'EU Cloud' },
-] as const
 
 type WebhookCreatedInfo = {
   connection: Connection
@@ -109,149 +114,6 @@ function CopyField({ label, value }: { label: string; value: string }) {
 // flow visually consistent with the create-view and connection-detail
 // dialogs (every form-bearing bottom dialog now uses the same top-right
 // save/cancel cluster).
-function PostHogForm({
-  apiKey,
-  host,
-  error,
-  onApiKeyChange,
-  onHostChange,
-}: {
-  apiKey: string
-  host: string
-  /**
-   * Inline error from the most recent fetch attempt. Stays visible
-   * while the user edits the form so they can re-read the hint
-   * (typo? wrong region?). Cleared by the parent on the next attempt.
-   */
-  error: string | null
-  onApiKeyChange: (v: string) => void
-  onHostChange: (v: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Personal API Key</label>
-        <Input
-          placeholder="phx_xxxxxxxxxxxxxxxxxxxx"
-          value={apiKey}
-          onChange={e => onApiKeyChange(e.target.value)}
-          autoFocus
-        />
-        <p className="text-xs text-muted-foreground">
-          Create one under{' '}
-          <a
-            href="https://app.posthog.com/settings/user-api-keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-          >
-            Personal API Keys
-          </a>{' '}
-          with <span className="font-medium text-foreground">Read</span> access
-          to{' '}
-          <span className="font-medium text-foreground">
-            Project, Query, and Event definition
-          </span>
-          . Read-only — we never write back.
-        </p>
-      </div>
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Region</label>
-        <div className="grid grid-cols-2 gap-2">
-          {POSTHOG_HOSTS.map(h => (
-            <Button
-              key={h.id}
-              type="button"
-              variant="outline"
-              onClick={() => onHostChange(h.id)}
-              className={`h-auto justify-start py-2 text-sm ${
-                host === h.id ? 'border-foreground bg-muted' : ''
-              }`}
-            >
-              {h.label}
-            </Button>
-          ))}
-        </div>
-      </div>
-
-      <InlineErrorBanner message={error} />
-    </div>
-  )
-}
-
-function PostHogProjectSelectForm({
-  projects,
-  selectedId,
-  onSelect,
-}: {
-  projects: { id: string; name: string; organization: string | null }[]
-  selectedId: string
-  onSelect: (id: string) => void
-}) {
-  if (projects.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        No projects on this PostHog account. Create one in PostHog and try again.
-      </p>
-    )
-  }
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-        {projects.map(p => (
-          <Button
-            key={p.id}
-            variant="outline"
-            onClick={() => onSelect(p.id)}
-            className={`w-full justify-start h-auto px-3 py-2.5 text-sm ${
-              selectedId === p.id ? 'border-foreground bg-muted' : ''
-            }`}
-          >
-            <div className="flex flex-col items-start gap-0.5 text-left">
-              <span className="font-medium">{p.name}</span>
-              {p.organization && (
-                <span className="text-xs text-muted-foreground">
-                  {p.organization}
-                </span>
-              )}
-            </div>
-          </Button>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function WebhookForm({
-  name,
-  error,
-  onNameChange,
-}: {
-  name: string
-  /** Inline error from the most recent connect attempt. Webhooks
-   *  used to fail silently — bad DB writes / failed key generation
-   *  closed the modal with no surface. */
-  error: string | null
-  onNameChange: (v: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Connection name</label>
-        <Input
-          placeholder="My Webhook"
-          value={name}
-          onChange={e => onNameChange(e.target.value)}
-          autoFocus
-        />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        You&apos;ll get a unique webhook URL and API key after connecting.
-      </p>
-      <InlineErrorBanner message={error} />
-    </div>
-  )
-}
 
 function WebhookCreatedView({ info, onDone }: { info: WebhookCreatedInfo; onDone: () => void }) {
   return (
@@ -341,135 +203,6 @@ function StripeChooseView({
           </p>
         </div>
       </Button>
-    </div>
-  )
-}
-
-function StripeManualForm({
-  name,
-  apiKey,
-  error,
-  onNameChange,
-  onApiKeyChange,
-}: {
-  name: string
-  apiKey: string
-  /** Inline error from the most recent save attempt. */
-  error: string | null
-  onNameChange: (v: string) => void
-  onApiKeyChange: (v: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Connection name</label>
-        <Input
-          placeholder="Stripe"
-          value={name}
-          onChange={e => onNameChange(e.target.value)}
-          autoFocus
-        />
-      </div>
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Restricted API Key</label>
-        <Input
-          placeholder="rk_live_xxxxxxxxxxxxxxxxxxxx"
-          value={apiKey}
-          onChange={e => onApiKeyChange(e.target.value)}
-        />
-        <p className="text-xs text-muted-foreground">
-          Create a{' '}
-          <a
-            href="https://dashboard.stripe.com/apikeys/create"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-          >
-            Stripe Restricted Key
-          </a>{' '}
-          with <span className="font-medium text-foreground">Read</span> access
-          to{' '}
-          <span className="font-medium text-foreground">
-            Charges, Customers, Subscriptions, and Products
-          </span>
-          . Read-only — we never write back.
-        </p>
-      </div>
-      <InlineErrorBanner message={error} />
-    </div>
-  )
-}
-
-function VercelTokenForm({
-  token,
-  error,
-  onTokenChange,
-}: {
-  token: string
-  /** Inline error from the most recent fetch attempt. Cleared by
-   *  the parent on the next submit so the user sees a fresh state
-   *  per try. */
-  error: string | null
-  onTokenChange: (v: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <label className="text-sm font-medium">Personal Access Token</label>
-        <Input
-          placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-          value={token}
-          onChange={e => onTokenChange(e.target.value)}
-          autoFocus
-        />
-        <p className="text-xs text-muted-foreground">
-          Create one at{' '}
-          <a
-            href="https://vercel.com/account/tokens"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline underline-offset-2 hover:text-foreground transition-colors"
-          >
-            vercel.com/account/tokens
-          </a>{' '}
-          — make sure it&apos;s a{' '}
-          <span className="font-medium text-foreground">Personal</span> token
-          (not Team or Project scope).
-        </p>
-      </div>
-      <InlineErrorBanner message={error} />
-    </div>
-  )
-}
-
-function VercelProjectSelectForm({
-  projects,
-  selectedId,
-  error,
-  onSelect,
-}: {
-  projects: { id: string; name: string }[]
-  selectedId: string
-  error: string | null
-  onSelect: (id: string) => void
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-        {projects.map(p => (
-          <Button
-            key={p.id}
-            variant="outline"
-            onClick={() => onSelect(p.id)}
-            className={`w-full justify-start h-auto px-3 py-2.5 text-sm ${
-              selectedId === p.id ? 'border-foreground bg-muted' : ''
-            }`}
-          >
-            {p.name}
-          </Button>
-        ))}
-      </div>
-      <InlineErrorBanner message={error} />
     </div>
   )
 }
@@ -698,7 +431,7 @@ export function CreateConnectionModal() {
     setSubmitting(true)
     setVercelError(null)
     try {
-      const data = await ALGORITHM.getVercelProjects(trimmed)
+      const data = await fetchVercelProjects(trimmed)
       setVercelToken(trimmed)
       setVercelProjects(data.projects)
       setView('vercel-project-select')
@@ -754,7 +487,7 @@ export function CreateConnectionModal() {
 
   const handleCalendlyOAuth = async () => {
     try {
-      const data = await ALGORITHM.getCalendlyOAuthUrl()
+      const data = await getOAuthUrlFor('calendly')
       window.location.href = data.url
     } catch {
       toast.error('Failed to start Calendly OAuth')
@@ -764,7 +497,7 @@ export function CreateConnectionModal() {
 
   const handleGoogleAnalyticsOAuth = async () => {
     try {
-      const data = await ALGORITHM.getGoogleAnalyticsOAuthUrl()
+      const data = await getOAuthUrlFor('google_analytics')
       window.location.href = data.url
     } catch {
       toast.error('Failed to start Google Analytics OAuth')
@@ -774,7 +507,7 @@ export function CreateConnectionModal() {
 
   const handleSentryOAuth = async () => {
     try {
-      const data = await ALGORITHM.getSentryOAuthUrl()
+      const data = await getOAuthUrlFor('sentry')
       window.location.href = data.url
     } catch {
       toast.error('Failed to start Sentry OAuth')
@@ -784,7 +517,7 @@ export function CreateConnectionModal() {
 
   const handleStripeOAuth = async () => {
     try {
-      const data = await ALGORITHM.getStripeOAuthUrl()
+      const data = await getOAuthUrlFor('stripe')
       window.location.href = data.url
     } catch {
       toast.error('Failed to start Stripe OAuth')
@@ -853,7 +586,7 @@ export function CreateConnectionModal() {
     setSubmitting(true)
     setPosthogError(null)
     try {
-      const data = await ALGORITHM.getPosthogProjects(trimmedKey, posthogHost)
+      const data = await fetchPosthogProjects(trimmedKey, posthogHost)
       setPosthogProjects(data.projects)
       // Pre-select if there's exactly one — saves a click for the
       // common solo-project case.
@@ -1012,6 +745,7 @@ export function CreateConnectionModal() {
       {view === 'posthog-form' && (
         <BottomDialog.Page
           title="PostHog"
+          titleIcon={<ConnectionIcon type="posthog" size={22} />}
           pageKey="posthog-form"
           onBack={backToList}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
@@ -1044,6 +778,7 @@ export function CreateConnectionModal() {
       {view === 'posthog-project-select' && (
         <BottomDialog.Page
           title="Pick a PostHog project"
+          titleIcon={<ConnectionIcon type="posthog" size={22} />}
           pageKey="posthog-project-select"
           onBack={() => setView('posthog-form')}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
@@ -1068,7 +803,7 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'stripe-choose' && (
-        <BottomDialog.Page title="Stripe" onBack={backToList}>
+        <BottomDialog.Page title="Stripe" titleIcon={<ConnectionIcon type="stripe" size={22} />} onBack={backToList}>
           {projectPickerEl}
           <StripeChooseView
             onOAuth={handleStripeOAuth}
@@ -1080,6 +815,7 @@ export function CreateConnectionModal() {
       {view === 'stripe-manual-form' && (
         <BottomDialog.Page
           title="Stripe (API key)"
+          titleIcon={<ConnectionIcon type="stripe" size={22} />}
           pageKey="stripe-manual-form"
           onBack={backToStripeChoose}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
@@ -1106,7 +842,7 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'calendly-connecting' && (
-        <BottomDialog.Page title="Calendly" onBack={backToList}>
+        <BottomDialog.Page title="Calendly" titleIcon={<ConnectionIcon type="calendly" size={22} />} onBack={backToList}>
           <div className="flex items-center justify-center py-8">
             <p className="text-sm text-muted-foreground">Opening Calendly authorization…</p>
           </div>
@@ -1114,7 +850,7 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'google-analytics-connecting' && (
-        <BottomDialog.Page title="Google Analytics" onBack={backToList}>
+        <BottomDialog.Page title="Google Analytics" titleIcon={<ConnectionIcon type="google_analytics" size={22} />} onBack={backToList}>
           <div className="flex items-center justify-center py-8">
             <p className="text-sm text-muted-foreground">Opening Google authorization…</p>
           </div>
@@ -1122,7 +858,7 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'sentry-connecting' && (
-        <BottomDialog.Page title="Sentry" onBack={backToList}>
+        <BottomDialog.Page title="Sentry" titleIcon={<ConnectionIcon type="sentry" size={22} />} onBack={backToList}>
           <div className="flex items-center justify-center py-8">
             <p className="text-sm text-muted-foreground">Opening Sentry authorization…</p>
           </div>
@@ -1132,6 +868,7 @@ export function CreateConnectionModal() {
       {view === 'webhook-form' && (
         <BottomDialog.Page
           title="Custom Webhook"
+          titleIcon={<ConnectionIcon type="webhook" size={22} />}
           onBack={backToList}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
             <HeaderSaveCancel
@@ -1167,6 +904,7 @@ export function CreateConnectionModal() {
       {view === 'vercel-token' && (
         <BottomDialog.Page
           title="Vercel"
+          titleIcon={<ConnectionIcon type="vercel" size={22} />}
           onBack={backToList}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
             <HeaderSaveCancel
@@ -1192,6 +930,7 @@ export function CreateConnectionModal() {
       {view === 'vercel-project-select' && (
         <BottomDialog.Page
           title="Vercel"
+          titleIcon={<ConnectionIcon type="vercel" size={22} />}
           pageKey="vercel-project-select"
           onBack={backToVercelToken}
           headerRight={(ctx: BottomDialogPageSlotContext) => (
@@ -1217,7 +956,7 @@ export function CreateConnectionModal() {
       )}
 
       {view === 'vercel-created' && (
-        <BottomDialog.Page title="Vercel" pageKey="vercel-created">
+        <BottomDialog.Page title="Vercel" titleIcon={<ConnectionIcon type="vercel" size={22} />} pageKey="vercel-created">
           <p className="-mt-1 mb-3 text-xs text-muted-foreground">
             Set up your log drain.
           </p>

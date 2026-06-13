@@ -30,10 +30,43 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { ALGORITHM } from '@/lib/api'
+import { captureError, EVENT } from '@/lib/posthog'
 import { asPlanId, type PlanId } from '@/constants/plans'
 
 interface UseAccountResult {
+  /**
+   * The EFFECTIVE plan — what the user should be treated as right
+   * now. During an active trial this is 'starter' even though they
+   * pay for nothing; that one substitution is what makes every
+   * consumer (plan limits, sidebar badge, tier picker) honor the
+   * trial without any of them knowing trials exist.
+   */
   planId: PlanId
+  /**
+   * What the user actually pays for — 'free' until they subscribe.
+   * Only trial plumbing (`TrialKickoff`, `SubscriptionGate`) should
+   * care; feature gating wants `planId`.
+   */
+  rawPlanId: PlanId
+  /**
+   * Tri-state on purpose:
+   *   `null`  — unknown (request in flight, errored, or signed out).
+   *   `false` — account exists and onboarding was never finished.
+   *   `true`  — finished or skipped.
+   * The hub's `<OnboardingGate>` redirects ONLY on a hard `false` —
+   * never on `null` — so a transient fetch error can't bounce a
+   * long-time user into the welcome wizard.
+   */
+  onboardingComplete: boolean | null
+  /**
+   * Trial window. Both `null` until the user's first post-onboarding
+   * dashboard open (`TrialKickoff` stamps them via `startTrial`).
+   * While the fetch is in flight / errored they're also `null` —
+   * consumers must treat `null` as "unknown", which both trial
+   * consumers already do by also requiring `loading === false`.
+   */
+  trialStartedAt: string | null
+  trialEndsAt: string | null
   loading: boolean
   /** Hard-refresh — used after an upgrade flow completes. */
   refresh: () => void
@@ -65,6 +98,10 @@ export function useAccount(): UseAccountResult {
   const userId = user?.id ?? null
 
   const [planId, setPlanId] = useState<PlanId>('free')
+  const [rawPlanId, setRawPlanId] = useState<PlanId>('free')
+  const [onboardingComplete, setOnboardingComplete] = useState<boolean | null>(null)
+  const [trialStartedAt, setTrialStartedAt] = useState<string | null>(null)
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   // Manual refresh trigger — bumped by `refresh()`, watched by the
   // effect below. Keeps the API tiny (no `mutate` function exposed).
@@ -75,6 +112,10 @@ export function useAccount(): UseAccountResult {
       // Signed out — keep the safe default, mark loaded so consumers
       // don't sit in a perpetual loading state on the public pages.
       setPlanId('free')
+      setRawPlanId('free')
+      setOnboardingComplete(null)
+      setTrialStartedAt(null)
+      setTrialEndsAt(null)
       setLoading(false)
       return
     }
@@ -90,12 +131,36 @@ export function useAccount(): UseAccountResult {
     void ALGORITHM.getMyAccount()
       .then(account => {
         if (cancelled) return
-        setPlanId(asPlanId(account.planId))
+        // EFFECTIVE plan for all feature gating — `?? account.planId`
+        // keeps a backend that predates the field working unchanged.
+        setPlanId(asPlanId(account.effectivePlanId ?? account.planId))
+        setRawPlanId(asPlanId(account.planId))
+        // `=== true` guard: a backend that predates the field (or a
+        // missing column) reads as `false`, not `undefined`, so the
+        // gate's `=== false` check stays meaningful.
+        setOnboardingComplete(account.onboardingComplete === true)
+        setTrialStartedAt(account.trialStartedAt ?? null)
+        setTrialEndsAt(account.trialEndsAt ?? null)
         setLoading(false)
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return
+        // REPORT the failure before degrading. The old silent
+        // `catch → 'free'` masked a months-long prod regression
+        // (almost no signups got an accounts row, and nothing ever
+        // said so). The fallback chrome still renders — but now the
+        // error lands in PostHog + the console where we can see it.
+        captureError(EVENT.ACCOUNT_ENSURE_FAILED, err, { source: 'useAccount' })
+        console.error('[useAccount] /accounts/me failed:', err)
         setPlanId('free')
+        setRawPlanId('free')
+        // Error → UNKNOWN, not false. The gate must never bounce a
+        // user into onboarding because of a network blip. Same idea
+        // for the trial fields: `null` reads as "unknown" and both
+        // trial consumers stay inert on it.
+        setOnboardingComplete(null)
+        setTrialStartedAt(null)
+        setTrialEndsAt(null)
         setLoading(false)
       })
 
@@ -117,5 +182,5 @@ export function useAccount(): UseAccountResult {
     }
   }, [refresh])
 
-  return { planId, loading, refresh }
+  return { planId, rawPlanId, onboardingComplete, trialStartedAt, trialEndsAt, loading, refresh }
 }

@@ -318,6 +318,35 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
   return JSON.parse(text) as T
 }
 
+/**
+ * The `/accounts/me*` response shape (backend `AccountsService.toCamel`).
+ * Shared by the three account endpoints below so the contract lives in
+ * exactly one place.
+ */
+export interface MyAccount {
+  id: string
+  userId: string
+  /** What the user actually pays for ('free' until they subscribe). */
+  planId: string
+  /**
+   * What the user should be TREATED as: paid plan → itself; 'free'
+   * with an active trial → 'starter'; otherwise 'free'. UI gating
+   * (limits, badges, pickers) reads this, never `planId`.
+   */
+  effectivePlanId: string
+  /** False until the user finishes (or skips) /onboarding. */
+  onboardingComplete: boolean
+  /**
+   * NULL until the first post-onboarding dashboard open — that's the
+   * `<TrialKickoff>` cue to call `startTrial` + celebrate. Both set
+   * together, never reset.
+   */
+  trialStartedAt: string | null
+  trialEndsAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export const ALGORITHM = {
   // ── Account ──────────────────────────────────────────────────────────────
 
@@ -330,14 +359,23 @@ export const ALGORITHM = {
    * note in `useAccount`). Cheap on the happy path: a single
    * `UPSERT … ON CONFLICT DO NOTHING` plus a SELECT.
    */
-  getMyAccount: () =>
-    apiFetch<{
-      id: string
-      userId: string
-      planId: string
-      createdAt: string
-      updatedAt: string
-    }>('/accounts/me'),
+  getMyAccount: () => apiFetch<MyAccount>('/accounts/me'),
+
+  /**
+   * Mark onboarding complete (finish AND skip both call this — the
+   * distinction is a PostHog event, not DB state). Idempotent.
+   * Returns the updated account row.
+   */
+  completeOnboarding: () =>
+    apiFetch<MyAccount>('/accounts/me/onboarding-complete', { method: 'POST' }),
+
+  /**
+   * Start the 7-day free trial (now / now + 7 days). Idempotent and
+   * race-safe server-side; paid plans are exempt (no-op). Returns the
+   * account row either way — callers decide whether to celebrate
+   * based on their own prior read, not the response.
+   */
+  startTrial: () => apiFetch<MyAccount>('/accounts/me/start-trial', { method: 'POST' }),
 
   // ── Projects ─────────────────────────────────────────────────────────────
 
@@ -847,6 +885,21 @@ export const ALGORITHM = {
     if (opts?.search) params.set('search', opts.search)
     return apiFetch<PersonRow[]>(`/people?${params.toString()}`)
   },
+
+  /**
+   * "Sync people" — populate the project's people index from all its
+   * identity-bearing connections (Stripe, PostHog, …) in one call.
+   * Returns the total processed + a per-connection breakdown. Backs
+   * the Users view's empty-state button and 3-dots menu item.
+   */
+  syncPeople: (projectId: string) =>
+    apiFetch<{
+      processed: number
+      connections: { connectionId: string; source: string; processed: number }[]
+    }>('/people/sync', {
+      method: 'POST',
+      body: JSON.stringify({ projectId }),
+    }),
 }
 
 /**
@@ -977,6 +1030,26 @@ export interface OverviewCountriesResponse {
   provider: 'google_analytics' | 'posthog' | null
 }
 
+/**
+ * One row of the overview panel's Pages tab. `pageviews` is the
+ * headline metric (how many pages were viewed, regardless of who);
+ * `visitors` = unique people who viewed the path. `share` is
+ * pageview-based, 0–1, precomputed server-side.
+ */
+export interface OverviewPage {
+  path: string
+  pageviews: number
+  visitors: number
+  share: number
+}
+
+export interface OverviewPagesResponse {
+  pages: OverviewPage[]
+  /** Pages are supported on BOTH providers (GA `pagePath`, PostHog
+   *  `$pathname`); `null` = no traffic provider connected. */
+  provider: 'google_analytics' | 'posthog' | null
+}
+
 export const PROJECT_OVERVIEW = {
   getChart: (
     projectId: string,
@@ -1004,20 +1077,37 @@ export const PROJECT_OVERVIEW = {
 
   // Default 100 — the panel paginates client-side, so we fetch a generous
   // batch and flip pages locally rather than round-tripping per page.
-  getSources: (projectId: string, dateFrom: string, dateTo: string, limit = 100) =>
-    apiFetch<{ sources: OverviewSource[] }>(
-      `/project-overview/sources?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
-    ),
+  //
+  // `tz` rides along (browser-resolved, same as the chart) so the
+  // panel's date window matches the chart's — these used to default
+  // to UTC server-side while the chart bucketed in the user's tz,
+  // which made "today's" totals disagree between the two surfaces.
+  getSources: (projectId: string, dateFrom: string, dateTo: string, limit = 100) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    return apiFetch<{ sources: OverviewSource[] }>(
+      `/project-overview/sources?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}&tz=${encodeURIComponent(tz)}`,
+    )
+  },
 
   getUsers: (projectId: string, dateFrom: string, dateTo: string, limit = 100) =>
     apiFetch<OverviewUsersResponse>(
       `/project-overview/users?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
     ),
 
-  getCountries: (projectId: string, dateFrom: string, dateTo: string, limit = 50) =>
-    apiFetch<OverviewCountriesResponse>(
-      `/project-overview/countries?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}`,
-    ),
+  getCountries: (projectId: string, dateFrom: string, dateTo: string, limit = 50) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    return apiFetch<OverviewCountriesResponse>(
+      `/project-overview/countries?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}&tz=${encodeURIComponent(tz)}`,
+    )
+  },
+
+  /** Top pages by pageview count — the panel's "Pages" tab. */
+  getPages: (projectId: string, dateFrom: string, dateTo: string, limit = 50) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    return apiFetch<OverviewPagesResponse>(
+      `/project-overview/pages?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}&tz=${encodeURIComponent(tz)}`,
+    )
+  },
 
   getConversionEvents: (connectionId: string) =>
     apiFetch<{ events: { name: string }[] }>(

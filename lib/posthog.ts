@@ -149,6 +149,39 @@ export const EVENT = {
   SIGNED_UP: 'signed_up',
   LOGGED_IN: 'logged_in',
   OAUTH_INITIATED: 'oauth_initiated',
+  /**
+   * The app-level accounts-row upsert (`GET /accounts/me`) failed.
+   * Fired from `AuthContext.ensureAccountRow` AND `useAccount`'s
+   * fetch — this used to fail SILENTLY (catch → fall back to
+   * 'free'), which hid a months-long regression where almost no
+   * signups got an accounts row. Parameters: { userId? , source? }.
+   */
+  ACCOUNT_ENSURE_FAILED: 'account_ensure_failed',
+  // ── Onboarding (/onboarding) ──────────────────────────────────────
+  /** User clicked "Start" on the welcome step. */
+  ONBOARDING_STARTED: 'onboarding_started',
+  /**
+   * User bailed via "Skip onboarding". Parameter `{ step }` records
+   * WHERE they bailed ('welcome' | 'tools' | 'views') — the funnel's
+   * drop-off point. Skipping still marks onboarding complete in the
+   * DB; this event is the only record that it was a skip.
+   */
+  ONBOARDING_SKIPPED: 'onboarding_skipped',
+  /** User reached the end and clicked Finish. */
+  ONBOARDING_FINISHED: 'onboarding_finished',
+  // ── Trial lifecycle ───────────────────────────────────────────────
+  /**
+   * The 7-day free trial clock started — fired by `<TrialKickoff>`
+   * right when the popup + confetti show, i.e. the user's FIRST
+   * post-onboarding dashboard open (deliberately not at signup).
+   */
+  TRIAL_STARTED: 'trial_started',
+  /**
+   * The full-screen "trial ended" blocker rendered. Fires once per
+   * mount — roughly once per dashboard visit while expired — so the
+   * count approximates how often lapsed users keep coming back.
+   */
+  TRIAL_ENDED_GATE_SHOWN: 'trial_ended_gate_shown',
   // ── Landing CTAs ──────────────────────────────────────────────────
   LANDING_TIER_CTA_CLICKED: 'landing_tier_cta_clicked',
   LANDING_CONTACT_FORM_SUBMITTED: 'landing_contact_form_submitted',

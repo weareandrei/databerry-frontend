@@ -19,7 +19,7 @@ import { ViewCardOverviewSources } from './ViewCardOverviewSources'
 import { useOverviewSourcesData } from './data/useOverviewSourcesData'
 import type { View } from '@/types/view'
 
-type Tab = 'sources' | 'countries'
+type Tab = 'sources' | 'countries' | 'pages'
 
 interface ViewCardOverviewSourcesConnectedProps {
   view: View
@@ -51,10 +51,8 @@ export function ViewCardOverviewSourcesConnected({
   onSourceHover,
 }: ViewCardOverviewSourcesConnectedProps) {
   const [tab, setTab] = useState<Tab>('sources')
-  const { sources, countries, refreshSources, refreshCountries } = useOverviewSourcesData(
-    view.projectId,
-    { tab, dateFrom, dateTo },
-  )
+  const { sources, countries, pages, refreshSources, refreshCountries, refreshPages } =
+    useOverviewSourcesData(view.projectId, { tab, dateFrom, dateTo })
 
   return (
     <ViewCardOverviewSources
@@ -65,8 +63,10 @@ export function ViewCardOverviewSourcesConnected({
       onTabChange={setTab}
       sources={sources}
       countries={countries}
+      pages={pages}
       onRefreshSources={refreshSources}
       onRefreshCountries={refreshCountries}
+      onRefreshPages={refreshPages}
       projectName={projectName}
       onUntrack={onUntrack}
       onPin={onPin}

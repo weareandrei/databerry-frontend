@@ -8,6 +8,52 @@ import { createClient } from '@/lib/supabase/client'
 
 const CORNER_PATH = 'M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z'
 
+/**
+ * The white "notch" bar hanging from the top edge — flipped corner
+ * SVGs + rounded-bottom white pill. Extracted so every surface that
+ * wants the landing-page top bar (the landing `Navbar` below,
+ * /onboarding) mounts the SAME chrome instead of approximating it.
+ *
+ * `widthClassName` controls the bar's width (the landing nav uses
+ * 55%; onboarding needs more room for its step indicators).
+ * Children render inside the bar's `justify-between` row.
+ */
+export function NotchBar({
+  children,
+  widthClassName = 'w-[55%] md:w-[55%]',
+}: {
+  children: React.ReactNode
+  widthClassName?: string
+}) {
+  return (
+    <div className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center">
+      <svg
+        className="-scale-x-100 -scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]"
+        viewBox="0 0 50 50"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path d={CORNER_PATH} fill="white" />
+      </svg>
+
+      <div
+        className={`flex flex-row items-center justify-between h-[54px] md:h-[65px] ${widthClassName} max-w-full bg-white rounded-b-[34px] md:rounded-b-[42px] px-5 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]`}
+      >
+        {children}
+      </div>
+
+      <svg
+        className="-scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]"
+        viewBox="0 0 50 50"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path d={CORNER_PATH} fill="white" />
+      </svg>
+    </div>
+  )
+}
+
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -79,13 +125,8 @@ const Navbar = () => {
       </button>
       */}
 
-      <div className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center">
-        <svg className="-scale-x-100 -scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]" viewBox="0 0 50 50" fill="none" aria-hidden="true">
-          <path d={CORNER_PATH} fill="white" />
-        </svg>
-
-        <div className="flex flex-row items-center justify-between h-[54px] md:h-[65px] w-[55%] md:w-[55%] max-w-full bg-white rounded-b-[34px] md:rounded-b-[42px] px-5 md:px-10 shadow-[0_8px_32px_rgba(0,0,0,0.15)]">
-          {/* Logo */}
+      <NotchBar>
+        {/* Logo */}
           <Link href="/" className="flex items-center gap-2 md:gap-3 mx-auto md:mx-0">
             <Image src="/databerry_logo_v2.svg" alt="DataBerry" width={24} height={24} className="md:w-[30px] md:h-[30px] rounded-lg" />
             <span
@@ -133,12 +174,7 @@ const Navbar = () => {
               </Link>
             )}
           </div>
-        </div>
-
-        <svg className="-scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]" viewBox="0 0 50 50" fill="none" aria-hidden="true">
-          <path d={CORNER_PATH} fill="white" />
-        </svg>
-      </div>
+      </NotchBar>
 
       {/* Mobile full-screen menu — commented out for now
       <AnimatePresence>

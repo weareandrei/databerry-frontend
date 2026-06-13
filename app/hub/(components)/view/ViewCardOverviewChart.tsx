@@ -71,7 +71,12 @@ import type {
   View,
 } from '@/types/view'
 
-const PRIMARY_OPTIONS: { value: OverviewPrimaryMetric; label: string }[] = [
+const PRIMARY_OPTIONS: { value: OverviewPrimaryMetric | null; label: string }[] = [
+  // `null` = explicitly-empty primary — the placeholder a chart
+  // starts with when it was created without a traffic tool
+  // connected. Listed so the trigger resolves a label for it (and
+  // the user can deliberately blank the axis).
+  { value: null,          label: 'Select metric' },
   { value: 'visitors',    label: 'Visitors' },
   { value: 'pageviews',   label: 'Pageviews' },
   { value: 'conversions', label: 'Conversions' },
@@ -181,7 +186,9 @@ const CONNECTION_METRIC_GROUPS: {
 function readConfig(view: View): ProjectOverviewChartConfig {
   const cfg = view.config as Partial<ProjectOverviewChartConfig>
   return {
-    primaryMetric: cfg.primaryMetric ?? 'visitors',
+    // undefined (legacy rows) -> 'visitors'; explicit null stays
+    // null so the dropdown shows its "Select metric" placeholder.
+    primaryMetric: cfg.primaryMetric === undefined ? 'visitors' : cfg.primaryMetric,
     secondaryMetric: cfg.secondaryMetric ?? null,
   }
 }
@@ -446,7 +453,7 @@ interface ViewCardOverviewChartProps {
    * `useOverviewChartData()` and the component's dropdown can drift
    * (caller doesn't know which metric to refetch with).
    */
-  primaryMetric: OverviewPrimaryMetric
+  primaryMetric: OverviewPrimaryMetric | null
   secondaryMetric: OverviewSecondaryMetric
   /**
    * When set, the corresponding dropdown displays this connection
@@ -628,7 +635,7 @@ export function ViewCardOverviewChart({
   // a user who picks "Stripe → Gross Volume" and then re-picks
   // "Revenue" from the top group would still see the Stripe
   // override winning.
-  const onPrimaryChange = (next: OverviewPrimaryMetric) =>
+  const onPrimaryChange = (next: OverviewPrimaryMetric | null) =>
     onMetricChange({
       primaryMetric: next,
       secondaryMetric,
@@ -929,9 +936,13 @@ export function ViewCardOverviewChart({
               */}
               <div className="absolute inset-0 overflow-x-auto md:overflow-x-visible -mx-4 md:mx-0 px-4 md:px-0">
                 <div className="h-full min-w-[560px] md:min-w-0">
+                  {/* The `?? 'visitors'` fallback is for the type
+                      system only — a null primary always lands in
+                      the `primaryUnavailable` empty state above, so
+                      this branch never renders with null. */}
                   <OverviewChart
                     data={chart}
-                    primaryMetric={primaryMetric}
+                    primaryMetric={primaryMetric ?? 'visitors'}
                     secondaryMetric={secondaryMetric}
                     nowLabel={nowLabel}
                     swapped={swapped}

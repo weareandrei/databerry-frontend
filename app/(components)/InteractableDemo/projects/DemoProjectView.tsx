@@ -160,7 +160,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
   // view (the demo never has more than one overview chart per
   // project, so this is fine). Real mode persists; demo just keeps
   // the picked metrics in component state.
-  const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric>('visitors')
+  const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric | null>('visitors')
   // Default secondary to 'revenue' — same default as the real dashboard's
   // CreateViewModal so the demo's first paint shows the same chart shape
   // a user gets when they create this view for real.
@@ -172,7 +172,7 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
 
   // Sources/countries tab state — same pattern as `useOverviewSourcesData`,
   // just static mock data + caller-owned tab.
-  const [sourcesTab, setSourcesTab] = useState<'sources' | 'countries'>('sources')
+  const [sourcesTab, setSourcesTab] = useState<'sources' | 'countries' | 'pages'>('sources')
 
   const handleProjectMenuRename = () => {
     const next = window.prompt('Rename project', project.name)?.trim()
@@ -206,7 +206,10 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
       project.id,
       globalDate,
       timeSeries,
-      primaryMetric,
+      // The demo's dropdown can technically blank the primary now
+      // (the placeholder option) — fall back to visitors so the
+      // mock chart builder always has a concrete metric.
+      primaryMetric ?? 'visitors',
       secondaryMetric,
     )
   }, [project.id, globalDate, timeSeries, primaryMetric, secondaryMetric])

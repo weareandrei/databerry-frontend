@@ -211,16 +211,12 @@ function viewOptionsForIntegration(integration: string): ViewOption[] {
       //       composite branch)
       //   [2] custom_chart          → standalone chart, no sources
       //   [3] project_users         → cross-platform users list
-      // We expose [0] AND [2] but skip [1].
-      //
-      // [3] `project_users` is TEMPORARILY HIDDEN while the people
-      // graph is still in development — we don't want users creating
-      // an always-empty / half-working tile yet. The option, its
-      // create handler (`createProjectUsers`), the renderer
-      // (`ViewCardProjectUsersConnected`), and the dispatch branch
-      // are all left intact; re-expose by adding
-      // `COMPOSITE_VIEW_OPTIONS[3]` back to this list.
-      return [COMPOSITE_VIEW_OPTIONS[0], COMPOSITE_VIEW_OPTIONS[2]]
+      // We expose [0], [2] AND [3] but skip [1].
+      return [
+        COMPOSITE_VIEW_OPTIONS[0],
+        COMPOSITE_VIEW_OPTIONS[2],
+        COMPOSITE_VIEW_OPTIONS[3],
+      ]
     default:
       return []
   }
@@ -368,31 +364,38 @@ export function CreateViewModal() {
     }
   }
 
+  /**
+   * Connection-aware metric defaults for a new overview/chart:
+   *   - primary 'visitors' iff a traffic tool (PostHog / GA) serves
+   *     this project (project-scoped or Common) — else explicitly
+   *     EMPTY (null) so the chart's dropdown shows "Select metric"
+   *     instead of a Visitors axis with no data behind it.
+   *   - secondary 'revenue' iff Stripe is eligible — same scoping
+   *     rule as the backend's `fetchStripeRevenueForProject`
+   *     (project-scoped OR Common). A $0-flatline Revenue overlay
+   *     for non-Stripe users is noise.
+   */
+  const defaultOverviewMetrics = () => {
+    const eligible = (types: string[]) =>
+      connections.connections.some(
+        c =>
+          types.includes(c.type) &&
+          (c.projectId === null || c.projectId === targetProjectId),
+      )
+    return {
+      primaryMetric: eligible(['posthog', 'google_analytics']) ? 'visitors' : null,
+      secondaryMetric: eligible(['stripe', 'stripe_manual']) ? 'revenue' : null,
+    }
+  }
+
   const createComposite = () => {
-    // Default secondary metric: 'revenue' iff Stripe is actually
-    // eligible for this project, otherwise leave it off (`null` =
-    // "no secondary line"). Scoping rule MIRRORS the backend's
-    // `fetchStripeRevenueForProject` — Stripe (manual or Connect)
-    // counts as "connected" when the connection is project-scoped
-    // to THIS project OR scoped Common (project_id IS NULL, which
-    // the backend includes). Without this guard, a user who never
-    // connected Stripe would see the chart default to a "Revenue"
-    // overlay that flatlines at $0 — confusing and noisy.
-    const hasStripeForProject = connections.connections.some(
-      c =>
-        (c.type === 'stripe' || c.type === 'stripe_manual') &&
-        (c.projectId === null || c.projectId === targetProjectId),
-    )
     return createView([
       {
         connectionId: null,
         connectionType: 'composite',
         type: 'project_overview',
         name: COMPOSITE_VIEW_OPTIONS[0].name,
-        config: {
-          primaryMetric: 'visitors',
-          secondaryMetric: hasStripeForProject ? 'revenue' : null,
-        },
+        config: defaultOverviewMetrics(),
       },
       {
         connectionId: null,
@@ -412,20 +415,12 @@ export function CreateViewModal() {
    * difference is purely whether it's paired with a sources panel.
    */
   const createCustomChart = () => {
-    const hasStripeForProject = connections.connections.some(
-      c =>
-        (c.type === 'stripe' || c.type === 'stripe_manual') &&
-        (c.projectId === null || c.projectId === targetProjectId),
-    )
     return createView({
       connectionId: null,
       connectionType: 'composite',
       type: 'custom_chart',
       name: COMPOSITE_VIEW_OPTIONS[2].name,
-      config: {
-        primaryMetric: 'visitors',
-        secondaryMetric: hasStripeForProject ? 'revenue' : null,
-      },
+      config: defaultOverviewMetrics(),
     })
   }
 

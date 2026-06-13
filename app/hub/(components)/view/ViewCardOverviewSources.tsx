@@ -34,11 +34,25 @@ import {
 import { ViewWrapper } from './ViewWrapper'
 import { OverviewSourcesPanel } from './OverviewSourcesPanel'
 import { OverviewCountriesPanel } from './OverviewCountriesPanel'
+import { OverviewPagesPanel } from './OverviewPagesPanel'
 import { TrafficConnectionPicker } from '../modals/TrafficConnectionPicker'
-import type { OverviewSource, OverviewCountry } from '@/lib/api'
+import type { OverviewSource, OverviewCountry, OverviewPage } from '@/lib/api'
 import type { ProjectOverviewSourcesConfig, View } from '@/types/view'
 
-type Tab = 'sources' | 'countries'
+type Tab = 'sources' | 'countries' | 'pages'
+
+/**
+ * Default for the OPTIONAL pages tab state — demo callers (and any
+ * older call sites) that don't pass `pages` render the tab with a
+ * quiet empty state instead of crashing on a missing prop.
+ */
+const EMPTY_PAGES_STATE: {
+  data: OverviewPage[] | null
+  loading: boolean
+  error: string | null
+  provider?: 'google_analytics' | 'posthog' | null
+  fetched: boolean
+} = { data: [], loading: false, error: null, provider: 'posthog', fetched: true }
 
 function readConfig(view: View): ProjectOverviewSourcesConfig {
   const cfg = view.config as Partial<ProjectOverviewSourcesConfig>
@@ -81,9 +95,12 @@ interface ViewCardOverviewSourcesProps {
    */
   sources: TabState<OverviewSource[]>
   countries: TabState<OverviewCountry[]>
+  /** Optional so demo/static callers don't have to mock it. */
+  pages?: TabState<OverviewPage[]>
   /** Refresh handlers — refresh acts on the active tab only. */
   onRefreshSources: () => void
   onRefreshCountries: () => void
+  onRefreshPages?: () => void
   projectName?: string
   onUntrack?: (id: string) => void
   onPin?: (id: string) => void
@@ -113,8 +130,10 @@ export function ViewCardOverviewSources({
   onTabChange,
   sources,
   countries,
+  pages = EMPTY_PAGES_STATE,
   onRefreshSources,
   onRefreshCountries,
+  onRefreshPages,
   projectName,
   onUntrack,
   onPin,
@@ -130,10 +149,16 @@ export function ViewCardOverviewSources({
   const config = readConfig(view)
   const refresh = () => {
     if (tab === 'sources') onRefreshSources()
-    else onRefreshCountries()
+    else if (tab === 'countries') onRefreshCountries()
+    else onRefreshPages?.()
   }
 
-  const activeLoading = tab === 'sources' ? sources.loading : countries.loading
+  const activeLoading =
+    tab === 'sources'
+      ? sources.loading
+      : tab === 'countries'
+        ? countries.loading
+        : pages.loading
 
   // Opens the in-place picker for the "no analytics tool connected"
   // empty states inside the tabs (sources empty, countries empty,
@@ -144,6 +169,7 @@ export function ViewCardOverviewSources({
   const handleLinked = () => {
     onRefreshSources()
     onRefreshCountries()
+    onRefreshPages?.()
   }
 
   return (
@@ -160,6 +186,9 @@ export function ViewCardOverviewSources({
           </TabButton>
           <TabButton active={tab === 'countries'} onClick={() => onTabChange('countries')}>
             Countries
+          </TabButton>
+          <TabButton active={tab === 'pages'} onClick={() => onTabChange('pages')}>
+            Pages
           </TabButton>
           {/* Project pill — only when the card is rendered away from its own
               project page (e.g. pinned on Home). On the project page projectName
@@ -215,10 +244,10 @@ export function ViewCardOverviewSources({
       </div>
 
       <div data-no-dnd="true" className="p-4 min-w-0">
-        {tab === 'sources'
-          ? renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick, onSourceHover)
-          : renderCountries(countries, handleConnectClick)
-        }
+        {tab === 'sources' &&
+          renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick, onSourceHover)}
+        {tab === 'countries' && renderCountries(countries, handleConnectClick)}
+        {tab === 'pages' && renderPages(pages, handleConnectClick)}
       </div>
     </ViewWrapper>
 
@@ -302,6 +331,24 @@ function renderCountries(
   }
 
   return <OverviewCountriesPanel countries={state.data ?? []} />
+}
+
+function renderPages(
+  state: TabState<OverviewPage[]>,
+  onConnectClick: () => void,
+): React.ReactElement {
+  if (state.error) return <ErrorState message={state.error} />
+  if (state.loading || !state.fetched) return <LoadingState />
+
+  // No provider at all → same connect CTA as the sibling tabs.
+  // (Unlike Countries, Pages works on BOTH providers — GA via
+  // `pagePath`, PostHog via `$pathname` — so there's no
+  // GA-unsupported special case.)
+  if (state.provider == null && (!state.data || state.data.length === 0)) {
+    return <NoTrafficState onConnectClick={onConnectClick} />
+  }
+
+  return <OverviewPagesPanel pages={state.data ?? []} />
 }
 
 // ── Sub-components for the three non-data states ───────────────────────────

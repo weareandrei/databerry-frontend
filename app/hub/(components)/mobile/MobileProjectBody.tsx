@@ -35,7 +35,7 @@ import {
   WidePosthogViewRenderer,
   isWidePosthogView,
 } from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
-import { useProjectView } from '@/app/hub/home/(components)/ProjectsGrid/ProjectView/ProjectView'
+import { useProjectView } from '@/app/hub/(components)/project/useProjectView'
 import type { Project } from '@/types/project'
 
 interface MobileProjectBodyProps {
@@ -43,7 +43,7 @@ interface MobileProjectBodyProps {
 }
 
 export function MobileProjectBody({ project }: MobileProjectBodyProps) {
-  const v = useProjectView(project, null, 0)
+  const v = useProjectView(project)
   const { projects: projectsCtx } = useDashboard()
   // Mobile-side mutation surface for the future (edit/delete project) lives
   // here too via the dashboard context — currently the mobile body doesn't

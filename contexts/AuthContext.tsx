@@ -2,8 +2,43 @@
 
 import { createContext, useContext, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { EVENT, identifyUser, resetUser, trackEvent } from '@/lib/posthog'
+import { captureError, identifyUser, resetUser, trackEvent, EVENT } from '@/lib/posthog'
+import { ALGORITHM } from '@/lib/api'
 import type { User } from '@supabase/supabase-js'
+
+/**
+ * Per-page-load dedupe for the ensure-account call. `INITIAL_SESSION`
+ * fires on every mount and `SIGNED_IN` can follow it — one upsert per
+ * user per page load is plenty (the dashboard's `useAccount` calls
+ * the same endpoint again anyway).
+ */
+let ensuredForUserId: string | null = null
+
+/**
+ * Guarantee the user's `accounts` row exists — APP-LEVEL, replacing
+ * the `on_auth_user_created` DB trigger that has now silently died
+ * twice in prod (Supabase platform upgrades eat custom triggers on
+ * the auth schema). `GET /accounts/me` is an idempotent upsert on
+ * the backend, so calling it from every authenticated session is
+ * cheap and self-healing for every auth path: email/password,
+ * Google OAuth (which bounces through a server route where no
+ * client code runs), magic links, future providers.
+ *
+ * Failures are REPORTED, not swallowed — a regression here is
+ * exactly the class of bug that stayed invisible for months while
+ * 42 of 43 users ended up with no account row.
+ */
+function ensureAccountRow(userId: string): void {
+  if (ensuredForUserId === userId) return
+  ensuredForUserId = userId
+  void ALGORITHM.getMyAccount().catch(err => {
+    // Allow a retry on the next auth event this page load — the
+    // failure might be a transient network blip.
+    ensuredForUserId = null
+    captureError(EVENT.ACCOUNT_ENSURE_FAILED, err, { userId })
+    console.error('[auth] Failed to ensure accounts row:', err)
+  })
+}
 
 interface AuthContextValue {
   user: User | null
@@ -35,6 +70,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       identifyUser(u.id, { email: u.email })
+
+      // App-level account-row guarantee — replaces the DB trigger.
+      // Fires for EVERY authenticated session on any page, so even a
+      // Google-OAuth signup that never touches /hub gets its row.
+      ensureAccountRow(u.id)
 
       // ── signed_up / logged_in attribution ────────────────────────
       //

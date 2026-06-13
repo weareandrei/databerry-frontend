@@ -1,32 +1,27 @@
 'use client'
 
 /**
- * Reusable agent-chat body. Owns ALL the chat state + send logic +
- * the message-stream / input UI. Renders inside any flex-column
- * parent that gives it `flex-1 min-h-0`.
+ * Reusable agent-chat body — the PRESENTATION half of the agent
+ * surface: empty-state launcher, message stream, input footer, MCP
+ * chip rows. All chat state + the send pipeline live in
+ * `useAgentChat.ts`. Renders inside any flex-column parent that
+ * gives it `flex-1 min-h-0`.
  *
  * Used by:
- *   - `/hub/agent-chat/page.tsx` (the dedicated route) — passes
- *     `showChrome` so the body renders its own mobile top-bar +
- *     desktop ChatHeader (with the Clear button).
- *   - `/hub/home/page.tsx` (the Dashboard / Ask-agent in-page toggle)
- *     — passes nothing, so the body skips its own chrome and slots
- *     under the home page's existing top bar (with the switch).
+ *   - `/hub/agent-chat/page.tsx` — the workspace-wide chat
+ *   - `/hub/projects/[id]/agent-chat/page.tsx` — the project-scoped
+ *     chat (separate history, project id sent with every message)
  *
- * The `?q=` initial-prompt hand-off is now a prop instead of a
- * `useSearchParams()` call so this file doesn't drag in a Suspense
- * boundary requirement. The standalone page reads `?q=` and passes
- * it through; the embedded home version simply omits it.
+ * The `?q=` initial-prompt hand-off is a prop (not a
+ * `useSearchParams()` call) so this file doesn't drag in a Suspense
+ * boundary; the standalone pages read `?q=` and pass it through.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useSelector } from 'react-redux'
-import { v4 as uuidv4 } from 'uuid'
 import { Plus, Trash, Warning } from '@phosphor-icons/react'
 import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
-import { ChatHeader } from './(components)/ChatHeader'
 import {
   ChatEmpty,
   ConfigMcpChip,
@@ -35,258 +30,49 @@ import {
 import { ChatMessage } from './(components)/ChatMessage'
 import { ChatTypingIndicator } from './(components)/ChatTypingIndicator'
 import { ChatInput } from './(components)/ChatInput'
-import { EVENT, trackEvent, captureError } from '@/lib/posthog'
-import type {
-  ChatMessage as Msg,
-  Renderable,
-  ToolCallTrace,
-} from './(components)/types'
-import { createClient } from '@/lib/supabase/client'
+import { useAgentChat } from './useAgentChat'
 import { useDashboard } from '@/contexts/DashboardContext'
-import type { RootState } from '@/store'
 
 // Cap on how many user-MCP chips render in the active-state footer
 // before the trailing `<ConfigMcpChip>`. Matches the empty-state
 // row's limit — same row, same overflow behaviour.
 const MAX_USER_MCP_CHIPS = 4
 
-// localStorage key prefix — per-user so two accounts on the same
-// browser don't bleed into each other. Bumped if the message shape
-// ever changes (today: v1).
-const STORAGE_PREFIX = 'databerry:chat:v1:'
-
-function loadHistory(userId: string): Msg[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(STORAGE_PREFIX + userId)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-function saveHistory(userId: string, messages: Msg[]): void {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_PREFIX + userId, JSON.stringify(messages))
-  } catch {
-    /* quota exceeded — fall back to in-memory only */
-  }
-}
-
 interface AgentChatBodyProps {
   /** Optional first message to auto-send on mount — used by the
-   *  standalone `/hub/agent-chat?q=…` deep-link entry-point. */
+   *  `/hub/agent-chat?q=…` deep-link entry-point. */
   initialQuery?: string
-  /** When true, the body renders its own mobile top-bar + desktop
-   *  ChatHeader (with the Clear button). Default false so the body
-   *  embeds cleanly under another page's chrome (home page). */
+  /** When true, the body renders its own mobile top-bar. Default
+   *  false so the body embeds cleanly under another page's chrome. */
   showChrome?: boolean
+  /**
+   * Scope the chat to one project (`[project]/agent-chat`) — see
+   * `useAgentChat` for the two effects (separate stored history;
+   * project id in the POST body).
+   */
+  projectId?: string
 }
 
 export function AgentChatBody({
   initialQuery,
   showChrome = false,
+  projectId,
 }: AgentChatBodyProps) {
-  const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
   const router = useRouter()
-
-  const [userId, setUserId] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Msg[]>([])
-  const [input, setInput] = useState('')
-  const [sending, setSending] = useState(false)
+  const { messages, input, setInput, sending, send, clear } = useAgentChat({
+    initialQuery,
+    projectId,
+  })
   const bottomRef = useRef<HTMLDivElement | null>(null)
-  const didSendInitial = useRef(false)
-
-  // Resolve the auth user once on mount, then hydrate the chat log
-  // for that user. We can't read localStorage during render because
-  // the user id is async; the empty state flashes briefly but that's
-  // acceptable for a chat surface.
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      const supabase = createClient()
-      const { data } = await supabase.auth.getSession()
-      const uid = data.session?.user.id ?? null
-      if (cancelled) return
-      setUserId(uid)
-      if (uid) setMessages(loadHistory(uid))
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Persist on every message change.
-  useEffect(() => {
-    if (userId) saveHistory(userId, messages)
-  }, [messages, userId])
 
   // Keep the latest message visible.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, sending])
 
-  const send = useCallback(
-    async (rawContent: string) => {
-      const content = rawContent.trim()
-      if (!content || sending) return
-
-      const userMsg: Msg = { id: uuidv4(), role: 'user', content }
-      const next = [...messages, userMsg]
-      setMessages(next)
-      setInput('')
-      setSending(true)
-
-      // Submit-side props that travel on BOTH the submit event and
-      // (if it happens) the error event. Same name on both events
-      // by design — see the `EVENT.ASK_AI_MESSAGE_SENT` docstring.
-      // The prompt itself is captured so the PostHog inbox shows
-      // what users are actually asking; PostHog event properties
-      // aren't affected by the `maskAllInputs` session-recording
-      // setting, so this is opt-in by site policy. If we ever want
-      // to scrub these, do it here.
-      const submitProps = {
-        prompt: content,
-        promptLength: content.length,
-        messageIndex: messages.length,
-      }
-      trackEvent(EVENT.ASK_AI_MESSAGE_SENT, submitProps)
-
-      try {
-        const supabase = createClient()
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        const authToken = session?.access_token
-          ? `Bearer ${session.access_token}`
-          : ''
-
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authToken,
-          },
-          body: JSON.stringify({
-            messages: next.map(m => ({ role: m.role, content: m.content })),
-            tz,
-          }),
-        })
-
-        const rawText = await res.text()
-        let data: {
-          reply?: string
-          toolCalls?: ToolCallTrace[]
-          renderables?: Renderable[]
-          error?: string
-          message?: string
-        }
-        try {
-          data = rawText ? JSON.parse(rawText) : {}
-        } catch {
-          data = {
-            error: `Server returned non-JSON response (HTTP ${res.status}). Body: ${
-              rawText.slice(0, 200) || '(empty)'
-            }`,
-          }
-        }
-
-        // Backend error path — anything that's NOT a clean 2xx with a
-        // `reply` payload counts. (`data.message` is a NestJS error
-        // body field; the controller also returns `data.error` for
-        // its own framed failures.)
-        const isBackendError = !res.ok || (data.reply == null && data.error != null)
-        if (isBackendError) {
-          const errorMessage =
-            data.error ?? data.message ?? `HTTP ${res.status} with no reply.`
-          // `captureError` files BOTH a PostHog exception (for the
-          // error-tracking view) AND a same-named funnel event
-          // (joining the success-side `ask_ai_message_sent` stream
-          // so funnel queries work). Synthesising an Error here
-          // because the response was structurally fine — fetch
-          // didn't throw, the backend just returned a non-2xx with
-          // a message; we want the stack to point HERE, not at some
-          // generic network failure.
-          captureError(
-            EVENT.ASK_AI_MESSAGE_SENT,
-            new Error(`Chat backend error: ${errorMessage}`),
-            {
-              ...submitProps,
-              errorSource: 'backend',
-              httpStatus: res.status,
-            },
-          )
-        }
-
-        const reply =
-          data.reply ?? data.message ?? data.error ?? 'Something went wrong.'
-        setMessages(prev => [
-          ...prev,
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: reply,
-            toolCalls: data.toolCalls,
-            renderables: data.renderables,
-            // Backend-error replies render as a red bubble in
-            // `<ChatMessage>` so the user can't mistake an
-            // upstream failure (Gemini overloaded, missing API
-            // key, etc.) for the agent's actual answer.
-            isError: isBackendError,
-          },
-        ])
-      } catch (err) {
-        // Network failure — fetch threw before we got a response. The
-        // browser couldn't reach the server at all (offline, DNS,
-        // CORS preflight rejected, etc.). Distinct from the
-        // backend-error case above because there's no HTTP status to
-        // report. Pass the original `err` to `captureError` so
-        // PostHog gets the real fetch stack frame (which IS useful
-        // for diagnosing CORS / TLS errors), not a synthesised one.
-        const message =
-          err instanceof Error ? err.message : 'Something went wrong.'
-        captureError(EVENT.ASK_AI_MESSAGE_SENT, err, {
-          ...submitProps,
-          errorSource: 'network',
-        })
-        setMessages(prev => [
-          ...prev,
-          {
-            id: uuidv4(),
-            role: 'assistant',
-            content: message,
-            isError: true,
-          },
-        ])
-      } finally {
-        setSending(false)
-      }
-    },
-    [messages, sending, tz],
-  )
-
-  // Auto-send the deep-link `?q=` prompt once we've hydrated.
-  useEffect(() => {
-    if (initialQuery && !didSendInitial.current && userId) {
-      didSendInitial.current = true
-      send(initialQuery)
-    }
-  }, [initialQuery, userId, send])
-
-  const clear = () => {
-    setMessages([])
-    if (userId) saveHistory(userId, [])
-  }
-
-  // MCP connections feed the empty-state chip row. Filter to the
-  // owner's MCP connections (Common + project-scoped both — the
-  // user owns them either way). Memoised so the array identity is
-  // stable across renders that don't change the underlying list,
-  // which keeps `<ChatEmpty>` from re-running its render for no
-  // reason.
+  // MCP connections feed the chip rows. Memoised so the array
+  // identity is stable across renders that don't change the list,
+  // which keeps `<ChatEmpty>` from re-rendering for no reason.
   const { connections } = useDashboard()
   const mcpConnections = useMemo(
     () => connections.connections.filter(c => c.type === 'mcp'),
@@ -297,28 +83,28 @@ export function AgentChatBody({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col">
+      {/* Mobile-only chrome. The desktop `ChatHeader` that used to
+          render here is gone — the white card now starts at the top
+          of the page (with the shared 16-px margin) and stretches
+          the full viewport height; "clear" stays reachable via the
+          floating "New chat" pill inside the active chat. */}
       {showChrome && (
-        <>
-          <MobileTopBar
-            variant="page"
-            title="Agent"
-            rightSlot={
-              messages.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={clear}
-                  aria-label="Clear chat"
-                  className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-grey-darkest hover:bg-hover-fill transition-colors shrink-0"
-                >
-                  <Trash size={14} weight="bold" />
-                </button>
-              ) : null
-            }
-          />
-          <div className="hidden md:block">
-            <ChatHeader hasMessages={messages.length > 0} onClear={clear} />
-          </div>
-        </>
+        <MobileTopBar
+          variant="page"
+          title="Agent"
+          rightSlot={
+            messages.length > 0 ? (
+              <button
+                type="button"
+                onClick={clear}
+                aria-label="Clear chat"
+                className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-grey-darkest hover:bg-hover-fill transition-colors shrink-0"
+              >
+                <Trash size={14} weight="bold" />
+              </button>
+            ) : null
+          }
+        />
       )}
 
       {/* ── White card wrapper ────────────────────────────────────
@@ -329,15 +115,14 @@ export function AgentChatBody({
           other "primary content" surfaces (view tiles' parent
           containers, the connections card).
 
-          Margin rhythm:
-          - Mobile (<md): symmetric `mx-4 mb-4`. The home-page mobile
-            branch wraps this in a `px-4`-less container, so we own
-            the side gutters here. Matches the rhythm of the pinned
-            views / projects cards stacked above us.
-          - Desktop (md+): `mr-6 mb-6` only — flush against the
-            sidebar's right edge so the card occupies the same
-            column as the dashboard body's content (`pr-6 pb-8`). */}
-      <div className="flex-1 min-h-0 mx-4 md:ml-0 md:mr-6 mb-4 md:mb-6 bg-white rounded-2xl border border-stroke shadow-card flex flex-col overflow-hidden">
+          Margin rhythm: symmetric `mx-4 mt-4 mb-4` on every
+          breakpoint — the shared 16-px rhythm of the hub's body
+          panels (home, overview, filtered views), aligned with
+          `HubTopBar`'s `px-4` and the project sidebar card's
+          `top-4/bottom-4`. With the desktop header gone, `mt-4` is
+          what keeps the card off the viewport's top edge while it
+          stretches the full height. */}
+      <div className="flex-1 min-h-0 mx-4 mt-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card flex flex-col overflow-hidden">
         {isEmpty ? (
           // Empty state owns its own input. The bottom-pinned
           // `<ChatInput>` below is gated on `!isEmpty` so it

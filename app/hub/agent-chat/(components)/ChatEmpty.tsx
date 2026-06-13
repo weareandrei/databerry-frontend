@@ -35,6 +35,13 @@ interface ChatEmptyProps {
    *  caller). First few render as light-grey chips with the MCP
    *  icon + connection name. */
   mcpConnections: Connection[]
+  /**
+   * Skip the "What do you want to know ?" heading. The home page
+   * embeds this surface as a compact launcher under its own "Chat
+   * with Agent" button — a second heading there would double up.
+   * The standalone agent pages keep the default (title shown).
+   */
+  hideTitle?: boolean
 }
 
 // We only show the first N MCP chips before the "Config MCP's"
@@ -49,6 +56,7 @@ export function ChatEmpty({
   onSubmit,
   sending,
   mcpConnections,
+  hideTitle = false,
 }: ChatEmptyProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const router = useRouter()
@@ -73,12 +81,14 @@ export function ChatEmpty({
         {/* Title — Bricolage Grotesque, the same display face as
             the landing hero. Bigger on desktop, scales down a bit
             on mobile so it doesn't dwarf a phone viewport. */}
-        <h1
-          className="text-2xl md:text-3xl font-semibold text-grey-darkest mb-6 text-center tracking-tight"
-          style={{ fontFamily: 'var(--font-bricolage)' }}
-        >
-          What do you want to know ?
-        </h1>
+        {!hideTitle && (
+          <h1
+            className="text-2xl md:text-3xl font-semibold text-grey-darkest mb-6 text-center tracking-tight"
+            style={{ fontFamily: 'var(--font-bricolage)' }}
+          >
+            What do you want to know ?
+          </h1>
+        )}
 
         {/* ── Chat input ──────────────────────────────────────────
             Soft grey background (`bg-main`, our existing page-bg

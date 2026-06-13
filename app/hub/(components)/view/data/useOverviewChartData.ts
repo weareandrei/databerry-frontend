@@ -39,7 +39,9 @@ interface UseOverviewChartDataOpts {
   dateFrom: string
   dateTo: string
   mode: 'daily' | 'weekly' | 'monthly'
-  primaryMetric: OverviewPrimaryMetric
+  /** `null` = explicitly-empty primary (chart created with no traffic
+   *  tool connected) — the hook skips fetching entirely. */
+  primaryMetric: OverviewPrimaryMetric | null
   secondaryMetric: OverviewSecondaryMetric
 }
 
@@ -55,6 +57,25 @@ export function useOverviewChartData(
 
   useEffect(() => {
     let cancelled = false
+
+    // Empty primary → nothing to fetch. Synthesize the same shape
+    // the backend returns for a missing traffic provider so the
+    // chart renders its "connect an analytics tool" empty state
+    // instead of a perpetual loading skeleton. Picking any metric
+    // from the dropdown flips `primaryMetric` and fetches normally.
+    if (primaryMetric === null) {
+      setChart({
+        buckets: [],
+        totalPrimary: 0,
+        totalSecondary: null,
+        primaryUnavailable: true,
+        trafficProvider: null,
+      })
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
     PROJECT_OVERVIEW.getChart(

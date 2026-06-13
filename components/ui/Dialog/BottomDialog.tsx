@@ -119,6 +119,10 @@ interface BottomDialogPageProps {
    * the entire title row).
    */
   title?: string
+  /** Optional icon rendered immediately to the LEFT of the title text
+   *  (e.g. a connection's brand logo on a setup form). Sits inside the
+   *  same vertically-centered header row as the back arrow + title. */
+  titleIcon?: ReactNode
   /** When provided, renders a back chevron in the header. */
   onBack?: () => void
   /** Stable id used by AnimatePresence to slide the body on swap.
@@ -272,13 +276,17 @@ function BottomDialog({
           {/* Header row. No background — it sits on the popup's `bg-main`
               directly. Three slots: optional back arrow, headerLeft (or
               fallback title), headerRight (or fallback close button). */}
-          <div className="flex shrink-0 select-none items-start gap-3 px-5 pt-4 pb-3">
+          {/* `items-center` vertically centers the back arrow, the
+              optional title icon, the title, and the right-side actions
+              against each other. (Was `items-start` + a `mt-1` nudge on
+              the arrow, which only approximated alignment.) */}
+          <div className="flex shrink-0 select-none items-center gap-3 px-5 pt-4 pb-3">
             {current?.props.onBack ? (
               <button
                 type="button"
                 onClick={current.props.onBack}
                 aria-label="Back"
-                className="-ml-1.5 mt-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="-ml-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
               >
                 <ArrowLeft size={18} />
               </button>
@@ -287,23 +295,30 @@ function BottomDialog({
             {headerLeft ? (
               <div className="min-w-0 flex-1">{headerLeft}</div>
             ) : (
-              <DrawerPrimitive.Title
-                data-slot="dialog-title"
-                className="min-w-0 flex-1 truncate font-heading text-lg font-semibold tracking-tight"
-              >
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.span
-                    key={pageKey}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.15 }}
-                    className="inline-block"
-                  >
-                    {current?.props.title ?? ''}
-                  </motion.span>
-                </AnimatePresence>
-              </DrawerPrimitive.Title>
+              <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                {current?.props.titleIcon ? (
+                  <span className="shrink-0 inline-flex items-center">
+                    {current.props.titleIcon}
+                  </span>
+                ) : null}
+                <DrawerPrimitive.Title
+                  data-slot="dialog-title"
+                  className="min-w-0 flex-1 truncate font-heading text-lg font-semibold tracking-tight"
+                >
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.span
+                      key={pageKey}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.15 }}
+                      className="inline-block"
+                    >
+                      {current?.props.title ?? ''}
+                    </motion.span>
+                  </AnimatePresence>
+                </DrawerPrimitive.Title>
+              </div>
             )}
 
             <div className="flex shrink-0 items-center gap-2">
@@ -314,7 +329,7 @@ function BottomDialog({
                 // for every dialog that doesn't override `headerRight`.
                 <DrawerPrimitive.Close
                   data-slot="dialog-close"
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-grey-darkest shadow-pill transition-colors hover:bg-hover-fill"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-grey-darkest shadow-pill transition-colors hover:bg-hover-fill cursor-pointer"
                 >
                   <X size={14} weight="bold" />
                   <span className="sr-only">Close</span>

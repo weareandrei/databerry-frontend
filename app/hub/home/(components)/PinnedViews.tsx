@@ -248,13 +248,13 @@ interface PinnedViewsProps {
  * branches at the page level so an empty section doesn't render an
  * orphaned label.
  */
-const PinnedViews = ({
+export function PinnedViews({
   pins,
   unpinView,
   onConnectionAssigned,
   projects = [],
   singleColumn = false,
-}: PinnedViewsProps) => {
+}: PinnedViewsProps) {
   const dateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const dateTo = useSelector((s: RootState) => s.ui.globalDateTo)
   const mode = useSelector((s: RootState) => s.ui.globalDateMode)
@@ -364,4 +364,4 @@ const PinnedViews = ({
 // show. Keeps PinnedViews free of orphan-label / spinner UI that
 // would otherwise show under the new "Pinned views" label.
 
-export default PinnedViews
+

@@ -7,6 +7,23 @@ function todayISO(): string {
   return toDateStr(new Date())
 }
 
+/**
+ * Boundaries for the DEFAULT period shown on first dashboard load —
+ * the current week. Same math `setGlobalDateMode` runs when the user
+ * picks "Weekly" from the dropdown, including the cap-at-today rule
+ * from `resetGlobalToCurrent` (mid-week, the period's natural end is
+ * in the future; we never display a future end boundary).
+ */
+function initialWeeklyPeriod(): { from: string; to: string } {
+  const now = new Date()
+  now.setUTCHours(0, 0, 0, 0)
+  const { from, to } = periodBoundaries('weekly', now)
+  const today = todayISO()
+  return { from, to: to > today ? today : to }
+}
+
+const INITIAL_PERIOD = initialWeeklyPeriod()
+
 interface UiState {
   globalDateMode: GlobalDateMode
   globalDateFrom: string
@@ -29,29 +46,15 @@ interface UiState {
   createViewModalOpen: boolean
   createViewFolderId: string | null
   createViewProjectId: string | null
-  /**
-   * Cross-cutting "user wants to land on project X (optionally folder
-   * Y)" intent. The sidebar dispatches; the home page consumes it
-   * (smooth-scrolls to the matching `[data-project-id]` and seeds the
-   * matching `<ProjectView>`'s `currentFolderId`).
-   *
-   * Why a Redux field rather than URL params: same-project re-clicks
-   * need to fire the consumer's effect each time (e.g. user scrolled
-   * away, wants to come back). URL-driven approaches don't re-fire
-   * when the URL is unchanged. The bumped `nonce` here sidesteps that
-   * without polluting the URL.
-   */
-  projectNavIntent: {
-    projectId: string | null
-    folderId: string | null
-    nonce: number
-  }
 }
 
 const initialState: UiState = {
-  globalDateMode: 'daily',
-  globalDateFrom: todayISO(),
-  globalDateTo: todayISO(),
+  // Weekly by default — a week of bars reads as a real chart on first
+  // open; a single day (the old default) showed one sparse hourly
+  // chart that most mornings was mostly empty.
+  globalDateMode: 'weekly',
+  globalDateFrom: INITIAL_PERIOD.from,
+  globalDateTo: INITIAL_PERIOD.to,
   // null = "still loading from UserSettingsContext". The provider hydrates
   // this on mount; until then view hooks block fetches so we don't run
   // queries with the wrong tz then re-run with the right one.
@@ -65,7 +68,6 @@ const initialState: UiState = {
   createViewModalOpen: false,
   createViewFolderId: null,
   createViewProjectId: null,
-  projectNavIntent: { projectId: null, folderId: null, nonce: 0 },
 }
 
 const uiSlice = createSlice({
@@ -149,16 +151,6 @@ const uiSlice = createSlice({
       state.createViewFolderId = null
       state.createViewProjectId = null
     },
-    setProjectNavIntent(
-      state,
-      action: PayloadAction<{ projectId: string; folderId?: string | null }>,
-    ) {
-      state.projectNavIntent = {
-        projectId: action.payload.projectId,
-        folderId: action.payload.folderId ?? null,
-        nonce: state.projectNavIntent.nonce + 1,
-      }
-    },
   },
 })
 
@@ -176,6 +168,5 @@ export const {
   closeCreateConnectionModal,
   openCreateViewModal,
   closeCreateViewModal,
-  setProjectNavIntent,
 } = uiSlice.actions
 export default uiSlice.reducer

@@ -175,11 +175,13 @@ export function PricingTable({
         <EventVolumeSlider index={tierIndex} onChange={setTierIndex} />
       </div>
 
-      {/* Card grid. `items-stretch` (default on grid) keeps both
-          cards at the same height; the `flex-1` between feature
-          list and CTA inside each card consumes the slack so CTAs
-          line up across columns. */}
-      <div className="flex flex-row items-center gap-6">
+      {/* Card layout. Stacks VERTICALLY on mobile (`flex-col`) so the
+          two `w-full` cards each get the full column width instead of
+          being squished side by side; switches to a side-by-side row
+          at `md`. `items-stretch` keeps both cards the same height on
+          desktop; the `flex-1` between feature list and CTA inside
+          each card consumes the slack so CTAs line up across columns. */}
+      <div className="flex flex-col md:flex-row items-center md:items-stretch gap-6">
         {visiblePlans.map(plan => (
           <PlanCard
             key={plan.id}

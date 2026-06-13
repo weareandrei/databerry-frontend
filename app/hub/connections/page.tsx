@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionsList } from '@/app/hub/(components)/connections/ConnectionsList'
 import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
 import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
 import { useOAuthCallback } from '@/hooks/useOAuthCallback'
@@ -315,100 +316,16 @@ export default function ConnectionsPage() {
           />
         </div>
 
-        {connections.loading ? (
-          <div className="flex items-center justify-center py-8">
-            <ArrowsClockwise size={16} weight="bold" className="text-muted-foreground animate-spin" />
-          </div>
-        ) : regularConnections.length === 0 ? (
-          <p className="text-sm text-grey-light px-4 py-5">
-            No connections yet.
-          </p>
-        ) : (
-          <div className="divide-y divide-stroke">
-            {regularConnections.map(connection => {
-              // Resolve the project label. null == "Common" (shared across
-              // every project this user owns). Type-specific pills
-              // (gaPropertyName, vercelProjectName) live in the detail modal
-              // now — the row shows exactly one badge: the project scope.
-              const projectName = connection.projectId
-                ? (projectsCtx.projects.find(p => p.id === connection.projectId)?.name ?? 'Project')
-                : 'Common'
-              return (
-                <div
-                  key={connection.id}
-                  onClick={() => setSelectedConnection(connection)}
-                  className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-main"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <ConnectionIcon type={connection.type} size={20} className="text-grey-dark shrink-0" />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-grey-dark truncate">
-                          {connection.name}
-                        </p>
-                        <ProjectScopePill
-                          connection={connection}
-                          projectName={projectName}
-                          projects={projectsCtx.projects}
-                          onReassign={id => connections.reassignProject(connection.id, id)}
-                        />
-                      </div>
-                      <p className="text-xs text-grey-light">
-                        {CONNECTION_DISPLAY_NAMES[connection.type] ?? connection.type} · Connected{' '}
-                        {new Date(connection.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {(connection.type === 'stripe' || connection.type === 'stripe_manual') && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger
-                          onClick={e => e.stopPropagation()}
-                          // `md:opacity-0 md:group-hover:opacity-100` keeps
-                          // the desktop hover-reveal behaviour but always
-                          // shows the button on mobile (no hover events on
-                          // touch devices). `aria-expanded:opacity-100`
-                          // covers the case where the menu is open without
-                          // the cursor on the row.
-                          className="md:opacity-0 md:group-hover:opacity-100 aria-expanded:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-grey-darkest transition-colors cursor-pointer"
-                          title="More actions"
-                        >
-                          <DotsThreeVertical size={16} weight="bold" />
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          onClick={e => e.stopPropagation()}
-                        >
-                          <DropdownMenuItem
-                            onClick={e => {
-                              e.stopPropagation()
-                              connections.reloadStripe(connection.id)
-                            }}
-                            className="gap-2 text-sm"
-                          >
-                            <ArrowsClockwise size={12} weight="bold" />
-                            <span>Refresh data from Stripe</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                    <button
-                      onClick={e => { e.stopPropagation(); connections.deleteConnection(connection.id) }}
-                      // Same `md:opacity-0 md:group-hover:opacity-100`
-                      // pattern as the dots-menu trigger above —
-                      // hover-reveal on desktop, always visible on
-                      // mobile (44 × 44 → 28 × 28 at md+).
-                      className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-destructive transition-colors"
-                      title="Delete"
-                    >
-                      <Trash size={14} weight="bold" />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <ConnectionsList
+          connections={regularConnections}
+          projects={projectsCtx.projects}
+          loading={connections.loading}
+          emptyText="No connections yet."
+          onSelect={setSelectedConnection}
+          onDelete={connections.deleteConnection}
+          onReassign={connections.reassignProject}
+          onReloadStripe={connections.reloadStripe}
+        />
       </div>
 
       {/* ── MCP Connections ────────────────────────────────────────

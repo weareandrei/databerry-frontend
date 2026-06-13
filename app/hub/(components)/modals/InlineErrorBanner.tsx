@@ -32,7 +32,12 @@ export function InlineErrorBanner({ message }: InlineErrorBannerProps) {
   return (
     <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
       <Warning size={14} weight="bold" className="shrink-0 mt-0.5" />
-      <p className="leading-relaxed">{message}</p>
+      {/* `min-w-0` lets the flex child shrink below its content width;
+          `overflow-wrap:anywhere` force-breaks tokens with no natural
+          break points — Stripe errors embed masked keys
+          (`rk_live_*****…`) and long URLs that otherwise punch
+          through the card edge. */}
+      <p className="leading-relaxed min-w-0 [overflow-wrap:anywhere]">{message}</p>
     </div>
   )
 }

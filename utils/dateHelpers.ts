@@ -187,7 +187,11 @@ export function parseISODate(s: string): Date {
   return new Date(s + 'T00:00:00Z')
 }
 
-export type GlobalDateMode = 'daily' | 'weekly' | 'monthly'
+// Canonical definition lives in `types/dates.ts` (`DateMode`); this
+// alias keeps the long-standing import path working for the many
+// existing consumers. New code should import `DateMode` directly.
+export type { DateMode } from '@/types/dates'
+export type GlobalDateMode = import('@/types/dates').DateMode
 
 // Monday-based week helpers — all UTC.
 export function startOfWeekMonday(d: Date): Date {
