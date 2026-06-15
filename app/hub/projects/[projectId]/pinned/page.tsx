@@ -45,7 +45,7 @@ export default function ProjectPinnedPage() {
         }}
       />
       {/* White panel = the ONLY scroll container. */}
-      <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto">
+      <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto overscroll-contain">
         {pinsCtx.loading ? (
           <BodySkeleton />
         ) : (

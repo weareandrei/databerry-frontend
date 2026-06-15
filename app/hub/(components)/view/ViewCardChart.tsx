@@ -11,7 +11,7 @@ import {
   CartesianGrid,
   Cell,
 } from 'recharts'
-import { ArrowsClockwise } from '@phosphor-icons/react'
+import { SkeletonBlock } from './ViewSkeleton'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
@@ -186,10 +186,7 @@ export function ViewCardChart({
           See `FilteredPointerSensor`. */}
       <div data-no-dnd="true" className="px-4 mt-2 shrink-0">
         {loading ? (
-          <div className="flex items-center gap-1.5">
-            <ArrowsClockwise size={12} className="animate-spin text-muted-foreground" weight="bold" />
-            <span className="text-xs text-muted-foreground">Loading…</span>
-          </div>
+          <SkeletonBlock className="h-7 w-24" />
         ) : needsReattach ? (
           // Same two-flavour treatment as `ViewCard`: strict orphan
           // (`view.connectionId == null`) or dangling FK (410 from
@@ -215,11 +212,7 @@ export function ViewCardChart({
       </div>
 
       <div data-no-dnd="true" className="flex-1 min-h-0 px-1 pb-3 mt-2">
-        {loading && (
-          <div className="h-full flex items-center justify-center">
-            <ArrowsClockwise size={20} className="animate-spin text-muted-foreground" weight="bold" />
-          </div>
-        )}
+        {loading && <SkeletonBlock className="h-full w-full" />}
         {!loading && error && (
           <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
             Could not load chart data

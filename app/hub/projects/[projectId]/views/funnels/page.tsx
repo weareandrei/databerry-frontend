@@ -23,7 +23,7 @@ export default function ProjectFunnelsPage() {
       project={project}
       title="Funnels"
       filter={isFunnelView}
-      emptyText="No funnel views in this project yet. Create one with the Create view button on the Overview page."
+      emptyText="No funnel views in this project yet. Create one with the Create view button."
     />
   )
 }

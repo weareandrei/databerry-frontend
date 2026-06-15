@@ -895,11 +895,29 @@ export const ALGORITHM = {
   syncPeople: (projectId: string) =>
     apiFetch<{
       processed: number
-      connections: { connectionId: string; source: string; processed: number }[]
+      connections: {
+        connectionId: string
+        source: string
+        processed: number
+        /** Set when this connection's sync failed wholesale. */
+        error?: string
+      }[]
     }>('/people/sync', {
       method: 'POST',
       body: JSON.stringify({ projectId }),
     }),
+
+  /**
+   * One person's event timeline, newest-first. Backs the bottom-sheet
+   * that opens when you click a row in the Users table. `limit` caps
+   * the page (backend clamps to 500, default 100).
+   */
+  getPersonEvents: (personId: string, opts?: { limit?: number }) => {
+    const params = new URLSearchParams()
+    if (opts?.limit != null) params.set('limit', String(opts.limit))
+    const qs = params.toString()
+    return apiFetch<PersonEvent[]>(`/people/${personId}/events${qs ? `?${qs}` : ''}`)
+  },
 }
 
 /**
@@ -914,8 +932,41 @@ export interface PersonRow {
   projectId: string
   displayName: string | null
   primaryEmail: string | null
+  /** ISO 3166-1 alpha-2 country code (PostHog geoip / Stripe address);
+   *  null until a platform resolves it. The UI derives flag + name. */
+  country: string | null
+  /** First-touch traffic source ('direct', 'google.com', …); null for
+   *  Stripe-only people (a card payment has no referrer). */
+  initialSource: string | null
+  /** Platform timestamp (ISO) — the "Last seen" value + sort key.
+   *  Pre-event-ingestion this is effectively first-seen. */
+  lastSeenAt: string | null
   createdAt: string
   updatedAt: string
+}
+
+/**
+ * One event on a person's timeline. Mirrors the backend
+ * `PeopleService.getPersonEvents` camelCase shape. `source` is the
+ * detecting system ('stripe' | 'posthog' | …); `eventLabel` is the
+ * human label (falling back to `eventKey`); `occurredAt` is when it
+ * happened (the newest-first sort key).
+ */
+export interface PersonEvent {
+  id: string
+  occurredAt: string
+  /** Structured payload — e.g. `{ amount, currency, status }` for a
+   *  Stripe charge. Empty `{}` when the source carries none. */
+  properties: Record<string, unknown>
+  /** The platform's own id for this occurrence (idempotency key). */
+  sourceEventId: string
+  connectionId: string | null
+  /** Machine key for the type ('charge_succeeded', '$pageview', …). */
+  eventKey: string | null
+  /** Human label ('Payment', 'Page view', …); null only if unlabelled. */
+  eventLabel: string | null
+  /** Detecting system: 'stripe' | 'posthog' | 'google_analytics' | … */
+  source: string | null
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

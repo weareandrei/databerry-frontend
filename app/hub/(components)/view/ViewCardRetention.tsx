@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowsClockwise } from '@phosphor-icons/react'
+import { SkeletonRows } from './ViewSkeleton'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
@@ -109,10 +109,7 @@ export function ViewCardRetention({
             See `FilteredPointerSensor`. */}
         <div data-no-dnd="true" className="px-4 pb-4 mt-2">
           {loading ? (
-            <div className="flex items-center gap-1.5 py-3">
-              <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
-              <span className="text-xs text-muted-foreground">Loading retention…</span>
-            </div>
+            <SkeletonRows count={4} rowClassName="h-9" />
           ) : needsReattach ? (
             <div className="py-2">
               <button

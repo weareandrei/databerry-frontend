@@ -127,11 +127,11 @@ const Navbar = () => {
 
       <NotchBar>
         {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 md:gap-3 mx-auto md:mx-0">
-            <Image src="/databerry_logo_v2.svg" alt="DataBerry" width={24} height={24} className="md:w-[30px] md:h-[30px] rounded-lg" />
+          <Link href="/" className="flex items-center gap-2 md:gap-1.5 mx-auto md:mx-0">
+            <Image src="/databerry_logo_v2.svg" alt="DataBerry" width={24} height={24} className="md:w-[28px] md:h-[28px] rounded-md" />
             <span
-              className="text-lg md:text-2xl font-bold text-[#E96021]"
-              style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '0.05em' }}
+              className="text-lg md:text-[28px] font-bold text-[#E96021]"
+              style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '-0.01em' }}
             >
               DataBerry
             </span>

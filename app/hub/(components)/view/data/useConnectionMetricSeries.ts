@@ -29,6 +29,7 @@
 
 import { useEffect, useState } from 'react'
 import { ALGORITHM } from '@/lib/api'
+import { useViewRefreshNonce } from '@/lib/viewRefreshBus'
 import type { ConnectionMetricRef } from '@/types/view'
 
 /**
@@ -75,6 +76,7 @@ export function useConnectionMetricSeries(opts: Opts): ConnectionSeriesResource 
   const [points, setPoints] = useState<ConnectionSeriesPoint[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const globalRefreshNonce = useViewRefreshNonce()
 
   // Serialise the metric ref for the deps array — the object itself
   // changes identity every render and would trigger an infinite
@@ -179,7 +181,7 @@ export function useConnectionMetricSeries(opts: Opts): ConnectionSeriesResource 
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [metricKey, dateFrom, dateTo, mode, tz, enabled])
+  }, [metricKey, dateFrom, dateTo, mode, tz, enabled, globalRefreshNonce])
 
   return { points, loading, error }
 }

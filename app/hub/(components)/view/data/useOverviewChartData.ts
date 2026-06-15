@@ -23,6 +23,7 @@
  */
 import { useEffect, useState } from 'react'
 import { PROJECT_OVERVIEW, type OverviewChartResponse } from '@/lib/api'
+import { useViewRefreshNonce } from '@/lib/viewRefreshBus'
 import type {
   OverviewPrimaryMetric,
   OverviewSecondaryMetric,
@@ -54,6 +55,7 @@ export function useOverviewChartData(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  const globalRefreshNonce = useViewRefreshNonce()
 
   useEffect(() => {
     let cancelled = false
@@ -99,7 +101,7 @@ export function useOverviewChartData(
     return () => {
       cancelled = true
     }
-  }, [projectId, dateFrom, dateTo, mode, primaryMetric, secondaryMetric, refreshTick])
+  }, [projectId, dateFrom, dateTo, mode, primaryMetric, secondaryMetric, refreshTick, globalRefreshNonce])
 
   return {
     chart,

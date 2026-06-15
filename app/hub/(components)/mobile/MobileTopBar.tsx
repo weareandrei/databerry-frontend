@@ -32,12 +32,20 @@ import { useState } from 'react'
 import { useSelector } from 'react-redux'
 import { ArrowLeft, CaretDown, List } from '@phosphor-icons/react'
 import type { RootState } from '@/store'
+import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { MobileBurgerSheet } from './MobileBurgerSheet'
 import { MobileDateSheet } from './MobileDateSheet'
 
 type Variant =
   | { variant: 'home' }
-  | { variant: 'project'; projectName: string; onBack: () => void }
+  | {
+      variant: 'project'
+      projectName: string
+      onBack: () => void
+      /** Project favicon shown left of the back arrow (the leftmost
+       *  element). Pass the project's `websiteUrl`; null → Cube. */
+      projectWebsiteUrl?: string | null
+    }
   | {
       variant: 'page'
       title: string
@@ -125,6 +133,17 @@ export function MobileTopBar(props: MobileTopBarProps) {
           >
             <ArrowLeft size={16} weight="bold" />
           </button>
+        )}
+
+        {/* Project favicon — sits just after the back arrow, before the
+            project name (so the bar reads "← [logo] Project name").
+            Identifies which project you're inside at a glance. */}
+        {props.variant === 'project' && (
+          <ProjectIcon
+            websiteUrl={props.projectWebsiteUrl ?? null}
+            size={26}
+            pill={false}
+          />
         )}
 
         {/* Center slot — project name (project variant) / page title

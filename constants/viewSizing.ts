@@ -155,22 +155,30 @@ export function getViewSizing(
 // them up. Computing them via `${'col-span-' + n}` template
 // concatenation would silently drop them from the generated CSS
 // (Tailwind doesn't evaluate JS) — never do that for span classes.
-
+//
+// CONTAINER QUERIES (`@sm:`, `@xl:`, …), not viewport breakpoints.
+// The grid lives in a narrow column (the project body sits inside the
+// 64-px rail + 240-px sidebar), so viewport breakpoints made it think
+// it was "small" and stack tiles 1-per-row even when 2 obviously fit.
+// `@`-prefixed variants size against the grid's OWN width (its
+// `@container` wrapper in `ProjectBodyViews`), so the column count
+// tracks the real available space — and it Just Works for the wider
+// home/pinned columns too, no per-surface tuning. Breakpoints must
+// match `PROJECT_GRID_CONTAINER_CLASS` below (e.g. a 2-col tile turns
+// on at the same `@sm` the grid gains its 2nd column).
 const COL_SPAN_CLASSES: Record<number, string> = {
-  // 1 col always fits regardless of grid total — no responsive
-  // downscaling needed.
+  // 1 col always fits regardless of grid total — no downscaling.
   1: 'col-span-1',
-  // 2 cols needs at least 2 grid cols; below sm (1-col grid) the
-  // tile takes the whole row.
-  2: 'col-span-full sm:col-span-2',
-  // 3 cols → need a 3-col grid (lg).
-  3: 'col-span-full lg:col-span-3',
-  // 4 cols → need a 4-col grid (xl).
-  4: 'col-span-full xl:col-span-4',
-  // 5 cols → need 5-col grid (2xl, MBP 16" lands here).
-  5: 'col-span-full 2xl:col-span-5',
-  // 6 cols → 3xl (1792px+); large external displays.
-  6: 'col-span-full 3xl:col-span-6',
+  // 2 cols needs ≥ 2 grid cols; below @sm (1-col grid) → whole row.
+  2: 'col-span-full @sm:col-span-2',
+  // 3 cols → need a 3-col grid (@xl).
+  3: 'col-span-full @xl:col-span-3',
+  // 4 cols → need a 4-col grid (@3xl).
+  4: 'col-span-full @3xl:col-span-4',
+  // 5 cols → 5-col grid (@5xl).
+  5: 'col-span-full @5xl:col-span-5',
+  // 6 cols → 6-col grid (@7xl).
+  6: 'col-span-full @7xl:col-span-6',
 }
 
 const ROW_SPAN_CLASSES: Record<number, string> = {
@@ -198,19 +206,21 @@ export function cellSpanClasses(span: CellSpan): string {
  * to 7-col at a new breakpoint, the cell-mapping above gets the
  * matching entry in the same edit.
  *
- * Breakpoints:
- *   base (<640px)  → 1 col (mobile)
- *   sm   (≥640px)  → 2 cols (small tablet)
- *   lg   (≥1024px) → 3 cols (small laptop)
- *   xl   (≥1280px) → 4 cols (standard laptop, MBP 14")
- *   2xl  (≥1536px) → 5 cols (MBP 16", typical desktop)
- *   3xl  (≥1792px) → 6 cols (large external display)
+ * Breakpoints are CONTAINER widths (the grid's own column), not the
+ * viewport — `@`-prefixed Tailwind variants. ~190 px per column, so
+ * a 2-col chart is ~380 px and a 1-col value tile ~190 px:
+ *   base   (<384px container) → 1 col (narrow / mobile)
+ *   @sm    (≥384px)           → 2 cols
+ *   @xl    (≥576px)           → 3 cols
+ *   @3xl   (≥768px)           → 4 cols  ← medium screens land here:
+ *                                         2 charts fit per row
+ *   @5xl   (≥1024px)          → 5 cols
+ *   @7xl   (≥1280px)          → 6 cols (large external display)
  *
- * Past 6 cols we deliberately stop scaling — content max-width
- * (capped at the page level) lets the page padding grow on
- * gigantic monitors instead of producing 200-px-wide tiles that
- * crush their labels. Adding a 7-col breakpoint later would mean
- * also bumping `max-w-*` on the project body's outer container.
+ * The grid must sit inside an `@container` (see `ProjectBodyViews`)
+ * for the `@` variants to resolve. Past 6 cols we deliberately stop
+ * scaling — the page padding grows instead of producing 150-px tiles
+ * that crush their labels.
  */
 // `grid-flow-dense` was dropped when drag-to-reorder shipped: dense
 // packing auto-shuffles tiles to fill gaps, which would silently
@@ -221,7 +231,7 @@ export function cellSpanClasses(span: CellSpan): string {
 // gaps are easier to explain than "I dropped it here but it moved."
 export const PROJECT_GRID_CONTAINER_CLASS =
   'grid gap-y-6 gap-x-4 ' +
-  'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6'
+  'grid-cols-1 @sm:grid-cols-2 @xl:grid-cols-3 @3xl:grid-cols-4 @5xl:grid-cols-5 @7xl:grid-cols-6'
 
 /** Inline style for the grid container — explicit auto-row height
  *  so multi-row tiles (charts at row-span-3 = 420 px + 2× gap) get

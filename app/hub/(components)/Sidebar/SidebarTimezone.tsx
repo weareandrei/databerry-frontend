@@ -5,11 +5,10 @@
  * to deep-link into Settings.
  *
  * This row sits *outside* the projects/workspace navigation — it's always
- * visible at the bottom of the sidebar. The `<SidebarSuggestCard>` card sits
- * directly above it and already provides a clear visual break (its own
- * border + shadow), so this row no longer carries its own `border-t` — a
- * second divider on top of the plan card's bottom edge read as a heavy
- * double-line. The label is the raw IANA name (e.g. `Europe/Bucharest`),
+ * visible at the bottom of the burger sheet, pinned there by its own
+ * `mt-auto`. (The "Help us improve" card that used to sit directly above
+ * it moved to the bottom of the mobile home page.) The label is the raw
+ * IANA name (e.g. `Europe/Bucharest`),
  * which is what's actually applied to every view-fetch query. We
  * deliberately don't show a UTC offset alongside it: zones move (DST),
  * and showing both invites the user to expect them to stay in sync.

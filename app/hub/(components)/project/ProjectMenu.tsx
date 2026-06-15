@@ -1,32 +1,33 @@
 'use client'
 
 /**
- * 3-dot kebab menu attached to the right side of each project header.
- * Two destinations:
- *   - Edit  → opens `EditProjectDialog` (name + website URL).
- *   - Delete → opens `DeleteProjectDialog` (type-the-name-to-confirm
- *     alert dialog).
+ * 3-dot kebab menu at the top of the project sidebar.
+ *   - Refresh all → re-fetches every view on the page at once
+ *     (`broadcastViewRefresh`, wired by the caller).
+ *   - Edit        → opens `EditProjectDialog` (name + website URL).
+ *   - Delete      → opens `DeleteProjectDialog` (type-the-name-to-
+ *     confirm alert dialog).
  *
  * Mirrors the pattern in `ViewHeader.tsx` (the per-tile kebab) so
- * project-level and view-level menus read as a family. Trigger sized
- * `w-8 h-8 rounded-full` to pair visually with the existing collapse
- * toggle that lives next to it in the same flex row.
+ * project-level and view-level menus read as a family.
  */
 
-import { DotsThreeVertical, PencilSimple, Trash } from '@phosphor-icons/react'
+import { ArrowsClockwise, DotsThreeVertical, PencilSimple, Trash } from '@phosphor-icons/react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 
 interface ProjectMenuProps {
+  onRefreshAll: () => void
   onEdit: () => void
   onDelete: () => void
 }
 
-export function ProjectMenu({ onEdit, onDelete }: ProjectMenuProps) {
+export function ProjectMenu({ onRefreshAll, onEdit, onDelete }: ProjectMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -35,7 +36,12 @@ export function ProjectMenu({ onEdit, onDelete }: ProjectMenuProps) {
       >
         <DotsThreeVertical size={16} weight="bold" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-32">
+      <DropdownMenuContent align="end" className="w-40">
+        <DropdownMenuItem onClick={onRefreshAll} className="text-sm gap-2">
+          <ArrowsClockwise size={13} weight="bold" />
+          Refresh all
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onEdit} className="text-sm gap-2">
           <PencilSimple size={13} weight="bold" />
           Edit

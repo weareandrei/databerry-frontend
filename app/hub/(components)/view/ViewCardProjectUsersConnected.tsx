@@ -20,6 +20,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ArrowsClockwise, User, UsersThree } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { ViewWrapper } from './ViewWrapper'
+import { SkeletonRows } from './ViewSkeleton'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -221,14 +222,7 @@ export function ViewCardProjectUsersConnected({
         className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2"
       >
         {loading ? (
-          <div className="flex items-center gap-1.5 py-2">
-            <ArrowsClockwise
-              size={13}
-              weight="bold"
-              className="text-muted-foreground animate-spin"
-            />
-            <span className="text-xs text-muted-foreground">Loading users…</span>
-          </div>
+          <SkeletonRows count={5} rowClassName="h-9" />
         ) : error ? (
           <div className="py-2">
             <FetchErrorBadge message="Couldn't load users" />

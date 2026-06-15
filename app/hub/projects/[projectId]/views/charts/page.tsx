@@ -13,8 +13,10 @@ import type { View } from '@/types/view'
 // Chart-shaped view types: the standalone "Chart" tiles plus the
 // project-overview chart half (its sources sibling is a panel, not
 // a chart, so it stays out).
-const isChartView = (v: View) =>
-  v.type === 'custom_chart' || v.type === 'project_overview'
+// Only user-created "Chart" views — NOT the default `project_overview`
+// chart (that's the headline composite on the overview page, not
+// something the user added to their Charts list).
+const isChartView = (v: View) => v.type === 'custom_chart'
 
 export default function ProjectChartsPage() {
   const params = useParams()
@@ -27,7 +29,7 @@ export default function ProjectChartsPage() {
       project={project}
       title="Charts"
       filter={isChartView}
-      emptyText="No chart views in this project yet. Create one with the Create view button on the Overview page."
+      emptyText="No chart views in this project yet. Create one with the Create view button."
     />
   )
 }

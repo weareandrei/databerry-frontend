@@ -7,7 +7,6 @@ import { House, SquaresFour, CaretDown, Plus, Gear } from '@phosphor-icons/react
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { SidebarNavItem } from './SidebarNavItem'
 import { SidebarUserProfile } from './SidebarUserProfile'
-import { SidebarSuggestCard } from './SidebarSuggestCard'
 import { SidebarFolderItem } from './SidebarFolderItem'
 import { SidebarTimezone } from './SidebarTimezone'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -86,7 +85,7 @@ export function SidebarContents({
     if (folderId) {
       router.push(`/hub/folder/${folderId}`)
     } else {
-      router.push(`/hub/project/${projectId}`)
+      router.push(`/hub/projects/${projectId}/overview`)
     }
   }
 
@@ -274,15 +273,10 @@ export function SidebarContents({
         </AnimatePresence>
       </div>
 
-      {/* Bottom pair: plan card above the timezone row.
-          `SidebarTimezone` carries `mt-auto`, which pins this whole
-          tail to the bottom of the column even when the projects
-          list is short. The plan card's own border + shadow provides
-          the visual break above the timezone, so the timezone row
-          no longer carries a `border-t` of its own (would have
-          stacked into a heavy double-line against the card's bottom
-          edge). */}
-      <SidebarSuggestCard />
+      {/* Timezone row, pinned to the bottom of the column via its own
+          `mt-auto` even when the projects list is short. The
+          "Help us improve" suggest card used to sit just above it;
+          it now lives at the bottom of the mobile home page instead. */}
       <SidebarTimezone />
     </div>
   )

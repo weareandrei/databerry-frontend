@@ -1,16 +1,20 @@
 'use client'
 
 /**
- * The views grid — lane layout + per-view-type dispatch shared by:
+ * The views tile grid + the standalone overview composite.
  *
- *   - `[project]/overview` (via `<ProjectBody>`): `sortable` ON —
- *     the only surface with drag-to-reorder
- *   - `[project]/views/charts|funnels`, `[project]/tools/[id]`
- *     (via `<ProjectFilteredViews>`): `sortable` OFF — auto-positioned
+ * `<ProjectBodyViews>` renders the uniform tile grid of "every other
+ * view" — it ALWAYS excludes the project_overview composite pair
+ * (chart + sources), which is rendered separately via the exported
+ * `<OverviewComposite>`. Used by:
  *
- * Lane structure: the composite project_overview pair (chart +
- * sources) is the immovable top anchor; every other view flows
- * through the uniform tile grid in saved order.
+ *   - `[project]/overview` — the composite lives in its own card
+ *     (`<OverviewComposite>`), the rest in a third card
+ *     (`<ProjectBodyViews>`, `sortable` ON — the only drag surface)
+ *   - `[project]/views/charts|funnels`, `[project]/tools/[id]` — no
+ *     composite ever forms there (the sources half isn't a chart /
+ *     funnel / tool view), so every view flows through the grid;
+ *     `sortable` OFF (auto-positioned)
  */
 
 import { useState } from 'react'
@@ -85,28 +89,20 @@ export function ProjectBodyViews({
   handleReorder,
   sortable = true,
 }: ProjectBodyViewsProps) {
+  // The project_overview chart + its sources sibling are conceptually
+  // ONE view ("Project overview"), stored as two rows. When BOTH
+  // exist they're excluded here — the overview page renders them in
+  // their own card via `<OverviewComposite>`. A lone half (the other
+  // was deleted, or a filtered page surfaces just the chart) drops
+  // back into the grid below.
   const chartView = views.find(v => v.type === 'project_overview')
   const sourcesView = views.find(v => v.type === 'project_overview_sources')
-  // The project_overview chart and its sources sibling are
-  // conceptually ONE view that the user thinks of as "Project
-  // overview" — stored as two rows (different data hooks + renderers)
-  // but they always travel together. When BOTH exist they render as
-  // one full-row composite, always anchored at the top and excluded
-  // from the sortable set. When only one half survives, it drops back
-  // into the regular dispatch.
-  const compositePair = chartView && sourcesView ? { chartView, sourcesView } : null
+  const compositeIds =
+    chartView && sourcesView ? new Set([chartView.id, sourcesView.id]) : null
 
   // The SORTABLE subset — order preserved from `views` (backend sorts
   // by saved position), so the user's manual order is respected.
-  const dispatchTiles: View[] = views.filter(v => {
-    if (
-      compositePair &&
-      (v.id === compositePair.chartView.id || v.id === compositePair.sourcesView.id)
-    ) {
-      return false
-    }
-    return true
-  })
+  const dispatchTiles: View[] = views.filter(v => !compositeIds?.has(v.id))
 
   // DnD sensors:
   //   - `FilteredPointerSensor` skips activation when pointer-down
@@ -131,9 +127,9 @@ export function ProjectBodyViews({
     handleReorder(newOrder)
   }
 
-  if (!compositePair && dispatchTiles.length === 0) {
-    return <div className="flex flex-col gap-6" />
-  }
+  // No tiles to show — the caller (overview card / filtered page)
+  // owns the empty state.
+  if (dispatchTiles.length === 0) return null
 
   const tileWrapperClass = (view: View): string => {
     const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
@@ -212,57 +208,50 @@ export function ProjectBodyViews({
   }
 
   return (
-    <div
-      className={PROJECT_GRID_CONTAINER_CLASS}
-      style={{ gridAutoRows: `${PROJECT_GRID_AUTO_ROW_HEIGHT_PX}px` }}
-    >
-      {compositePair && (
-        <CompositeOverviewPair
-          chartView={compositePair.chartView}
-          sourcesView={compositePair.sourcesView}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          mode={mode}
-          handleUntrack={handleUntrack}
-          handlePin={handlePin}
-        />
-      )}
-      {/* `DndContext` + `SortableContext` render as fragments — no DOM
-          nodes, so the tiles stay direct grid children. The composite
-          pair above is OUTSIDE the SortableContext: immovable by
-          construction. */}
-      {sortable ? (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <SortableContext
-            items={dispatchTiles.map(v => v.id)}
-            strategy={rectSortingStrategy}
+    // `@container` makes the grid below size its columns against THIS
+    // wrapper's width (the real space the body has) rather than the
+    // viewport — so tiles pack as densely as the column actually
+    // allows. See `PROJECT_GRID_CONTAINER_CLASS` for the breakpoints.
+    <div className="@container">
+      <div
+        className={PROJECT_GRID_CONTAINER_CLASS}
+        style={{ gridAutoRows: `${PROJECT_GRID_AUTO_ROW_HEIGHT_PX}px` }}
+      >
+        {/* `DndContext` + `SortableContext` render as fragments — no DOM
+            nodes, so the tiles stay direct grid children. */}
+        {sortable ? (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
           >
-            {dispatchTiles.map(view => (
-              <SortableTile key={view.id} id={view.id} className={tileWrapperClass(view)}>
-                {renderTileBody(view)}
-              </SortableTile>
-            ))}
-          </SortableContext>
-        </DndContext>
-      ) : (
-        // Auto-positioned: same cells, no drag wrappers.
-        dispatchTiles.map(view => (
-          <div key={view.id} className={tileWrapperClass(view)}>
-            {renderTileBody(view)}
-          </div>
-        ))
-      )}
+            <SortableContext
+              items={dispatchTiles.map(v => v.id)}
+              strategy={rectSortingStrategy}
+            >
+              {dispatchTiles.map(view => (
+                <SortableTile key={view.id} id={view.id} className={tileWrapperClass(view)}>
+                  {renderTileBody(view)}
+                </SortableTile>
+              ))}
+            </SortableContext>
+          </DndContext>
+        ) : (
+          // Auto-positioned: same cells, no drag wrappers.
+          dispatchTiles.map(view => (
+            <div key={view.id} className={tileWrapperClass(view)}>
+              {renderTileBody(view)}
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }
 
-// ── Composite project_overview pair ────────────────────────────────────────
+// ── Overview composite (chart + sources) ────────────────────────────────────
 
-interface CompositeOverviewPairProps {
+export interface OverviewCompositeProps {
   chartView: View
   sourcesView: View
   dateFrom: string
@@ -273,44 +262,64 @@ interface CompositeOverviewPairProps {
 }
 
 /**
- * Full-row composite. Internal grid: chart (1fr) left, sources
- * (280–360 px) right from `lg:` up; stacked below that. `row-span-3`
- * gives the page's most-read element extra vertical room.
+ * The project's headline "Overview": chart (1fr) on the left, sources
+ * panel (240–320 px) on the right — SIDE-BY-SIDE once the card is wide
+ * enough, STACKED (chart on top, panel beneath) below that.
  *
- * Owns the cross-component hover bridge: the sources panel reports
- * its hovered row's source key, the chart lights up matching stacked
- * bar segments. State scope is just this pair, so hovering never
- * re-renders sibling tiles.
+ * The split uses a CONTAINER query (`@xl` ≈ 576 px of THIS card's
+ * width), not a viewport breakpoint: the card sits inside the 64-px
+ * rail + 240-px sidebar, so a viewport breakpoint stacked it far too
+ * early (the chart would vanish on a perfectly roomy medium screen).
+ * `@xl:` tracks the card's real width, so the chart just shrinks to
+ * fit beside the panel and only stacks when there's genuinely no room.
+ *
+ * Two heights to reconcile:
+ *   - SIDE-BY-SIDE: `@xl:min-h-[420px]` floors the row (the chart's
+ *     `fillHeight` fills it) but lets it GROW when the panel's list is
+ *     taller, so the two stay flush. The chart cell is `@xl:h-auto` so
+ *     grid-stretch hands it that row height.
+ *   - STACKED: the chart cell needs a DEFINITE `h-[320px]` — without
+ *     it the chart's `fillHeight`/`h-full` has no parent height to
+ *     resolve against and collapses to nothing (the bug that "hid" the
+ *     chart on small screens).
+ *
+ * Owns the cross-component hover bridge: the sources panel reports its
+ * hovered row's source key, the chart lights up matching stacked-bar
+ * segments — scoped here so hovering never re-renders sibling tiles.
  */
-function CompositeOverviewPair({
+export function OverviewComposite({
   chartView,
   sourcesView,
-  dateFrom,
   dateTo,
+  dateFrom,
   mode,
   handleUntrack,
   handlePin,
-}: CompositeOverviewPairProps) {
+}: OverviewCompositeProps) {
   const [hoveredSourceKey, setHoveredSourceKey] = useState<string | null>(null)
   return (
-    <div className="col-span-full row-span-3 grid grid-cols-1 lg:grid-cols-[1fr_minmax(280px,360px)] gap-4">
-      <ViewCardOverviewChartConnected
-        view={chartView}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        mode={mode}
-        onUntrack={handleUntrack}
-        onPin={handlePin}
-        externalHoveredSourceKey={hoveredSourceKey}
-      />
-      <ViewCardOverviewSourcesConnected
-        view={sourcesView}
-        dateFrom={dateFrom}
-        dateTo={dateTo}
-        onUntrack={handleUntrack}
-        onPin={handlePin}
-        onSourceHover={setHoveredSourceKey}
-      />
+    <div className="@container">
+      <div className="grid grid-cols-1 @xl:grid-cols-[1fr_minmax(240px,320px)] gap-4 @xl:min-h-[420px]">
+        <div className="h-[320px] @xl:h-auto">
+          <ViewCardOverviewChartConnected
+            view={chartView}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+            mode={mode}
+            onUntrack={handleUntrack}
+            onPin={handlePin}
+            externalHoveredSourceKey={hoveredSourceKey}
+          />
+        </div>
+        <ViewCardOverviewSourcesConnected
+          view={sourcesView}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onUntrack={handleUntrack}
+          onPin={handlePin}
+          onSourceHover={setHoveredSourceKey}
+        />
+      </div>
     </div>
   )
 }

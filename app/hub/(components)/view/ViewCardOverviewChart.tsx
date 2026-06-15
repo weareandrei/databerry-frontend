@@ -43,6 +43,7 @@ import {
   Target,
   Warning,
 } from '@phosphor-icons/react'
+import { SkeletonBlock } from './ViewSkeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -859,14 +860,20 @@ export function ViewCardOverviewChart({
           Recharts' `ResponsiveContainer` handles bar widths as the
           height shrinks, so we don't need to touch `OverviewChart`'s
           internal `maxBarSize` / segment sizing. */}
-      {/* Symmetric `p-4` in both modes. The chart no longer needs
-          extra bottom padding to avoid reading as "overflowing":
-          the real cause was the inner container's `min-h-[240px]`
-          floor (now `min-h-0`), which forced the SVG taller than
-          the cell. With the chart adapting to its parent, even
-          16 px below the X-axis labels plus the grid's `gap-y-6`
-          row gap is enough separation. */}
-      <div data-no-dnd="true" className={fillHeight ? 'relative p-4 flex-1 min-h-0 flex flex-col' : 'relative p-4'}>
+      {/* `px-4 pt-4` — NO bottom padding. The X-axis labels are the
+          chart's natural bottom edge; a `pb-4` here just stacked on
+          top of the parent card's own bottom padding, leaving a wide
+          dead band between the chart and the card edge. The grid's
+          `gap-y-6` (between stacked tiles) + the parent card padding
+          already provide all the separation needed. */}
+      <div
+        data-no-dnd="true"
+        className={
+          fillHeight
+            ? 'relative px-4 pt-4 flex-1 min-h-0 flex flex-col'
+            : 'relative px-4 pt-4'
+        }
+      >
         {/* fillHeight: `flex-1 min-h-0` — the chart adapts to
             WHATEVER vertical space the parent gives it. The
             previous `min-h-[240px]` forced 240 px minimum, which
@@ -891,13 +898,7 @@ export function ViewCardOverviewChart({
           }
         >
           {loading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <ArrowsClockwise
-                size={20}
-                weight="bold"
-                className="text-muted-foreground animate-spin"
-              />
-            </div>
+            <SkeletonBlock className="absolute inset-0" />
           ) : error ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-center">
               <Warning size={18} weight="bold" className="text-amber-500" />

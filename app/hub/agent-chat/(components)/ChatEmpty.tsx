@@ -42,6 +42,23 @@ interface ChatEmptyProps {
    * The standalone agent pages keep the default (title shown).
    */
   hideTitle?: boolean
+  /** Override the trailing MCP CTA label (mobile home → "Connect
+   *  MCPs"). Defaults to "Config MCP's". */
+  mcpCtaLabel?: string
+  /**
+   * Embed tightly inside a bordered card (the mobile home launcher
+   * wraps this in a white card with its own "Chat with Agent"
+   * button). Drops the full-page vertical centering + outer padding
+   * so the card's padding owns the spacing, and tightens the MCP row.
+   */
+  compact?: boolean
+  /**
+   * Show ONLY the trailing config CTA — hide the per-connection MCP
+   * chips. The mobile home launcher uses this so it reads as a single
+   * "Connect MCPs" button; the full agent page lists every connection
+   * as normal.
+   */
+  hideUserMcps?: boolean
 }
 
 // We only show the first N MCP chips before the "Config MCP's"
@@ -57,6 +74,9 @@ export function ChatEmpty({
   sending,
   mcpConnections,
   hideTitle = false,
+  mcpCtaLabel,
+  compact = false,
+  hideUserMcps = false,
 }: ChatEmptyProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const router = useRouter()
@@ -76,7 +96,13 @@ export function ChatEmpty({
   const visibleMcps = mcpConnections.slice(0, MAX_USER_MCP_CHIPS)
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-10">
+    <div
+      className={
+        compact
+          ? 'w-full flex flex-col items-center'
+          : 'flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-10'
+      }
+    >
       <div className="w-full max-w-2xl flex flex-col items-center">
         {/* Title — Bricolage Grotesque, the same display face as
             the landing hero. Bigger on desktop, scales down a bit
@@ -139,11 +165,15 @@ export function ChatEmpty({
             Wrap on narrow viewports so the trailing chip stays in
             view. `gap-3` keeps a comfortable rhythm without making
             the row feel sparse. */}
-        <div className="mt-8 w-full flex items-center justify-center flex-wrap gap-3">
-          {visibleMcps.map(conn => (
-            <UserMcpChip key={conn.id} name={conn.name} />
-          ))}
-          <ConfigMcpChip onClick={() => router.push('/hub/connections')} />
+        <div
+          className={`${compact ? 'mt-4' : 'mt-8'} w-full flex items-center justify-center flex-wrap gap-3`}
+        >
+          {!hideUserMcps &&
+            visibleMcps.map(conn => <UserMcpChip key={conn.id} name={conn.name} />)}
+          <ConfigMcpChip
+            onClick={() => router.push('/hub/connections')}
+            label={mcpCtaLabel}
+          />
         </div>
       </div>
     </div>
@@ -171,21 +201,19 @@ const CHIP_LABEL = 'text-sm font-semibold text-grey-darkest'
  * exactly; previously the User chip was shorter (`w-7 h-7` icon, no
  * shadow) and the row read as a height-jitter mess.
  *
- * Hidden on mobile (`hidden md:inline-flex`): on a phone the user
- * already lives in a tight vertical column, and a row of "you have
- * these MCP servers" chips reads as visual clutter rather than
- * useful inventory. The Config MCP's chip alone (which navigates to
- * the connections page where the user can SEE the full list with
- * names + URLs) covers the affordance.
- *
- * Desktop unchanged.
+ * Visible at every breakpoint. Whether this row of "you have these
+ * MCP servers" chips appears at all is the CALLER's decision via
+ * `<ChatEmpty hideUserMcps>`: the mobile home launcher hides them
+ * (single "Connect MCPs" CTA only — a row of inventory chips reads
+ * as clutter in that tight column), while the agent page lists every
+ * connection as normal on phone and desktop alike.
  *
  * No click handler today — these are informational; the "Config
  * MCP's" chip on the trailing edge is the actual action.
  */
 export function UserMcpChip({ name }: { name: string }) {
   return (
-    <div className={`${CHIP_OUTER} hidden md:inline-flex`}>
+    <div className={CHIP_OUTER}>
       <span className={`${CHIP_ICON_TILE} bg-main`}>
         <Image
           src="/icons/mcp.svg"
@@ -215,7 +243,15 @@ export function UserMcpChip({ name }: { name: string }) {
  * Single-line content (no description) so the chip's height matches
  * the User chips exactly.
  */
-export function ConfigMcpChip({ onClick }: { onClick: () => void }) {
+export function ConfigMcpChip({
+  onClick,
+  label = 'Config MCP’s',
+}: {
+  onClick: () => void
+  /** Override the default "Config MCP's" wording (mobile home uses
+   *  "Connect MCPs"). */
+  label?: string
+}) {
   return (
     <button
       type="button"
@@ -234,7 +270,7 @@ export function ConfigMcpChip({ onClick }: { onClick: () => void }) {
           style={{ filter: 'brightness(0) invert(1)' }}
         />
       </span>
-      <span className={CHIP_LABEL}>Config MCP&rsquo;s</span>
+      <span className={CHIP_LABEL}>{label}</span>
       <CaretRight
         size={14}
         weight="bold"

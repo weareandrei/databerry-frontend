@@ -21,11 +21,11 @@
 
 import { useState } from 'react'
 import {
-  ArrowsClockwise,
   ArrowSquareOut,
   CaretDown,
   Warning,
 } from '@phosphor-icons/react'
+import { SkeletonRows } from './ViewSkeleton'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
@@ -264,10 +264,7 @@ export function ViewCardSentryIssues({
             doesn't expand the tile beyond its 2×2 grid footprint. */}
         <div data-no-dnd="true" className="flex-1 overflow-y-auto min-h-0 px-4 pb-3">
           {loading ? (
-            <div className="flex items-center gap-1.5 py-2">
-              <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
-              <span className="text-xs text-muted-foreground">Loading errors…</span>
-            </div>
+            <SkeletonRows count={5} rowClassName="h-9" />
           ) : needsReattach ? (
             <div className="py-2">
               <button

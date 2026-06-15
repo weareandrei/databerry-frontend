@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CaretDown, Folder, DotsThree, PencilSimple } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -27,10 +27,35 @@ interface SidebarFolderItemProps {
    * behaviour.
    */
   onNavigate?: (projectId: string, folderId: string) => void
+  /**
+   * The folder currently open in the body (from the route). When it
+   * matches this row, the row renders ACTIVE — same brand dashed
+   * outline + tint the project sidebar's nav rows use, so a folder
+   * opened from the body grid and one opened from here look identical.
+   */
+  activeFolderId?: string | null
+  /**
+   * Folder ids on the path from the root down to the active folder.
+   * Rows in this set auto-expand so the active (possibly nested)
+   * folder is revealed without the user hunting for it.
+   */
+  expandedPath?: Set<string>
 }
 
-export function SidebarFolderItem({ folder, depth = 0, onNavigate }: SidebarFolderItemProps) {
-  const [isOpen, setIsOpen] = useState(false)
+export function SidebarFolderItem({
+  folder,
+  depth = 0,
+  onNavigate,
+  activeFolderId = null,
+  expandedPath,
+}: SidebarFolderItemProps) {
+  const [isOpen, setIsOpen] = useState(expandedPath?.has(folder.id) ?? false)
+  // Auto-open when this folder sits on the path to the active one
+  // (e.g. a deep link / sidebar nav into a nested folder). Never
+  // auto-CLOSES — the user can still collapse it.
+  useEffect(() => {
+    if (expandedPath?.has(folder.id)) setIsOpen(true)
+  }, [expandedPath, folder.id])
   // Rename dialog mounted at this level so each folder row owns its
   // own dialog state — the dropdown trigger that opens it is also at
   // this level. Same pattern `FolderCard` uses in the project body.
@@ -39,6 +64,7 @@ export function SidebarFolderItem({ folder, depth = 0, onNavigate }: SidebarFold
 
   const children = foldersCtx.getChildFolders(folder.id)
   const hasChildren = children.length > 0
+  const isActive = folder.id === activeFolderId
 
   return (
     <div className="relative">
@@ -50,7 +76,10 @@ export function SidebarFolderItem({ folder, depth = 0, onNavigate }: SidebarFold
       */}
       <div
         className={cn(
-          'group flex items-center gap-1 rounded-md pr-3 transition-colors hover:bg-hover-fill',
+          'group flex items-center gap-1 rounded-md pr-3 transition-colors border',
+          isActive
+            ? 'bg-brand/25 border-dashed border-brand'
+            : 'border-transparent hover:bg-hover-fill',
         )}
         style={{ paddingLeft: `${26 + depth * 14}px` }}
       >
@@ -59,10 +88,15 @@ export function SidebarFolderItem({ folder, depth = 0, onNavigate }: SidebarFold
           onClick={() => onNavigate?.(folder.projectId, folder.id)}
           className="flex items-center gap-1 flex-1 min-w-0 cursor-pointer text-left"
         >
-          <span className="shrink-0 text-grey-dark">
+          <span className={cn('shrink-0', isActive ? 'text-grey-darkest' : 'text-grey-dark')}>
             <Folder size={13} weight="bold" />
           </span>
-          <span className="flex-1 py-1.5 text-sm min-w-0 truncate text-grey-dark">
+          <span
+            className={cn(
+              'flex-1 py-1.5 text-sm min-w-0 truncate',
+              isActive ? 'text-grey-darkest' : 'text-grey-dark',
+            )}
+          >
             {folder.name}
           </span>
         </button>
@@ -144,6 +178,8 @@ export function SidebarFolderItem({ folder, depth = 0, onNavigate }: SidebarFold
                 folder={child}
                 depth={depth + 1}
                 onNavigate={onNavigate}
+                activeFolderId={activeFolderId}
+                expandedPath={expandedPath}
               />
             ))}
           </motion.div>

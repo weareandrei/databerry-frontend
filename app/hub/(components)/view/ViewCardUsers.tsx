@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowsClockwise, User, Globe } from '@phosphor-icons/react'
+import { User, Globe } from '@phosphor-icons/react'
+import { SkeletonRows } from './ViewSkeleton'
 import * as Flags from 'country-flag-icons/react/3x2'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
@@ -266,10 +267,7 @@ export function ViewCardUsers({
             See `FilteredPointerSensor`. */}
         <div data-no-dnd="true" className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2">
           {loading ? (
-            <div className="flex items-center gap-1.5 py-2">
-              <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
-              <span className="text-xs text-muted-foreground">Loading users…</span>
-            </div>
+            <SkeletonRows count={5} rowClassName="h-9" />
           ) : needsReattach ? (
             <div className="py-2">
               <button

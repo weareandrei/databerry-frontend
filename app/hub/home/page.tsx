@@ -28,6 +28,7 @@ import { ArrowRight } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { HubTopBar } from '@/app/hub/(components)/HubTopBar'
 import { PinnedViews } from '@/app/hub/home/(components)/PinnedViews'
+import { PinnedViewsSkeleton } from '@/app/hub/home/(components)/PinnedViewsSkeleton'
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
 import { ChatEmpty } from '@/app/hub/agent-chat/(components)/ChatEmpty'
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
@@ -81,28 +82,19 @@ export default function HomePage() {
   }
 
   const showWelcome = !projectsCtx.loading && projectsCtx.projects.length === 0
+  // Pins depend on BOTH projects (to group) and the pins fetch, so the
+  // section is "still loading" until both settle. Drives the skeleton.
+  const pinsLoading = projectsCtx.loading || pinsCtx.loading
 
   return (
     <>
       {/* ─── Mobile layout (<md) ──────────────────────────────────── */}
+      {/* `<MobileHomeBody>` owns the whole scrollable column now:
+          agent launcher (ask-box + "Chat with Agent") → projects →
+          pinned views per project. */}
       <div className="md:hidden h-[calc(100dvh-60px)] flex flex-col bg-main">
         <MobileTopBar variant="home" />
-        {/* Compact agent entry — full chat lives on its own route. */}
-        <div className="shrink-0 px-4 pt-3 pb-1">
-          <button
-            type="button"
-            onClick={() => launchAgent()}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-stroke bg-white px-4 py-3 shadow-sm text-sm font-semibold text-grey-darkest cursor-pointer"
-          >
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-brand text-white">
-              <ArrowRight size={12} weight="bold" />
-            </span>
-            Chat with Agent
-          </button>
-        </div>
-        <div className="flex-1 min-h-0 flex flex-col">
-          <MobileHomeBody />
-        </div>
+        <MobileHomeBody />
       </div>
 
       {/* ─── Desktop layout (md+) ─────────────────────────────────── */}
@@ -111,7 +103,7 @@ export default function HomePage() {
           search={{
             value: query,
             onChange: setQuery,
-            placeholder: 'Search or ask AI about your data',
+            placeholder: 'Search your data',
           }}
         />
 
@@ -122,7 +114,7 @@ export default function HomePage() {
             `mx-4 mb-4` = the shared 16-px margin rhythm (aligns with
             the top bar's `px-4` and the project sidebar's `top-4 /
             bottom-4`). */}
-        <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto">
+        <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto overscroll-contain">
           {showWelcome ? (
             <WelcomeEmpty onCreate={() => projectsCtx.openModal()} />
           ) : (
@@ -157,6 +149,13 @@ export default function HomePage() {
                   />
                 </div>
               </section>
+
+              {/* Skeleton stand-in while projects + pins load — keeps
+                  the dashboard from launching with a blank gap where
+                  the pinned views will appear. (During this window
+                  `pinGroups` is empty, so the map below renders
+                  nothing.) */}
+              {pinsLoading && <PinnedViewsSkeleton />}
 
               {/* ── Pinned views, one section per project ──────────
                   Tiles sit directly on the panel (no nested white

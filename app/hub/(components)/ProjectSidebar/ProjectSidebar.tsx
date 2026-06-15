@@ -25,7 +25,9 @@
 
 import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
+import { broadcastViewRefresh } from '@/lib/viewRefreshBus'
 import {
   CaretDown,
   ChartBar,
@@ -134,7 +136,7 @@ function NavRow({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-left cursor-pointer ${
+      className={`group w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-left cursor-pointer ${
         active
           ? // Soft brand tint (25%) behind the dashed brand outline.
             'bg-brand/10 border border-dashed border-brand text-grey-darkest'
@@ -142,7 +144,14 @@ function NavRow({
             'border border-transparent text-grey-dark hover:text-grey-darkest'
       }`}
     >
-      <span className="shrink-0 flex items-center">{icon}</span>
+      {/* Icon grows a touch on row hover for a clearer affordance. It's
+          a `transform: scale` (not a size change), so the icon's layout
+          box stays 15 px and nothing above/below shifts. `shrink-0`
+          keeps the box fixed; the label is a separate flex item, so it
+          doesn't move either. */}
+      <span className="shrink-0 flex items-center transition-transform duration-150 ease-out group-hover:scale-125">
+        {icon}
+      </span>
       <span className="flex-1 truncate">{label}</span>
     </button>
   )
@@ -164,6 +173,22 @@ export function ProjectSidebar({ project }: { project: Project }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const base = `/hub/projects/${project.id}`
+
+  // Active folder = the one in the URL (`…/folders/<id>`), so the
+  // sidebar row highlights for the folder currently open in the body
+  // — whether it was opened from here or from the body grid. The
+  // expand-path (its ancestors) auto-reveals a nested active folder.
+  const folderMatch = pathname.match(/\/folders\/([^/]+)/)
+  const activeFolderId = folderMatch ? folderMatch[1] : null
+  const expandedPath = (() => {
+    const set = new Set<string>()
+    let cursor = foldersCtx.folders.find(f => f.id === activeFolderId)?.parentId ?? null
+    while (cursor) {
+      set.add(cursor)
+      cursor = foldersCtx.folders.find(f => f.id === cursor)?.parentId ?? null
+    }
+    return set
+  })()
 
   // Open the create-view modal for THIS project, gated on the plan's
   // per-project view cap. We count from the live store (same approach
@@ -208,6 +233,10 @@ export function ProjectSidebar({ project }: { project: Project }) {
           {project.name}
         </span>
         <ProjectMenu
+          onRefreshAll={() => {
+            broadcastViewRefresh()
+            toast.success('Refreshing views…')
+          }}
           onEdit={() => setEditOpen(true)}
           onDelete={() => setDeleteOpen(true)}
         />
@@ -299,8 +328,10 @@ export function ProjectSidebar({ project }: { project: Project }) {
               <SidebarFolderItem
                 key={folder.id}
                 folder={folder}
+                activeFolderId={activeFolderId}
+                expandedPath={expandedPath}
                 onNavigate={(_projectId, folderId) => {
-                  if (folderId) router.push(`/hub/folder/${folderId}`)
+                  if (folderId) router.push(`${base}/folders/${folderId}`)
                 }}
               />
             ))

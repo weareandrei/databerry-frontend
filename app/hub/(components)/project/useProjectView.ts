@@ -29,7 +29,7 @@ import type { Project } from '@/types/project'
 import type { Folder } from '@/types/folder'
 import type { View } from '@/types/view'
 
-export function useProjectView(project: Project) {
+export function useProjectView(project: Project, controlledFolderId?: string | null) {
   const { folders: foldersCtx, views: viewsCtx, pins: pinsCtx } = useDashboard()
   const { enforceViewLimit } = usePlanLimits()
   const globalDateMode = useSelector((s: RootState) => s.ui.globalDateMode)
@@ -37,7 +37,16 @@ export function useProjectView(project: Project) {
   const globalDateTo = useSelector((s: RootState) => s.ui.globalDateTo)
   const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
 
-  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
+  // Folder navigation is CONTROLLED on desktop — the folder id comes
+  // from the route (`/hub/projects/[id]/folders/[folderId]`), so a
+  // folder opened from the body grid OR the sidebar lands on the
+  // exact same URL/view. It's UNCONTROLLED on mobile (internal state
+  // driven by the in-place back/click handlers below).
+  //   `controlledFolderId === undefined` → uncontrolled (mobile)
+  //   `string | null`                    → controlled (desktop route)
+  const [internalFolderId, setInternalFolderId] = useState<string | null>(null)
+  const currentFolderId =
+    controlledFolderId !== undefined ? controlledFolderId : internalFolderId
   const [views, setViews] = useState<View[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -165,13 +174,13 @@ export function useProjectView(project: Project) {
       parentFolderId: folder.parentId,
     })
     setLoading(true)
-    setCurrentFolderId(folder.id)
+    setInternalFolderId(folder.id)
     setViews([])
   }
 
   const handleBack = () => {
     setLoading(true)
-    setCurrentFolderId(null)
+    setInternalFolderId(null)
     setViews([])
   }
 

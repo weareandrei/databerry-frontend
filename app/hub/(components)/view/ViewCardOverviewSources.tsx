@@ -25,6 +25,7 @@ import {
   PushPinSlash,
   Warning,
 } from '@phosphor-icons/react'
+import { SkeletonRows } from './ViewSkeleton'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -354,15 +355,7 @@ function renderPages(
 // ── Sub-components for the three non-data states ───────────────────────────
 
 function LoadingState() {
-  return (
-    <div className="flex items-center justify-center py-6">
-      <ArrowsClockwise
-        size={18}
-        weight="bold"
-        className="text-muted-foreground animate-spin"
-      />
-    </div>
-  )
+  return <SkeletonRows count={5} rowClassName="h-9" />
 }
 
 function ErrorState({ message }: { message: string }) {

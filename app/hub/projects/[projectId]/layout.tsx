@@ -18,7 +18,9 @@
 import { useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ProjectSidebar } from '@/app/hub/(components)/ProjectSidebar/ProjectSidebar'
+import { ProjectSidebarSkeleton } from '@/app/hub/(components)/ProjectSidebar/ProjectSidebarSkeleton'
 import { BodySkeleton } from '@/app/hub/(components)/BodySkeleton'
+import { HubTopBarSkeleton } from '@/app/hub/(components)/HubTopBar'
 import { useDashboard } from '@/contexts/DashboardContext'
 
 export default function ProjectLayout({ children }: { children: React.ReactNode }) {
@@ -35,16 +37,22 @@ export default function ProjectLayout({ children }: { children: React.ReactNode 
   }, [missing, router])
 
   if (!project) {
-    // Same skeleton shell the route-transition `loading.tsx` uses, so
-    // the initial projects fetch and a route change look identical.
+    // Initial load — the project hasn't resolved, so there's no real
+    // sidebar yet. Render the FULL shell as skeletons (sidebar + top
+    // bar + body) so nothing sits empty and the hand-off to the real
+    // page has no layout shift.
     return (
-      <div className="md:pl-64 flex-1 min-h-0 flex flex-col">
-        <div className="flex flex-col h-screen pt-[76px]">
-          <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-hidden">
-            <BodySkeleton />
+      <>
+        <ProjectSidebarSkeleton />
+        <div className="md:pl-64 flex-1 min-h-0 flex flex-col">
+          <div className="flex flex-col h-screen">
+            <HubTopBarSkeleton />
+            <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-hidden">
+              <BodySkeleton />
+            </div>
           </div>
         </div>
-      </div>
+      </>
     )
   }
 

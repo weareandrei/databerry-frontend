@@ -35,6 +35,12 @@ import { useTierPickerListener } from '@/hooks/useTierPicker'
 import { useAccount } from '@/hooks/useAccount'
 import { useAuth } from '@/contexts/AuthContext'
 import { EVENT, trackEvent } from '@/lib/posthog'
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip'
 
 export const ICON_RAIL_WIDTH_CLASS = 'w-16'
 
@@ -54,22 +60,30 @@ function RailButton({
   children: React.ReactNode
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className={`flex items-center justify-center w-10 h-10 rounded-xl border transition-colors cursor-pointer ${
-        active
-          ? 'bg-white border-stroke shadow-sm text-grey-darkest'
-          : danger
-            ? // Resting gray chip → hover lifts to white + shadow.
-              'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm hover:text-destructive'
-            : 'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm'
-      }`}
-    >
-      {children}
-    </button>
+    // Icon-only, so a tooltip names each action on hover. `side="right"`
+    // puts it just off the rail's right edge (the rail hugs the left
+    // viewport edge); the content portals out, so the scrollable
+    // project list never clips it.
+    <Tooltip>
+      <TooltipTrigger
+        type="button"
+        onClick={onClick}
+        aria-label={label}
+        className={`flex items-center justify-center w-10 h-10 rounded-xl border transition-colors cursor-pointer ${
+          active
+            ? 'bg-white border-stroke shadow-sm text-grey-darkest'
+            : danger
+              ? // Resting gray chip → hover lifts to white + shadow.
+                'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm hover:text-destructive'
+              : 'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm'
+        }`}
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={8}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -97,25 +111,34 @@ export function IconRail() {
   const isProjectActive = (id: string) => pathname.startsWith(`/hub/projects/${id}`)
 
   return (
+    // One provider wraps every rail tooltip so they share a hover delay
+    // and the "skip delay" grouping — once one is open, sliding to a
+    // neighbour shows its label instantly.
+    <TooltipProvider delay={200}>
     <aside
       className={`hidden md:flex flex-col items-center fixed top-0 left-2 h-screen ${ICON_RAIL_WIDTH_CLASS} z-30 py-6 gap-2`}
     >
       {/* Logo — doubles as the "take me home" affordance. */}
-      <button
-        type="button"
-        onClick={() => router.push('/hub/home')}
-        aria-label="Databerry home"
-        className="mb-3 cursor-pointer"
-      >
-        <Image
-          src="/databerry_logo_v2.svg"
-          alt="Databerry"
-          width={30}
-          height={30}
-          className="rounded-lg"
-          priority
-        />
-      </button>
+      <Tooltip>
+        <TooltipTrigger
+          type="button"
+          onClick={() => router.push('/hub/home')}
+          aria-label="Databerry home"
+          className="mb-3 cursor-pointer"
+        >
+          <Image
+            src="/databerry_logo_v2.svg"
+            alt="Databerry"
+            width={30}
+            height={30}
+            className="rounded-lg"
+            priority
+          />
+        </TooltipTrigger>
+        <TooltipContent side="right" sideOffset={8}>
+          Home
+        </TooltipContent>
+      </Tooltip>
 
       <RailButton
         label="Home"
@@ -187,5 +210,6 @@ export function IconRail() {
           `hidden md:flex` doesn't clip it. */}
       <TierPickerSheet open={tierOpen} onOpenChange={setTierOpen} currentPlanId={planId} />
     </aside>
+    </TooltipProvider>
   )
 }

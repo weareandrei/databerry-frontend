@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowsClockwise, Warning } from '@phosphor-icons/react'
+import { Warning } from '@phosphor-icons/react'
+import { SkeletonBlock } from './ViewSkeleton'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { IntegrationReauthBanner } from './IntegrationReauthBanner'
@@ -154,7 +155,7 @@ export function ViewCard({
             stay the drag surface. See `FilteredPointerSensor`. */}
         <div data-no-dnd="true" className="px-4 pb-4 mt-3 flex-1 flex flex-col justify-center">
           {liveLoading ? (
-            <ArrowsClockwise size={14} weight="bold" className="text-muted-foreground animate-spin" />
+            <SkeletonBlock className="h-7 w-24" />
           ) : needsReattach ? (
             // Two flavours of "this view has no usable connection" share
             // one path:

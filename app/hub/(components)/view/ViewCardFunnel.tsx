@@ -29,7 +29,8 @@
  */
 
 import { useState } from 'react'
-import { ArrowsClockwise, ArrowRight, Sliders } from '@phosphor-icons/react'
+import { ArrowRight, Sliders } from '@phosphor-icons/react'
+import { SkeletonRows, SkeletonBlock } from './ViewSkeleton'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
@@ -641,9 +642,8 @@ export function ViewCardFunnel({
         <div data-no-dnd="true" style={{ display: 'contents' }}>
         {isValueMode ? (
           loading ? (
-            <div className="flex items-center gap-1.5 px-4 pb-4 pt-3">
-              <ArrowsClockwise size={13} weight="bold" className="animate-spin text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Loading funnel…</span>
+            <div className="px-4 pb-4 pt-3">
+              <SkeletonBlock className="h-7 w-20" />
             </div>
           ) : needsReattach ? (
             <div className="px-4 pb-4 pt-2">
@@ -669,9 +669,8 @@ export function ViewCardFunnel({
         ) : (
           <>
             {loading ? (
-              <div className="flex items-center gap-1.5 px-4 py-3">
-                <ArrowsClockwise size={13} weight="bold" className="animate-spin text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">Loading funnel…</span>
+              <div className="px-4 py-3">
+                <SkeletonRows count={4} rowClassName="h-8" />
               </div>
             ) : needsReattach ? (
               <div className="px-4 py-2">

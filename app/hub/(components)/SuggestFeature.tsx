@@ -3,7 +3,8 @@
 /**
  * "Help us improve" feature-suggestion surface — shared across the
  * desktop `<IconRail>` (a primary-bg icon button whose hover reveals
- * the full card) and the mobile sidebar (`<SidebarSuggestCard>`).
+ * the full card) and the bottom of the mobile home page
+ * (`<MobileHomeBody>` renders `<HelpImproveCard>` directly).
  *
  * Three pieces:
  *   - `HelpImproveCard` — the presentational promo card (orange chip

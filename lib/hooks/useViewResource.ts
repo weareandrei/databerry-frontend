@@ -41,6 +41,7 @@ import {
   IntegrationReauthError,
 } from '@/lib/api'
 import { viewErrorMessage } from '@/lib/errorMessages'
+import { useViewRefreshNonce } from '@/lib/viewRefreshBus'
 
 export type ViewResourceError =
   | string
@@ -65,6 +66,9 @@ export function useViewResource<T>(
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<ViewResourceError | null>(null)
   const [refreshTick, setRefreshTick] = useState(0)
+  // Global "Refresh all" — bumps for every hook at once when the
+  // sidebar fires it, so a single click re-fetches the whole page.
+  const globalRefreshNonce = useViewRefreshNonce()
 
   useEffect(() => {
     if (!fetcher) return
@@ -97,7 +101,7 @@ export function useViewResource<T>(
     // render; gating on caller-controlled deps avoids the infinite
     // loop that would come from depending on the function identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, refreshTick])
+  }, [...deps, refreshTick, globalRefreshNonce])
 
   const refresh = useCallback(() => {
     setRefreshTick(t => t + 1)

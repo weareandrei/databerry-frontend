@@ -21,8 +21,9 @@ export default function SettingsPage() {
       one place, chrome forks via Tailwind responsive prefixes:
         - `<MobileTopBar>` is internally `md:hidden`           → mobile-only
         - `<SectionHeader>` wrapper is `hidden md:block`       → desktop-only
-        - Padding `px-4 pt-4 pb-8 md:px-0 md:pt-6 md:pr-6 md:pb-8`
-                                                                → balanced
+        - Padding `px-4 pt-4 pb-8 md:pl-4 md:pt-6 md:pr-6 md:pb-8`
+          (`md:pl-4` = the same 16-px left gap home/project pages keep
+           from the rail; matched on `/hub/connections` too)
       The dual-tree pattern used on `/hub/home` doesn't work here because
       the deep-link timezone ref would attach to two `<section>` instances
       and clobber itself on `useRef` (the last attach wins; the visible
@@ -36,7 +37,7 @@ export default function SettingsPage() {
     */
     <>
       <MobileTopBar variant="page" title="Settings" />
-      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:px-0 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px]">
+      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:pl-4 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px]">
         <div className="flex flex-col rounded-xl border border-stroke bg-white overflow-hidden shadow-card">
           {/* Desktop-only header — title is in `<MobileTopBar>` on
               phones. `hidden md:block` keeps the chrome behaviour

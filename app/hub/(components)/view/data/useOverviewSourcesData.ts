@@ -25,6 +25,7 @@
  * `posthog_users` view type for users who want per-visitor depth.
  */
 import { useEffect, useState } from 'react'
+import { useViewRefreshNonce } from '@/lib/viewRefreshBus'
 import {
   PROJECT_OVERVIEW,
   type OverviewSource,
@@ -82,6 +83,7 @@ export function useOverviewSourcesData(
   const [sourcesTick, setSourcesTick] = useState(0)
   const [countriesTick, setCountriesTick] = useState(0)
   const [pagesTick, setPagesTick] = useState(0)
+  const globalRefreshNonce = useViewRefreshNonce()
 
   // Sources fetch — runs on first 'sources' activation, on range
   // changes while the tab is visible, or on refresh tick bump.
@@ -106,7 +108,7 @@ export function useOverviewSourcesData(
     return () => {
       cancelled = true
     }
-  }, [tab, projectId, dateFrom, dateTo, sourcesTick])
+  }, [tab, projectId, dateFrom, dateTo, sourcesTick, globalRefreshNonce])
 
   // Countries fetch — same lazy + refresh pattern.
   useEffect(() => {
@@ -136,7 +138,7 @@ export function useOverviewSourcesData(
     return () => {
       cancelled = true
     }
-  }, [tab, projectId, dateFrom, dateTo, countriesTick])
+  }, [tab, projectId, dateFrom, dateTo, countriesTick, globalRefreshNonce])
 
   // Pages fetch — same lazy + refresh pattern as the other tabs.
   useEffect(() => {
@@ -166,7 +168,7 @@ export function useOverviewSourcesData(
     return () => {
       cancelled = true
     }
-  }, [tab, projectId, dateFrom, dateTo, pagesTick])
+  }, [tab, projectId, dateFrom, dateTo, pagesTick, globalRefreshNonce])
 
   return {
     sources,

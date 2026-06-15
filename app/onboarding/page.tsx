@@ -24,6 +24,7 @@
  *   - Closing the tab mid-flow resumes where they left off.
  * The saved state is cleared on finish/skip. Per-tool credentials
  * (API keys) are intentionally NOT persisted — only flow position.
+ * See `useOnboardingProgress` for the persistence + verified-resume.
  *
  * PROJECT: when the connect sequence starts (or at Finish, whichever
  * comes first) we ensure a project named "New Project" exists and
@@ -46,19 +47,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { ArrowLeft, ArrowRight, ArrowsClockwise, Check } from '@phosphor-icons/react'
+import { ArrowsClockwise } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { NotchBar } from '@/app/(components)/navbar'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { PosthogEventPickerDialog } from '@/app/hub/(components)/view/PosthogEventPickerDialog'
-import {
-  PostHogForm,
-  PostHogProjectSelectForm,
-  StripeManualForm,
-} from '@/components/connections/ConnectionForms'
 import {
   POSTHOG_HOSTS,
   connectPosthog,
@@ -71,301 +66,63 @@ import {
 import { ALGORITHM } from '@/lib/api'
 import { EVENT, trackEvent } from '@/lib/posthog'
 import { cn } from '@/lib/utils'
-import type { View } from '@/types/view'
 import type { Connection } from '@/types/connection'
+import { SIMPLE_VIEW_DEFS, buildViewPayloads } from '@/lib/onboarding/views'
+import {
+  STEPS,
+  activeStepIndex,
+  TOOLS,
+  TOOL_LABELS,
+  VIEW_SECTIONS,
+} from './(components)/constants'
+import {
+  useOnboardingProgress,
+  saveProgress,
+  clearProgress,
+} from './(components)/useOnboardingProgress'
+import { WelcomeStep } from './(components)/WelcomeStep'
+import { ToolsStep } from './(components)/ToolsStep'
+import { ConnectingStep } from './(components)/ConnectingStep'
+import { ViewsStep } from './(components)/ViewsStep'
 
-type Step = 'welcome' | 'tools' | 'connecting' | 'views'
-
-const STEPS: { id: 'welcome' | 'tools' | 'views'; label: string }[] = [
-  { id: 'welcome', label: 'Welcome' },
-  { id: 'tools', label: 'Connect your tools' },
-  { id: 'views', label: 'Create data views' },
-]
-
-/** Which top-bar dot is lit for each flow step. The connecting
- *  sequence is part of "Connect your tools". */
-function activeStepIndex(step: Step): number {
-  if (step === 'welcome') return 0
-  if (step === 'views') return 2
-  return 1
-}
-
-/** Tools offered on step 2, in queue order. `oauth` tools redirect
- *  to a consent screen instead of rendering a credential form. */
-const TOOLS: { type: string; label: string; oauth: boolean }[] = [
-  { type: 'posthog', label: 'PostHog', oauth: false },
-  { type: 'stripe', label: 'Stripe', oauth: false },
-  { type: 'sentry', label: 'Sentry', oauth: true },
-  { type: 'google_analytics', label: 'Google Analytics', oauth: true },
-]
-
-const TOOL_LABELS: Record<string, string> = Object.fromEntries(
-  TOOLS.map(t => [t.type, t.label]),
-)
-
-/** Starter views offered on step 3 — each section only shows when
- *  its tool was selected on step 2.
- *
- *  NO "General" section on purpose: the backend's `createProject`
- *  already auto-creates the Project Overview pair (chart + sources)
- *  with every new project, so offering it here would create
- *  duplicates. Only connection-backed extras are offered. */
-const VIEW_SECTIONS: {
-  section: string
-  requiresTool: string | null
-  options: { id: string; iconType: string; label: string; desc: string }[]
-}[] = [
-  {
-    section: 'PostHog',
-    requiresTool: 'posthog',
-    options: [
-      {
-        id: 'daily_counter',
-        iconType: 'posthog',
-        label: 'Track event',
-        desc: 'Daily chart of an event you pick',
-      },
-      // NOT offering Funnel here on purpose: a funnel needs 2–5
-      // user-picked event steps and there's no sensible default —
-      // auto-creating one would render a broken tile. "Recent
-      // users" is zero-config and works the moment PostHog is
-      // connected.
-      {
-        id: 'posthog_users',
-        iconType: 'posthog',
-        label: 'Recent users',
-        desc: 'Latest users with sessions & location',
-      },
-    ],
-  },
-  {
-    section: 'Stripe',
-    requiresTool: 'stripe',
-    options: [
-      {
-        id: 'stripe_gross',
-        iconType: 'stripe',
-        label: 'Gross Volume',
-        desc: 'Succeeded charges, charted over time',
-      },
-      {
-        id: 'stripe_mrr',
-        iconType: 'stripe',
-        label: 'MRR',
-        desc: 'Monthly recurring revenue',
-      },
-    ],
-  },
-  {
-    section: 'Google Analytics',
-    requiresTool: 'google_analytics',
-    options: [
-      {
-        id: 'ga_users_today',
-        iconType: 'google_analytics',
-        label: 'Users',
-        desc: 'Unique users, daily chart',
-      },
-      {
-        id: 'ga_pageviews_today',
-        iconType: 'google_analytics',
-        label: 'Pageviews',
-        desc: "Today's page views",
-      },
-    ],
-  },
-  {
-    section: 'Sentry',
-    requiresTool: 'sentry',
-    options: [
-      {
-        id: 'sentry_issues_list',
-        iconType: 'sentry',
-        label: 'Errors',
-        desc: 'Unresolved issues, sorted by recency',
-      },
-    ],
-  },
-]
-
-/**
- * localStorage persistence. Flow POSITION only — never credentials.
- * `oauthPending` records "we redirected away for this tool's consent
- * screen"; on restore we VERIFY a connection of that type actually
- * exists server-side — advance past it if so, resume AT it (retry /
- * skip) if not.
- */
-const STORAGE_KEY = 'db_onboarding_v1'
-
-interface SavedProgress {
-  step: Step
-  selectedTools: string[]
-  selectedViews: string[]
-  queue: string[]
-  queueIndex: number
-  oauthPending: string | null
-  /** The "New Project" created when the connect sequence started —
-   *  persisted so the OAuth round-trip doesn't lose it and
-   *  connections/views keep landing in the SAME project. */
-  projectId?: string | null
-  /** Event picked for the "Track event" view — persisted so an
-   *  OAuth round-trip (or tab close) on the views step doesn't
-   *  silently fall back to $pageview. */
-  posthogEventName?: string | null
-}
-
-function saveProgress(p: SavedProgress): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(p))
-  } catch {
-    /* private mode — flow still works, just won't survive reloads */
-  }
-}
-
-function loadProgress(): SavedProgress | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return null
-    return JSON.parse(raw) as SavedProgress
-  } catch {
-    return null
-  }
-}
-
-function clearProgress(): void {
-  try {
-    localStorage.removeItem(STORAGE_KEY)
-  } catch {
-    /* ignore */
-  }
-}
-
-// ── Finish-time view creation ───────────────────────────────────────────────
-
-type ViewCreateBody = Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>
-
-/**
- * Connection-backed view definitions the onboarding can auto-create.
- * Every entry is ZERO-CONFIG (or carries a safe default like
- * `$pageview`) — anything needing real user input (funnels,
- * retention) is deliberately not offered. `source` names which
- * connection the view attaches to.
- */
-const SIMPLE_VIEW_DEFS: Record<
-  string,
-  { source: 'posthog' | 'stripe' | 'google_analytics' | 'sentry'; name: string; config: Record<string, unknown> }
-> = {
-  // `$pageview` is PostHog's auto-captured event — present on
-  // virtually every install, so the tile shows data immediately and
-  // the user can repoint it at any event later.
-  daily_counter: {
-    source: 'posthog',
-    name: 'Pageviews',
-    config: { eventName: '$pageview', displayMode: 'chart' },
-  },
-  posthog_users: { source: 'posthog', name: 'Recent users', config: {} },
-  stripe_gross: { source: 'stripe', name: 'Gross Volume', config: { displayMode: 'chart' } },
-  stripe_mrr: { source: 'stripe', name: 'MRR', config: { displayMode: 'value' } },
-  ga_users_today: { source: 'google_analytics', name: 'Users', config: { displayMode: 'chart' } },
-  ga_pageviews_today: { source: 'google_analytics', name: 'Pageviews', config: { displayMode: 'value' } },
-  sentry_issues_list: { source: 'sentry', name: 'Errors', config: { displayMode: 'list' } },
-}
-
-/**
- * Map the user's view selections to concrete `POST /views` payloads.
- * Mirrors the dashboard's `CreateViewModal` payload shapes exactly
- * (same types, names, configs) so onboarding-created tiles are
- * indistinguishable from dashboard-created ones.
- *
- * Composite views (Project Overview pair) are intentionally NOT
- * handled here — the backend's `createProject` auto-creates them
- * with the project itself.
- *
- * Connection-backed selections need their source connection — if the
- * user selected views for a tool they ended up not connecting
- * (skipped it, cancelled the OAuth consent), those payloads are
- * SKIPPED and the affected sources reported, rather than creating
- * dead tiles bound to nothing.
- */
-function buildViewPayloads(args: {
-  selected: Set<string>
-  projectId: string
-  /** Latest connection per source type; absent key = not connected. */
-  connBySource: Partial<Record<'posthog' | 'stripe' | 'google_analytics' | 'sentry', Connection>>
-  /** Event picked in the Track-event dialog; falls back to
-   *  `$pageview` only if somehow absent (e.g. stale persisted
-   *  selection from before the picker existed). */
-  posthogEventName?: string | null
-}): { payloads: ViewCreateBody[]; skippedSources: string[] } {
-  const { selected, projectId, connBySource, posthogEventName } = args
-  const payloads: ViewCreateBody[] = []
-  const skippedSources = new Set<string>()
-
-  const base = { projectId, folderId: null, value: null }
-
-  // Connection-backed selections — generic over SIMPLE_VIEW_DEFS.
-  for (const id of selected) {
-    const def = SIMPLE_VIEW_DEFS[id]
-    if (!def) continue // unknown / stale ids are ignored
-    const conn = connBySource[def.source]
-    if (!conn) {
-      skippedSources.add(def.source)
-      continue
-    }
-    // Track-event carries the event picked in the dialog — both as
-    // the config the renderer queries by AND as the tile name
-    // (dashboard convention: daily_counter tiles are named after
-    // their event).
-    const isTrackEvent = id === 'daily_counter'
-    const eventName = posthogEventName ?? '$pageview'
-    payloads.push({
-      ...base,
-      connectionId: conn.id,
-      // The connection's REAL type (a manual Stripe key is
-      // 'stripe_manual', not 'stripe') — the dashboard's renderers
-      // dispatch on this.
-      connectionType: conn.type,
-      type: id,
-      name: isTrackEvent ? eventName : def.name,
-      config: isTrackEvent
-        ? { eventName, displayMode: 'chart' }
-        : def.config,
-    })
-  }
-
-  return { payloads, skippedSources: Array.from(skippedSources) }
+const toggle = (set: Set<string>, value: string): Set<string> => {
+  const next = new Set(set)
+  if (next.has(value)) next.delete(value)
+  else next.add(value)
+  return next
 }
 
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, loading: authLoading, signOut } = useAuth()
 
-  const [step, setStep] = useState<Step>('welcome')
-  // TRUE until the mount-time restore (localStorage + the OAuth
-  // verification fetch) has decided which step is real. Gates the
-  // step UI so the user never sees — or interacts with — the
-  // Welcome step when they're actually mid-flow.
-  const [restoring, setRestoring] = useState(true)
-  const [selectedTools, setSelectedTools] = useState<Set<string>>(new Set())
-  const [selectedViews, setSelectedViews] = useState<Set<string>>(new Set())
-
-  // ── Connecting-sequence state ──────────────────────────────────
-  // `queue` = the selected tools in TOOLS order; `queueIndex` = which
-  // one the user is currently connecting.
-  const [queue, setQueue] = useState<string[]>([])
-  const [queueIndex, setQueueIndex] = useState(0)
-  // The onboarding project ("New Project") every connection + view
-  // gets assigned to. Created lazily when the connect sequence
-  // starts (or at Finish for users who skip connecting); persisted
-  // in SavedProgress so the OAuth round-trip keeps the same one.
-  const [onbProjectId, setOnbProjectId] = useState<string | null>(null)
+  // Flow-position state (step, selections, connect-queue position,
+  // the lazily-created project, the picked event) + the `restoring`
+  // gate all live in the persistence hook — it's exactly what
+  // round-trips through localStorage and the OAuth detour.
+  const {
+    step,
+    setStep,
+    restoring,
+    selectedTools,
+    setSelectedTools,
+    selectedViews,
+    setSelectedViews,
+    queue,
+    setQueue,
+    queueIndex,
+    setQueueIndex,
+    onbProjectId,
+    setOnbProjectId,
+    pickedEventName,
+    setPickedEventName,
+  } = useOnboardingProgress()
 
   // ── "Track event" picker state (views step) ────────────────────
   // Selecting the daily_counter view opens the same centered
   // PostHog event picker the project-overview chart uses; the
   // picked event becomes the view's `config.eventName` at Finish.
   const [eventPickerOpen, setEventPickerOpen] = useState(false)
-  const [pickedEventName, setPickedEventName] = useState<string | null>(null)
   // Latest PostHog connection id — resolved alongside
   // `connectedTypes` when the views step opens; the picker dialog
   // needs it to fetch event definitions.
@@ -390,99 +147,6 @@ export default function OnboardingPage() {
     if (!authLoading && !user) router.replace('/login')
   }, [authLoading, user, router])
 
-  // ── Restore saved progress (once, on mount) ────────────────────
-  // Covers both "closed the tab mid-flow" and "OAuth consent
-  // round-trip landed me back here via the hub gate".
-  //
-  // The OAuth case is VERIFIED, not assumed: a pending tool only
-  // counts as connected if a connection of its type actually exists
-  // server-side. Cancelled/failed consent leaves none → we resume AT
-  // that tool (with a toast) so the user can retry or explicitly
-  // skip — previously we advanced optimistically and a failed GA
-  // landed the user on the views step as if it had worked.
-  //
-  // `restoring` gates the step UI: until this finishes, the page
-  // shows a small "restoring" state instead of flashing the Welcome
-  // step (which is just the initial useState value, not the truth).
-  useEffect(() => {
-    let cancelled = false
-
-    const run = async () => {
-      const saved = loadProgress()
-      if (!saved || saved.step === 'welcome') {
-        setRestoring(false)
-        return
-      }
-
-      setSelectedTools(new Set(saved.selectedTools))
-      setSelectedViews(new Set(saved.selectedViews))
-      setQueue(saved.queue)
-      setOnbProjectId(saved.projectId ?? null)
-      setPickedEventName(saved.posthogEventName ?? null)
-
-      if (saved.oauthPending) {
-        const label = TOOL_LABELS[saved.oauthPending] ?? saved.oauthPending
-        // Did the consent round-trip actually create the connection?
-        // Fresh onboarding accounts have no pre-existing connections,
-        // so "any connection of this type exists" is a reliable
-        // signal. If the check itself fails, resume AT the tool —
-        // re-showing a connect screen is recoverable; skipping a
-        // tool that never connected is not.
-        let connected = false
-        try {
-          const conns = await ALGORITHM.getConnections()
-          connected = conns.some(c => c.type === saved.oauthPending)
-        } catch {
-          connected = false
-        }
-        if (cancelled) return
-
-        if (connected) {
-          toast.success(`${label} connected.`)
-          const next = saved.queueIndex + 1
-          if (next < saved.queue.length) {
-            setQueueIndex(next)
-            setStep('connecting')
-          } else {
-            setQueueIndex(0)
-            setStep('views')
-          }
-        } else {
-          toast.error(
-            `${label} wasn't connected — you can retry now or skip it.`,
-          )
-          setQueueIndex(saved.queueIndex)
-          setStep('connecting')
-        }
-      } else {
-        setQueueIndex(saved.queueIndex)
-        setStep(saved.step)
-      }
-      setRestoring(false)
-    }
-
-    void run()
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  // ── Persist progress on every flow-position change ─────────────
-  useEffect(() => {
-    if (step === 'welcome') return
-    saveProgress({
-      step,
-      selectedTools: Array.from(selectedTools),
-      selectedViews: Array.from(selectedViews),
-      queue,
-      queueIndex,
-      oauthPending: null,
-      projectId: onbProjectId,
-      posthogEventName: pickedEventName,
-    })
-  }, [step, selectedTools, selectedViews, queue, queueIndex, onbProjectId, pickedEventName])
-
   /**
    * Resolve (or create) the onboarding project — "New Project" —
    * that every connection + view gets assigned to. Reuses an
@@ -496,14 +160,7 @@ export default function OnboardingPage() {
       projects[0] ?? (await ALGORITHM.createProject({ name: 'New Project' }))
     setOnbProjectId(project.id)
     return project.id
-  }, [onbProjectId])
-
-  const toggle = (set: Set<string>, value: string): Set<string> => {
-    const next = new Set(set)
-    if (next.has(value)) next.delete(value)
-    else next.add(value)
-    return next
-  }
+  }, [onbProjectId, setOnbProjectId])
 
   /**
    * Exit tail shared by skip + finish: write the DB flag FIRST, then
@@ -737,7 +394,7 @@ export default function OnboardingPage() {
     } else {
       setStep('views')
     }
-  }, [queueIndex, queue.length, resetToolForms])
+  }, [queueIndex, queue.length, resetToolForms, setQueueIndex, setStep])
 
   // ── Per-tool submit handlers (shared flow lib) ─────────────────
 
@@ -925,6 +582,26 @@ export default function OnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
+  const onToggleTool = (type: string) =>
+    setSelectedTools(prev => toggle(prev, type))
+
+  const onToggleView = (optId: string) => {
+    // "Track event" needs an event to track — selecting it routes
+    // through the picker dialog (the same one the overview chart
+    // uses); the row is only marked selected on confirm. Deselecting
+    // clears the pick.
+    if (optId === 'daily_counter') {
+      if (selectedViews.has(optId)) {
+        setSelectedViews(prev => toggle(prev, optId))
+        setPickedEventName(null)
+      } else {
+        setEventPickerOpen(true)
+      }
+      return
+    }
+    setSelectedViews(prev => toggle(prev, optId))
+  }
+
   const visibleSections = VIEW_SECTIONS.filter(
     s => s.requiresTool === null || (connectedTypes?.has(s.requiresTool) ?? false),
   )
@@ -1024,45 +701,14 @@ export default function OnboardingPage() {
               )}
 
               {step === 'tools' && (
-                <div className="flex flex-col items-center text-center w-full">
-                  <h1
-                    className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900"
-                    style={{ fontFamily: 'var(--font-bricolage)' }}
-                  >
-                    Connect the tools you already use
-                  </h1>
-                  <p className="mt-3 text-sm text-gray-500 leading-relaxed max-w-md">
-                    Select the tools you track your projects with. We&apos;ll
-                    wire them into Databerry so everything lives in one
-                    dashboard.
-                  </p>
-
-                  <div className="mt-8 w-full max-w-xl rounded-2xl border border-stroke bg-white shadow-card p-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {TOOLS.map(tool => (
-                      <SelectableRow
-                        key={tool.type}
-                        iconType={tool.type}
-                        label={tool.label}
-                        selected={selectedTools.has(tool.type)}
-                        onToggle={() =>
-                          setSelectedTools(prev => toggle(prev, tool.type))
-                        }
-                      />
-                    ))}
-                  </div>
-
-                  <PrimaryCta
-                    label={busy ? 'Setting up…' : 'Continue'}
-                    onClick={() => void handleToolsContinue()}
-                    disabled={submitting || busy}
-                    className="mt-10"
-                  />
-                  <SkipLink
-                    label="Skip onboarding"
-                    onClick={() => void handleSkip()}
-                    disabled={submitting}
-                  />
-                </div>
+                <ToolsStep
+                  selectedTools={selectedTools}
+                  onToggleTool={onToggleTool}
+                  busy={busy}
+                  submitting={submitting}
+                  onContinue={() => void handleToolsContinue()}
+                  onSkip={() => void handleSkip()}
+                />
               )}
 
               {step === 'connecting' && currentTool && (
@@ -1076,194 +722,40 @@ export default function OnboardingPage() {
                     setStep('tools')
                   }}
                   onSkipTool={advanceQueue}
-                >
-                  {currentTool === 'posthog' &&
-                    (phProjects ? (
-                      <div className="w-full max-w-md text-left">
-                        <p className="mb-2 text-sm font-semibold text-grey-darkest">
-                          Pick the PostHog project to track
-                        </p>
-                        <PostHogProjectSelectForm
-                          projects={phProjects}
-                          selectedId={phSelectedId}
-                          onSelect={setPhSelectedId}
-                        />
-                      </div>
-                    ) : (
-                      <PostHogForm
-                        apiKey={phKey}
-                        host={phHost}
-                        error={phError}
-                        onApiKeyChange={setPhKey}
-                        onHostChange={setPhHost}
-                      />
-                    ))}
-
-                  {currentTool === 'stripe' && (
-                    <StripeManualForm
-                      name={stripeName}
-                      apiKey={stripeKey}
-                      error={stripeError}
-                      onNameChange={setStripeName}
-                      onApiKeyChange={setStripeKey}
-                    />
-                  )}
-
-                  {(currentTool === 'sentry' ||
-                    currentTool === 'google_analytics') && (
-                    <p className="max-w-sm text-sm text-gray-500 leading-relaxed">
-                      We&apos;ll send you to{' '}
-                      <span className="font-semibold text-grey-darkest">
-                        {TOOL_LABELS[currentTool]}
-                      </span>{' '}
-                      to authorize read-only access, then bring you right
-                      back here.
-                    </p>
-                  )}
-
-                  {/* Done / Connect CTA per tool */}
-                  {currentTool === 'posthog' && (
-                    <PrimaryCta
-                      label={
-                        busy
-                          ? 'Working…'
-                          : phProjects
-                            ? 'Done'
-                            : 'Continue'
-                      }
-                      onClick={() => void handlePosthogDone()}
-                      disabled={
-                        busy ||
-                        (phProjects ? !phSelectedId : !phKey.trim())
-                      }
-                      className="mt-8"
-                    />
-                  )}
-                  {currentTool === 'stripe' && (
-                    <PrimaryCta
-                      label={busy ? 'Working…' : 'Done'}
-                      onClick={() => void handleStripeDone()}
-                      disabled={busy || !stripeKey.trim()}
-                      className="mt-8"
-                    />
-                  )}
-                  {(currentTool === 'sentry' ||
-                    currentTool === 'google_analytics') && (
-                    <PrimaryCta
-                      label={busy ? 'Opening…' : `Connect ${TOOL_LABELS[currentTool]}`}
-                      onClick={() =>
-                        void handleOAuthConnect(
-                          currentTool as OAuthConnectionType,
-                        )
-                      }
-                      disabled={busy}
-                      className="mt-8"
-                    />
-                  )}
-                </ConnectingStep>
+                  posthog={{
+                    projects: phProjects,
+                    selectedId: phSelectedId,
+                    onSelect: setPhSelectedId,
+                    apiKey: phKey,
+                    host: phHost,
+                    error: phError,
+                    onApiKeyChange: setPhKey,
+                    onHostChange: setPhHost,
+                    onDone: () => void handlePosthogDone(),
+                  }}
+                  stripe={{
+                    name: stripeName,
+                    apiKey: stripeKey,
+                    error: stripeError,
+                    onNameChange: setStripeName,
+                    onApiKeyChange: setStripeKey,
+                    onDone: () => void handleStripeDone(),
+                  }}
+                  onOAuthConnect={type => void handleOAuthConnect(type)}
+                />
               )}
 
               {step === 'views' && (
-                <div className="flex flex-col items-center text-center w-full">
-                  <h1
-                    className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900"
-                    style={{ fontFamily: 'var(--font-bricolage)' }}
-                  >
-                    Add data views
-                  </h1>
-                  <p className="mt-3 text-sm text-gray-500 leading-relaxed max-w-md">
-                    Make it simple to view your data. You can always delete
-                    and edit this later. Your project already includes a
-                    Project Overview by default.
-                  </p>
-
-                  {/* Checking which tools ACTUALLY connected — gate
-                      the sections on server truth, not selections. */}
-                  {connectedTypes === null && (
-                    <div className="mt-8 flex items-center gap-2 text-sm text-grey-dark">
-                      <ArrowsClockwise
-                        size={14}
-                        weight="bold"
-                        className="animate-spin"
-                      />
-                      <span>Checking your connections…</span>
-                    </div>
-                  )}
-
-                  {/* No tools connected → no per-tool views to offer.
-                      The Overview still gets created with the project,
-                      so Finish isn't a dead end. */}
-                  {connectedTypes !== null && visibleSections.length === 0 && (
-                    <p className="mt-8 max-w-sm rounded-xl border border-dashed border-stroke bg-white px-4 py-6 text-xs text-grey-light">
-                      Nothing extra to add — these options unlock when you
-                      connect tools. Your dashboard starts with the Project
-                      Overview.
-                    </p>
-                  )}
-
-                  {connectedTypes !== null && visibleSections.length > 0 && (
-                  <div className="mt-8 w-full max-w-xl rounded-2xl border border-stroke bg-white shadow-card p-3">
-                    {visibleSections.map(section => (
-                      <div key={section.section} className="text-left">
-                        <p className="px-1 pt-2 pb-1.5 text-xs font-medium text-grey-light">
-                          {section.section}
-                        </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {section.options.map(opt => (
-                            <SelectableRow
-                              key={opt.id}
-                              iconType={opt.iconType}
-                              label={opt.label}
-                              // Once an event is picked, the row says
-                              // WHICH event it'll track — clearer than
-                              // the generic blurb, and doubles as
-                              // confirmation of the dialog pick.
-                              desc={
-                                opt.id === 'daily_counter' &&
-                                selectedViews.has(opt.id) &&
-                                pickedEventName
-                                  ? `Tracking "${pickedEventName}"`
-                                  : opt.desc
-                              }
-                              selected={selectedViews.has(opt.id)}
-                              onToggle={() => {
-                                // "Track event" needs an event to
-                                // track — selecting it routes through
-                                // the picker dialog (the same one the
-                                // overview chart uses); the row is
-                                // only marked selected on confirm.
-                                // Deselecting clears the pick.
-                                if (opt.id === 'daily_counter') {
-                                  if (selectedViews.has(opt.id)) {
-                                    setSelectedViews(prev => toggle(prev, opt.id))
-                                    setPickedEventName(null)
-                                  } else {
-                                    setEventPickerOpen(true)
-                                  }
-                                  return
-                                }
-                                setSelectedViews(prev => toggle(prev, opt.id))
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  )}
-
-                  <PrimaryCta
-                    label={submitting ? 'Finishing…' : 'Finish'}
-                    onClick={() => void handleFinish()}
-                    disabled={submitting}
-                    className="mt-10"
-                  />
-                  <SkipLink
-                    label="Skip"
-                    onClick={() => void handleSkip()}
-                    disabled={submitting}
-                  />
-                </div>
+                <ViewsStep
+                  loading={connectedTypes === null}
+                  sections={visibleSections}
+                  selectedViews={selectedViews}
+                  pickedEventName={pickedEventName}
+                  onToggleView={onToggleView}
+                  submitting={submitting}
+                  onFinish={() => void handleFinish()}
+                  onSkip={() => void handleSkip()}
+                />
               )}
               </div>
             </div>
@@ -1291,208 +783,5 @@ export default function OnboardingPage() {
         }}
       />
     </div>
-  )
-}
-
-// ── Step 1: Welcome ─────────────────────────────────────────────────────────
-
-function WelcomeStep({
-  onStart,
-  onSkip,
-  submitting,
-}: {
-  onStart: () => void
-  onSkip: () => void
-  submitting: boolean
-}) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <h1
-        className="flex items-center gap-3 text-4xl md:text-5xl font-semibold tracking-tight text-gray-900"
-        style={{ fontFamily: 'var(--font-bricolage)' }}
-      >
-        Welcome to{' '}
-        <Image
-          src="/databerry_logo_v2.svg"
-          alt=""
-          width={44}
-          height={44}
-          className="rounded-lg inline-block"
-        />{' '}
-        Databerry
-      </h1>
-      <p className="mt-4 text-base text-gray-500">
-        This onboarding takes under 5 minutes
-      </p>
-
-      <PrimaryCta label="Start" onClick={onStart} disabled={submitting} className="mt-10" />
-      <SkipLink label="Skip onboarding" onClick={onSkip} disabled={submitting} />
-    </div>
-  )
-}
-
-// ── "Connecting <tool>" shell ───────────────────────────────────────────────
-
-/**
- * Chrome for one tool in the connect sequence: "Go back" link, brand
- * icon + "Connecting <Tool>" heading, position counter, the form
- * (children), and a per-tool skip escape hatch (a stuck user — key
- * they can't find, account they don't own — must never be trapped).
- */
-function ConnectingStep({
-  tool,
-  position,
-  total,
-  busy,
-  onBack,
-  onSkipTool,
-  children,
-}: {
-  tool: string
-  position: number
-  total: number
-  busy: boolean
-  onBack: () => void
-  onSkipTool: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex flex-col items-center text-center w-full">
-      <button
-        type="button"
-        onClick={onBack}
-        disabled={busy}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-grey-light hover:text-grey-darkest transition-colors cursor-pointer disabled:opacity-50 mb-3"
-      >
-        <ArrowLeft size={12} weight="bold" />
-        Go back
-      </button>
-
-      <h1
-        className="flex items-center gap-3 text-3xl md:text-4xl font-semibold tracking-tight text-gray-900"
-        style={{ fontFamily: 'var(--font-bricolage)' }}
-      >
-        <ConnectionIcon type={tool} size={32} />
-        Connecting {TOOL_LABELS[tool] ?? tool}
-      </h1>
-      {total > 1 && (
-        <p className="mt-2 text-xs text-grey-light">
-          Tool {position} of {total}
-        </p>
-      )}
-
-      {/* `text-left` undoes the wrapper's `text-center` for the form
-          content — per the design, ONLY the heading + bottom CTA are
-          centered; the prerequisites card, steps and inputs read as a
-          left-aligned column (centered as a block via items-center). */}
-      <div className="mt-8 w-full flex flex-col items-center text-left">
-        {children}
-      </div>
-
-      <SkipLink label="Skip this tool" onClick={onSkipTool} disabled={busy} />
-    </div>
-  )
-}
-
-// ── Shared pieces ───────────────────────────────────────────────────────────
-
-function PrimaryCta({
-  label,
-  onClick,
-  disabled,
-  className,
-}: {
-  label: string
-  onClick: () => void
-  disabled?: boolean
-  className?: string
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        'group inline-flex items-center justify-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold px-16 py-3.5 ring-4 ring-brand/20 transition-all hover:ring-brand/30 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed',
-        className,
-      )}
-    >
-      {label}
-      <ArrowRight
-        size={16}
-        weight="bold"
-        className="transition-transform group-hover:translate-x-0.5"
-      />
-    </button>
-  )
-}
-
-function SkipLink({
-  label,
-  onClick,
-  disabled,
-}: {
-  label: string
-  onClick: () => void
-  disabled?: boolean
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-grey-light hover:text-grey-darkest transition-colors cursor-pointer disabled:opacity-50"
-    >
-      {label}
-      <ArrowRight size={12} weight="bold" />
-    </button>
-  )
-}
-
-function SelectableRow({
-  iconType,
-  label,
-  desc,
-  selected,
-  onToggle,
-}: {
-  iconType: string
-  label: string
-  desc?: string
-  selected: boolean
-  onToggle: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={selected}
-      className={cn(
-        'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors cursor-pointer',
-        selected
-          ? 'border-brand/50 bg-brand/[0.04]'
-          : 'border-stroke bg-white hover:bg-hover-fill',
-      )}
-    >
-      <span
-        className={cn(
-          'shrink-0 grid place-items-center w-4 h-4 rounded-full border-2 transition-colors',
-          selected ? 'border-brand bg-brand text-white' : 'border-stroke',
-        )}
-      >
-        {selected && <Check size={10} weight="bold" />}
-      </span>
-      <ConnectionIcon type={iconType} size={18} />
-      <span className="min-w-0">
-        <span className="block text-sm font-semibold text-grey-darkest leading-tight">
-          {label}
-        </span>
-        {desc && (
-          <span className="block text-xs text-grey-light truncate leading-tight mt-0.5">
-            {desc}
-          </span>
-        )}
-      </span>
-    </button>
   )
 }

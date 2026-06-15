@@ -39,7 +39,7 @@ export function MobileProjectsList({ projects }: MobileProjectsListProps) {
         <button
           key={project.id}
           type="button"
-          onClick={() => router.push(`/hub/project/${project.id}`)}
+          onClick={() => router.push(`/hub/projects/${project.id}/overview`)}
           className={`flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-hover-fill ${
             index < projects.length - 1 ? 'border-b border-stroke/60' : ''
           }`}

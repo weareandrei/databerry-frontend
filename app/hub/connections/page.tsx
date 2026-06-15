@@ -241,7 +241,7 @@ export default function ConnectionsPage() {
           </button>
         }
       />
-      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:px-0 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
+      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:pl-4 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />

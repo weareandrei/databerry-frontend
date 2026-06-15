@@ -122,7 +122,7 @@ export function ProjectFilteredViews({
       <HubTopBar />
       {/* White panel = the ONLY scroll container; the page column
           (top bar + panel) is exactly one viewport tall. */}
-      <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto">
+      <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto overscroll-contain">
         {loading ? (
           <BodySkeleton />
         ) : (

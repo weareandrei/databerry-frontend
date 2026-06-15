@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { ArrowsClockwise, ArrowSquareOut } from '@phosphor-icons/react'
+import { ArrowSquareOut } from '@phosphor-icons/react'
+import { SkeletonRows } from './ViewSkeleton'
 import { ViewWrapper } from './ViewWrapper'
 import { ViewHeader } from './ViewHeader'
 import { FetchErrorBadge } from './ViewCard'
@@ -132,10 +133,7 @@ export function ViewCardList({
             Live data only — unavailable for past dates.
           </p>
         ) : loading ? (
-          <div className="flex items-center gap-1.5 py-2">
-            <ArrowsClockwise size={13} weight="bold" className="text-muted-foreground animate-spin" />
-            <span className="text-xs text-muted-foreground">Loading meetings…</span>
-          </div>
+          <SkeletonRows count={5} rowClassName="h-9" />
         ) : needsReattach ? (
           // Strict orphan or dangling FK — both open the reassignment
           // dialog. Mirrors the badge-flow in `ViewCard` / `ViewCardChart`.
