@@ -860,18 +860,19 @@ export function ViewCardOverviewChart({
           Recharts' `ResponsiveContainer` handles bar widths as the
           height shrinks, so we don't need to touch `OverviewChart`'s
           internal `maxBarSize` / segment sizing. */}
-      {/* `px-4 pt-4` — NO bottom padding. The X-axis labels are the
-          chart's natural bottom edge; a `pb-4` here just stacked on
-          top of the parent card's own bottom padding, leaving a wide
-          dead band between the chart and the card edge. The grid's
-          `gap-y-6` (between stacked tiles) + the parent card padding
-          already provide all the separation needed. */}
+      {/* `pr-4 pt-4` — NO left or bottom padding. The Y-axis gutter
+          (its `width={36}`) IS the left inset, so adding `pl-4` on top
+          pushed the plot ~52 px in and the chart read as more padded
+          than the other view bodies (16 px). Dropping the left padding
+          lets the axis labels sit at the card edge, lining the plot up
+          with everything else. The X-axis labels are the natural
+          bottom edge, so no `pb` either. */}
       <div
         data-no-dnd="true"
         className={
           fillHeight
-            ? 'relative px-4 pt-4 flex-1 min-h-0 flex flex-col'
-            : 'relative px-4 pt-4'
+            ? 'relative pr-4 pt-4 flex-1 min-h-0 flex flex-col'
+            : 'relative pr-4 pt-4'
         }
       >
         {/* fillHeight: `flex-1 min-h-0` — the chart adapts to
@@ -935,7 +936,7 @@ export function ViewCardOverviewChart({
                 padding — so the responsive container fills the card
                 cleanly with no stray scrollbar.
               */}
-              <div className="absolute inset-0 overflow-x-auto md:overflow-x-visible -mx-4 md:mx-0 px-4 md:px-0">
+              <div className="absolute inset-0 overflow-x-auto md:overflow-x-visible -mr-4 md:mr-0 pr-4 md:pr-0">
                 <div className="h-full min-w-[560px] md:min-w-0">
                   {/* The `?? 'visitors'` fallback is for the type
                       system only — a null primary always lands in

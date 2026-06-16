@@ -15,28 +15,12 @@
 import { useEffect, useState } from 'react'
 import { ArrowsClockwise, Lightning } from '@phosphor-icons/react'
 import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { ALGORITHM, type PersonRow, type PersonEvent } from '@/lib/api'
 
-// ── Source presentation ───────────────────────────────────────────
-// One entry per platform we ingest events from. `dot` colours the
-// leading indicator; `pill` is the small source chip. Unknown sources
-// fall back to a neutral grey chip with the raw label title-cased.
-const SOURCE_STYLE: Record<string, { label: string; dot: string; pill: string }> = {
-  stripe: { label: 'Stripe', dot: 'bg-[#635BFF]', pill: 'bg-[#635BFF]/10 text-[#4b45c6]' },
-  posthog: { label: 'PostHog', dot: 'bg-[#F54E00]', pill: 'bg-[#F54E00]/10 text-[#c43e00]' },
-  google_analytics: {
-    label: 'Google Analytics',
-    dot: 'bg-[#E8710A]',
-    pill: 'bg-[#E8710A]/10 text-[#b4560a]',
-  },
-}
-
-function sourceStyle(source: string | null) {
-  if (source && SOURCE_STYLE[source]) return SOURCE_STYLE[source]
-  const label = source
-    ? source.charAt(0).toUpperCase() + source.slice(1).replace(/_/g, ' ')
-    : 'Unknown'
-  return { label, dot: 'bg-grey-light', pill: 'bg-main text-grey-dark' }
+/** Capitalise the first letter — for login-method labels like "Google". */
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
 }
 
 function initials(name: string | null, email: string | null): string {
@@ -73,6 +57,25 @@ function formatAmount(props: Record<string, unknown>): string | null {
   } catch {
     return `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}`
   }
+}
+
+/**
+ * A short, human "what exactly" line for an event — the page visited,
+ * the element clicked, the login method, or the charge amount —
+ * derived from the curated `properties` the backend captured. Returns
+ * null when there's nothing extra worth showing.
+ */
+function detailFor(ev: PersonEvent): string | null {
+  const p = ev.properties ?? {}
+  // Stripe charges → the amount.
+  if (ev.source === 'stripe') return formatAmount(p)
+  // Login → "via Google" (only login-type events carry `method`).
+  if (typeof p.method === 'string' && p.method) return `via ${capitalize(p.method)}`
+  // Click → the clicked element's text.
+  if (typeof p.elementText === 'string' && p.elementText) return `“${p.elementText}”`
+  // Page view / leave → the path.
+  if (typeof p.path === 'string' && p.path) return p.path
+  return null
 }
 
 function useTimeline(person: PersonRow | null) {
@@ -141,6 +144,9 @@ export function PersonEventsSheet({
   )
 }
 
+/** Events revealed per "Load more" press (accumulating, not paging). */
+const PAGE_SIZE = 25
+
 function Timeline({
   events,
   loading,
@@ -148,6 +154,11 @@ function Timeline({
   events: PersonEvent[] | null
   loading: boolean
 }) {
+  // Accumulating reveal: show PAGE_SIZE, "Load more" adds another
+  // PAGE_SIZE while keeping what's shown. Reset when the person changes.
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  useEffect(() => setVisibleCount(PAGE_SIZE), [events])
+
   if (loading || events === null) {
     return (
       <div className="space-y-2.5 animate-pulse">
@@ -176,36 +187,49 @@ function Timeline({
     )
   }
 
+  const visible = events.slice(0, visibleCount)
+  const remaining = events.length - visible.length
+
   return (
-    <ol className="divide-y divide-stroke">
-      {events.map(ev => {
-        const s = sourceStyle(ev.source)
-        const amount = formatAmount(ev.properties)
-        return (
-          <li key={ev.id} className="flex items-center gap-3 py-3">
-            {/* Source indicator */}
-            <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${s.dot}`} aria-hidden />
+    <>
+      <ol className="divide-y divide-stroke">
+        {visible.map(ev => {
+          const detail = detailFor(ev)
+          return (
+            <li key={ev.id} className="flex items-start gap-3 py-3">
+              {/* Connection logo — replaces the old source dot + text badge. */}
+              <span className="mt-0.5 shrink-0">
+                <ConnectionIcon type={ev.source ?? 'custom'} size={18} />
+              </span>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                <span className="text-sm font-medium text-grey-darkest">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-grey-darkest">
                   {ev.eventLabel ?? ev.eventKey ?? 'Event'}
-                </span>
-                {amount && (
-                  <span className="text-sm font-semibold text-grey-darkest">· {amount}</span>
-                )}
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${s.pill}`}
-                >
-                  {s.label}
-                </span>
+                </p>
+                {detail && <p className="truncate text-xs text-grey-light">{detail}</p>}
               </div>
-            </div>
 
-            <time className="shrink-0 text-xs text-grey-light">{formatWhen(ev.occurredAt)}</time>
-          </li>
-        )
-      })}
-    </ol>
+              <time className="shrink-0 pt-0.5 text-xs text-grey-light">
+                {formatWhen(ev.occurredAt)}
+              </time>
+            </li>
+          )
+        })}
+      </ol>
+
+      {/* Load more — only when there are more events to reveal. */}
+      {remaining > 0 && (
+        <div className="flex justify-center pt-4">
+          <button
+            type="button"
+            onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-stroke bg-white px-4 py-2 text-xs font-medium text-grey-darkest shadow-sm hover:bg-hover-fill transition-colors cursor-pointer"
+          >
+            Load more
+            <span className="text-grey-light">({remaining} left)</span>
+          </button>
+        </div>
+      )}
+    </>
   )
 }

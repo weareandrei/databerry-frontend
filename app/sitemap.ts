@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { COMPARISON_LINKS } from './compare/comparisons'
 
 /**
  * Sitemap for crawler / AI-agent indexing.
@@ -66,5 +67,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'yearly',
       priority: 0.3,
     },
+    // Comparison pages — high-intent "databerry vs X" queries, so they
+    // rank above the legal/utility pages. Driven by `COMPARISON_LINKS`,
+    // so a new comparison registers here automatically.
+    {
+      url: `${BASE}/compare`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    },
+    ...COMPARISON_LINKS.map(c => ({
+      url: `${BASE}/compare/${c.slug}`,
+      lastModified: now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
   ]
 }

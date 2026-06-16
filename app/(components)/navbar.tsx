@@ -3,8 +3,9 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { List, X } from '@phosphor-icons/react'
+import { List, X, CaretDown } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
+import { COMPARISON_LINKS } from '@/app/compare/comparisons'
 
 const CORNER_PATH = 'M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z'
 
@@ -50,6 +51,46 @@ export function NotchBar({
       >
         <path d={CORNER_PATH} fill="white" />
       </svg>
+    </div>
+  )
+}
+
+/**
+ * "Compare" nav item — a hover-revealed dropdown of Databerry-vs-X
+ * comparison pages, driven by `COMPARISON_LINKS` (add a comparison and
+ * it shows up here automatically). Hover-only by design: the `pt-3` on
+ * the panel bridges the gap to the trigger so the menu doesn't vanish
+ * as the cursor crosses into it.
+ */
+function CompareDropdown() {
+  return (
+    <div className="relative group">
+      <button
+        type="button"
+        className="flex items-center gap-1 text-sm font-medium text-gray-600 transition-colors group-hover:text-black cursor-pointer"
+      >
+        Compare
+        <CaretDown
+          size={11}
+          weight="bold"
+          className="mt-px transition-transform duration-150 group-hover:rotate-180"
+        />
+      </button>
+      {/* `pt-3` is a transparent hover-bridge so moving from the trigger
+          into the panel doesn't break the `group-hover`. */}
+      <div className="absolute left-1/2 top-full -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+        <div className="min-w-[230px] rounded-2xl border border-black/10 bg-white p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.16)]">
+          {COMPARISON_LINKS.map(c => (
+            <Link
+              key={c.slug}
+              href={`/compare/${c.slug}`}
+              className="block rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-black"
+            >
+              Databerry vs {c.competitor}
+            </Link>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -147,7 +188,9 @@ const Navbar = () => {
               The login page is still reachable directly at /login for
               returning users who type the URL or land via password
               recovery; we just don't surface it in the marketing nav. */}
-          <div className="hidden md:flex items-center">
+          <div className="hidden md:flex items-center gap-5">
+            {/* Compare dropdown — sits to the LEFT of the auth CTA. */}
+            <CompareDropdown />
             {signedIn === null ? (
               // Reserve the same width as the resolved button so the
               // navbar doesn't shift when auth state lands. `invisible`
