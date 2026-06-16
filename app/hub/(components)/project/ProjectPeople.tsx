@@ -212,7 +212,11 @@ export function ProjectPeople({ projectId }: { projectId: string }) {
         </DropdownMenu>
       </div>
 
-      {loading ? (
+      {/* Skeleton while loading OR while a refresh/sync is in flight.
+          `sync()` flips `syncing` immediately (the people re-fetch only
+          runs after it finishes), so without `|| syncing` the stale rows
+          would just sit there for the whole refresh. */}
+      {loading || syncing ? (
         <div className="space-y-2 animate-pulse">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-11 rounded-lg bg-black/[0.04]" />
