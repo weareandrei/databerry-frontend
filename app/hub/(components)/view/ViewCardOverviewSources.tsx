@@ -123,6 +123,15 @@ interface ViewCardOverviewSourcesProps {
    * (mobile project body, pinned tile) don't have to plumb a no-op.
    */
   onSourceHover?: (sourceKey: string | null) => void
+  /**
+   * Composite mode — when true the panel drops its OWN 3-dots menu
+   * (Pin / Refresh / Untrack). In the unified project_overview block
+   * those live in the shared header's single menu and act on BOTH
+   * halves at once, so a second menu here would be redundant. The tabs
+   * (Sources / Countries / Pages) stay — they're this panel's own
+   * sub-navigation, not view-level actions.
+   */
+  hideMenu?: boolean
 }
 
 export function ViewCardOverviewSources({
@@ -140,6 +149,7 @@ export function ViewCardOverviewSources({
   onPin,
   chromeless = false,
   onSourceHover,
+  hideMenu = false,
 }: ViewCardOverviewSourcesProps) {
   // Suppress unused-prop lint — `chromeless` is accepted for API
   // uniformity but the wrapper below is always borderless (this
@@ -202,6 +212,7 @@ export function ViewCardOverviewSources({
           )}
         </div>
 
+        {!hideMenu && (
         <div className="flex items-center gap-0.5 shrink-0">
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center justify-center w-6 h-6 rounded cursor-pointer text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors -mr-1">
@@ -242,6 +253,7 @@ export function ViewCardOverviewSources({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+        )}
       </div>
 
       <div data-no-dnd="true" className="p-4 min-w-0">

@@ -16,6 +16,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { PersonAvatar } from './PersonAvatar'
+import { SourceIcon } from '@/app/hub/(components)/view/SourceIcon'
 import {
   ArrowsClockwise,
   DotsThreeVertical,
@@ -57,18 +59,32 @@ function sourceLabel(src: string): string {
   return src === 'direct' ? 'Direct' : src
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/**
+ * Relative + compact last-seen (local time):
+ *   - today      → "Today 16:12"
+ *   - yesterday  → "Yesterday 18:20"
+ *   - this year  → "15 Jun"          (no year)
+ *   - older year → "15 Jun 2025"     (year only when it's not this year)
+ * Manual formatting (not `toLocaleDateString`) so the day-month order
+ * and 24-h time are stable regardless of the viewer's locale.
+ */
 function formatLastSeen(iso: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
-}
 
-function initials(name: string | null, email: string | null): string {
-  const base = name?.trim() || email?.trim() || ''
-  if (!base) return '?'
-  const parts = base.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return base.slice(0, 2).toUpperCase()
+  const now = new Date()
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime()
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / 86_400_000)
+
+  if (dayDiff === 0 || dayDiff === 1) {
+    const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `${dayDiff === 0 ? 'Today' : 'Yesterday'} ${time}`
+  }
+
+  const base = `${d.getDate()} ${MONTHS[d.getMonth()]}`
+  return d.getFullYear() === now.getFullYear() ? base : `${base} ${d.getFullYear()}`
 }
 
 function useProjectPeople(projectId: string) {
@@ -253,8 +269,7 @@ export function ProjectPeople({ projectId }: { projectId: string }) {
           <table className="w-full text-sm">
             <thead>
               <tr>
-                <th className={COL_HEAD}>Name</th>
-                <th className={COL_HEAD}>Email</th>
+                <th className={COL_HEAD}>Person</th>
                 <th className={COL_HEAD}>Source</th>
                 <th className={COL_HEAD}>Country</th>
                 <th className={COL_HEAD}>Last seen</th>
@@ -269,17 +284,50 @@ export function ProjectPeople({ projectId }: { projectId: string }) {
                 >
                   <td className={CELL}>
                     <div className="flex items-center gap-2.5">
-                      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-main text-[10px] font-semibold text-grey-dark shrink-0">
-                        {initials(p.displayName, p.primaryEmail)}
-                      </span>
-                      <span className="font-medium text-grey-darkest">
-                        {p.displayName ?? '—'}
-                      </span>
+                      <PersonAvatar
+                        seed={p.id}
+                        name={p.displayName ?? p.primaryEmail}
+                        size={36}
+                      />
+                      {/* Name + email stacked. Most people have no name, so the
+                          email is the stable identifier — it always renders.
+                          When a name exists it sits bold on top with the email
+                          de-emphasised beneath (two-line row); otherwise the
+                          email is the single line. Rows differing in height is
+                          expected and fine. */}
+                      <div className="flex min-w-0 flex-col leading-tight">
+                        {p.displayName && (
+                          <span className="font-medium text-grey-darkest">
+                            {p.displayName}
+                          </span>
+                        )}
+                        {p.primaryEmail ? (
+                          <span
+                            className={
+                              p.displayName ? 'text-xs text-grey-light' : 'text-grey-dark'
+                            }
+                          >
+                            {p.primaryEmail}
+                          </span>
+                        ) : (
+                          !p.displayName && <span className="text-grey-light">—</span>
+                        )}
+                      </div>
                     </div>
                   </td>
-                  <td className={`${CELL} text-grey-dark`}>{p.primaryEmail ?? '—'}</td>
                   <td className={`${CELL} text-grey-dark`}>
-                    {p.initialSource ? sourceLabel(p.initialSource) : '—'}
+                    {p.initialSource ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <SourceIcon
+                          sourceKey={p.initialSource}
+                          label={p.initialSource}
+                          size={18}
+                        />
+                        {sourceLabel(p.initialSource)}
+                      </span>
+                    ) : (
+                      '—'
+                    )}
                   </td>
                   <td className={`${CELL} text-grey-dark`}>
                     {p.country ? (

@@ -23,7 +23,7 @@
  * `<ViewCardOverviewChart>` directly with static mock data.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { ViewCardOverviewChart } from './ViewCardOverviewChart'
@@ -83,6 +83,26 @@ interface ViewCardOverviewChartConnectedProps {
    * chart half — that one stays borderless by design.
    */
   withChrome?: boolean
+  /**
+   * Composite mode — the sources panel rendered beside the chart under
+   * the shared header. Passed straight through to
+   * `<ViewCardOverviewChart sourcesSlot>`; see there for the layout.
+   */
+  sourcesSlot?: ReactNode
+  /**
+   * Composite mode — overrides the menu's Refresh action so it reloads
+   * BOTH halves (chart + sources) via the composite's shared tick,
+   * rather than only this chart's series. When omitted, Refresh falls
+   * back to the local chart refetch (standalone chart tiles).
+   */
+  onMenuRefresh?: () => void
+  /**
+   * Composite refresh signal — bumped by `OverviewComposite` (usually
+   * from `onMenuRefresh`). Re-fetches this chart's series on every
+   * change so the shared Refresh reloads the chart too. 0 = initial
+   * mount → no refetch.
+   */
+  refreshTick?: number
 }
 
 export function ViewCardOverviewChartConnected({
@@ -96,6 +116,9 @@ export function ViewCardOverviewChartConnected({
   chromeless,
   externalHoveredSourceKey = null,
   withChrome = false,
+  sourcesSlot,
+  onMenuRefresh,
+  refreshTick,
 }: ViewCardOverviewChartConnectedProps) {
   const initialConfig = useMemo(() => readConfig(view), [view])
   const [primaryMetric, setPrimaryMetric] = useState<OverviewPrimaryMetric | null>(
@@ -130,6 +153,16 @@ export function ViewCardOverviewChartConnected({
     primaryMetric,
     secondaryMetric,
   })
+
+  // Composite "Refresh": OverviewComposite bumps a shared tick so the
+  // unified menu's single Refresh reloads BOTH halves. Re-fetch the
+  // chart series whenever it changes (0 = initial mount → never fires
+  // on mount). `refresh` intentionally omitted from deps — fire on an
+  // actual tick bump only, not when the fetcher's identity changes.
+  useEffect(() => {
+    if (refreshTick) refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTick])
 
   // Fetch primary + secondary connection series in parallel with
   // the main chart fetch. Each `enabled` gate prevents a wasted
@@ -274,7 +307,7 @@ export function ViewCardOverviewChartConnected({
         chart={composedChart}
         loading={loading || primaryConnSeries.loading || secondaryConnSeries.loading}
         error={error}
-        onRefresh={refresh}
+        onRefresh={onMenuRefresh ?? refresh}
         onOpenConversions={() => setConversionsOpen(true)}
         onOpenSettings={() => router.push('/hub/settings')}
         projectName={projectName}
@@ -292,6 +325,7 @@ export function ViewCardOverviewChartConnected({
         fillHeight
         externalHoveredSourceKey={externalHoveredSourceKey}
         withChrome={withChrome}
+        sourcesSlot={sourcesSlot}
       />
       <ProjectConversionsDialog
         projectId={view.projectId}

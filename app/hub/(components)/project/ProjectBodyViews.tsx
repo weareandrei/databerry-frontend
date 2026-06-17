@@ -297,29 +297,58 @@ export function OverviewComposite({
   handlePin,
 }: OverviewCompositeProps) {
   const [hoveredSourceKey, setHoveredSourceKey] = useState<string | null>(null)
+  // Composite-wide refresh: the unified header's single Refresh item
+  // bumps this; both halves re-fetch off it (see the `refreshTick`
+  // wiring in each *Connected wrapper).
+  const [refreshTick, setRefreshTick] = useState(0)
+
+  // Pin / untrack / refresh act on the composite as a WHOLE. The two
+  // rows (chart + sources) were historically pinned/untracked/refreshed
+  // independently; the unified header collapses that into one control,
+  // so every action fans out to both ids at once.
+  //
+  // Pin reconciles to a single TARGET state derived from the chart half
+  // (the one whose `isPinned` drives the menu's Pin/Unpin label), only
+  // toggling whichever row isn't already there — so the pair can never
+  // drift out of sync even if some legacy row was pinned alone.
+  const pinBoth = () => {
+    const target = !chartView.isPinned
+    if (chartView.isPinned !== target) handlePin(chartView.id)
+    if (sourcesView.isPinned !== target) handlePin(sourcesView.id)
+  }
+  const untrackBoth = () => {
+    handleUntrack(chartView.id)
+    handleUntrack(sourcesView.id)
+  }
+  const refreshBoth = () => setRefreshTick(t => t + 1)
+
   return (
+    // `@container` so the chart's internal grid (chart body | sources
+    // slot) tracks THIS card's width, not the viewport — the same
+    // container-query split as before, now owned one level down since
+    // the two halves share a single header + menu.
     <div className="@container">
-      <div className="grid grid-cols-1 @xl:grid-cols-[1fr_minmax(240px,320px)] gap-4 @xl:min-h-[420px]">
-        <div className="h-[320px] @xl:h-auto">
-          <ViewCardOverviewChartConnected
-            view={chartView}
+      <ViewCardOverviewChartConnected
+        view={chartView}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        mode={mode}
+        onUntrack={untrackBoth}
+        onPin={pinBoth}
+        onMenuRefresh={refreshBoth}
+        refreshTick={refreshTick}
+        externalHoveredSourceKey={hoveredSourceKey}
+        sourcesSlot={
+          <ViewCardOverviewSourcesConnected
+            view={sourcesView}
             dateFrom={dateFrom}
             dateTo={dateTo}
-            mode={mode}
-            onUntrack={handleUntrack}
-            onPin={handlePin}
-            externalHoveredSourceKey={hoveredSourceKey}
+            hideMenu
+            refreshTick={refreshTick}
+            onSourceHover={setHoveredSourceKey}
           />
-        </div>
-        <ViewCardOverviewSourcesConnected
-          view={sourcesView}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onUntrack={handleUntrack}
-          onPin={handlePin}
-          onSourceHover={setHoveredSourceKey}
-        />
-      </div>
+        }
+      />
     </div>
   )
 }

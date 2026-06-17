@@ -134,7 +134,10 @@ export const config = {
      * Match all paths except:
      * - _next/static, _next/image (Next.js internals)
      * - favicon.ico, public assets
+     * - /api/avatar/* — public, deterministic, immutably-cached person
+     *   avatars; no point running an auth round-trip on a static-art
+     *   endpoint (it would also turn the SVG response into a 307 → /login).
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/avatar|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

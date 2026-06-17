@@ -14,7 +14,7 @@
  * directly with static mock data.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ViewCardOverviewSources } from './ViewCardOverviewSources'
 import { useOverviewSourcesData } from './data/useOverviewSourcesData'
 import type { View } from '@/types/view'
@@ -38,6 +38,19 @@ interface ViewCardOverviewSourcesConnectedProps {
    * callers (mobile body, pinned tile) don't have to plumb it.
    */
   onSourceHover?: (sourceKey: string | null) => void
+  /**
+   * Composite mode — hides this panel's own 3-dots menu; the unified
+   * project_overview header owns the single menu (see `hideMenu` on
+   * `<ViewCardOverviewSources>`).
+   */
+  hideMenu?: boolean
+  /**
+   * Composite refresh signal. `OverviewComposite` bumps this when the
+   * shared header's Refresh is clicked; on every change we re-fetch all
+   * three tabs so "Refresh" reloads the whole overview, not just the
+   * chart. 0 = initial mount → no refetch.
+   */
+  refreshTick?: number
 }
 
 export function ViewCardOverviewSourcesConnected({
@@ -49,10 +62,25 @@ export function ViewCardOverviewSourcesConnected({
   onPin,
   chromeless,
   onSourceHover,
+  hideMenu,
+  refreshTick,
 }: ViewCardOverviewSourcesConnectedProps) {
   const [tab, setTab] = useState<Tab>('sources')
   const { sources, countries, pages, refreshSources, refreshCountries, refreshPages } =
     useOverviewSourcesData(view.projectId, { tab, dateFrom, dateTo })
+
+  // Composite "Refresh" — re-fetch all three tabs whenever the shared
+  // tick bumps (the unified header's single Refresh drives it). The
+  // refresh fns are intentionally omitted from deps: fire on tick change
+  // only, not when the fetchers' identities change between renders.
+  useEffect(() => {
+    if (refreshTick) {
+      refreshSources()
+      refreshCountries()
+      refreshPages?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshTick])
 
   return (
     <ViewCardOverviewSources
@@ -72,6 +100,7 @@ export function ViewCardOverviewSourcesConnected({
       onPin={onPin}
       chromeless={chromeless}
       onSourceHover={onSourceHover}
+      hideMenu={hideMenu}
     />
   )
 }

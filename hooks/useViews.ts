@@ -92,6 +92,22 @@ export function useViews() {
     try {
       const created = await Promise.all(items.map(v => ALGORITHM.createView(v)))
       dispatch(addViews(created))
+
+      // A PostHog view with no `hogFunctionId` means its live-update
+      // destination couldn't be registered — almost always the API key is
+      // missing the `hog_function:write` scope. The view still works on
+      // refresh; warn so the user can add the scope for automatic updates.
+      const noLiveUpdates = created.filter(
+        v => v.connectionType === 'posthog' && !v.config?.hogFunctionId,
+      )
+      if (noLiveUpdates.length > 0) {
+        toast.warning(
+          `${
+            noLiveUpdates.length === 1 ? 'View created' : `${noLiveUpdates.length} views created`
+          }, but won't update live. Add the “hog_function:write” scope to your PostHog API key to enable automatic updates.`,
+        )
+      }
+
       // Keep `totalCount` in sync so the sidebar plan card updates
       // immediately instead of waiting for a page refresh. Only
       // bumps if we already have a count (null = still loading;
@@ -138,7 +154,10 @@ export function useViews() {
       // optimistically because reverting a count is harder to keep
       // truthful than waiting for the server "ok".
       setTotalCount(c => (c == null ? c : Math.max(0, c - 1)))
-      toast.success('View removed')
+      // Stable id so removing the two halves of a composite overview
+      // (fired back-to-back from `OverviewComposite`) collapses into ONE
+      // toast instead of stacking two identical "View removed"s.
+      toast.success('View removed', { id: 'view-removed' })
     } catch {
       if (existing) dispatch(addViews([existing]))
       toast.error('Failed to untrack view')

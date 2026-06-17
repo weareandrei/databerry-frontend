@@ -17,18 +17,11 @@ import { ArrowsClockwise, Lightning } from '@phosphor-icons/react'
 import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { ALGORITHM, type PersonRow, type PersonEvent } from '@/lib/api'
+import { PersonAvatar } from './PersonAvatar'
 
 /** Capitalise the first letter — for login-method labels like "Google". */
 function capitalize(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
-}
-
-function initials(name: string | null, email: string | null): string {
-  const base = name?.trim() || email?.trim() || ''
-  if (!base) return '?'
-  const parts = base.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase()
-  return base.slice(0, 2).toUpperCase()
 }
 
 /** "Jun 14, 2026 · 3:42 PM" — absolute date + time, local zone. */
@@ -124,9 +117,15 @@ export function PersonEventsSheet({
         bodyMaxWidth="44rem"
         headerLeft={
           <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-main text-xs font-semibold text-grey-dark">
-              {initials(who?.displayName ?? null, who?.primaryEmail ?? null)}
-            </span>
+            {who?.id ? (
+              <PersonAvatar
+                seed={who.id}
+                name={who.displayName ?? who.primaryEmail}
+                size={36}
+              />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-main" />
+            )}
             <div className="min-w-0">
               <p className="truncate font-heading text-base font-semibold tracking-tight text-grey-darkest">
                 {who?.displayName ?? 'Unknown person'}

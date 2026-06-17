@@ -1,25 +1,11 @@
 'use client'
 
-import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import {
-  CaretLeft,
-  CaretRight,
-  FacebookLogo,
-  GithubLogo,
-  Globe,
-  InstagramLogo,
-  LinkedinLogo,
-  LinkSimple,
-  NewspaperClipping,
-  Question,
-  TiktokLogo,
-  YoutubeLogo,
-  type Icon as PhosphorIcon,
-} from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, Question } from '@phosphor-icons/react'
 import type { OverviewSource } from '@/lib/api'
 import { assignChartColors, sourceStyle } from '@/constants/trafficSources'
+import { SourceIcon } from './SourceIcon'
 import {
   Tooltip,
   TooltipContent,
@@ -67,23 +53,6 @@ const BAR_HEIGHT = 18 // px — vertical size of each mini-bar
 const LEFT_BREATHING_RATIO = 0.15 // leave 15% empty on the left of the biggest row
 const BAR_MIN = 1 // never render zero bars — always show at least one
 const BAR_STEP = BAR_WIDTH + BAR_GAP
-
-// ---- Fallback icon map for sources without a proper brand logo ----------------
-// Known logo files in /public/logos live on `NormalizedSource.logo` and take
-// precedence. Everything else falls back to a Phosphor icon.
-function fallbackIcon(sourceKey: string): PhosphorIcon {
-  switch (sourceKey) {
-    case 'direct':    return LinkSimple
-    case 'youtube':   return YoutubeLogo
-    case 'facebook':  return FacebookLogo
-    case 'linkedin':  return LinkedinLogo
-    case 'github':    return GithubLogo
-    case 'instagram': return InstagramLogo
-    case 'tiktok':    return TiktokLogo
-    case 'hn':        return NewspaperClipping
-    default:          return Globe
-  }
-}
 
 // ---- Width-tracking hook (native ResizeObserver, matches existing codebase use)
 function useElementWidth<T extends HTMLElement>(): [React.RefObject<T | null>, number] {
@@ -159,7 +128,6 @@ interface SourceRowProps {
 }
 
 function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, onHoverChange }: SourceRowProps) {
-  const FallbackIcon = fallbackIcon(source.source)
   const [isHovered, setIsHovered] = useState(false)
   return (
     <li
@@ -178,17 +146,7 @@ function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, on
           tooltip target is visually anchored to "Other" rather than
           floating elsewhere on the row. */}
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        {logo ? (
-          <Image
-            src={logo}
-            alt={label}
-            width={16}
-            height={16}
-            className="rounded-sm shrink-0"
-          />
-        ) : (
-          <FallbackIcon size={16} weight="regular" className="text-grey-darkest shrink-0" />
-        )}
+        <SourceIcon sourceKey={source.source} label={label} logo={logo} />
         <span className="truncate text-sm text-grey-darkest min-w-0">{label}</span>
         {tooltip && (
           <TooltipProvider delay={150}>

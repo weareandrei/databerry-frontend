@@ -147,14 +147,21 @@ export function PostHogForm({
         }
       >
         <p className="text-sm text-grey-dark">Give it the following access:</p>
-        <ul className="mt-1 list-disc pl-5 text-sm text-grey-darkest">
+        <ul className="mt-1 list-disc pl-5 text-sm text-grey-darkest space-y-1">
           <li>
             <span className="font-semibold">Read</span> access to Project,
             Query, and Event definition.
           </li>
+          <li>
+            <span className="font-semibold">Write</span> access to Hog function
+            (<code className="bg-muted px-1 rounded">hog_function:write</code>) —
+            so your views update live. Without it they still work, just with no
+            automatic updates.
+          </li>
         </ul>
         <p className="mt-2 text-xs text-grey-light">
-          It&apos;s read-only. We never write anything to your PostHog account.
+          We only register a destination that forwards matching events to your
+          dashboard — your events and other PostHog data are never modified.
         </p>
       </SetupStep>
 

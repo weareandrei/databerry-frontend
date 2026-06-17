@@ -27,7 +27,7 @@
  * source of truth for the design.
  */
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import Image from 'next/image'
 import {
   ArrowsClockwise,
@@ -557,6 +557,16 @@ interface ViewCardOverviewChartProps {
    * continuity of the composite block.
    */
   withChrome?: boolean
+  /**
+   * Composite mode — the sources panel to render beside the chart. When
+   * supplied (the unified project_overview block), the chart body and
+   * this slot share one grid UNDER the single header above, so the two
+   * halves read as one view with one header + one menu. When omitted
+   * (standalone `custom_chart`, lone overview), the grid wrappers
+   * collapse to `display:contents` and the chart body fills the card
+   * exactly as before.
+   */
+  sourcesSlot?: ReactNode
 }
 
 export function ViewCardOverviewChart({
@@ -583,6 +593,7 @@ export function ViewCardOverviewChart({
   fillHeight = false,
   externalHoveredSourceKey = null,
   withChrome = false,
+  sourcesSlot,
 }: ViewCardOverviewChartProps) {
   // `nowTick` bumps once per minute so the "now" reference line advances to
   // the next bucket when the wall clock crosses an hour/day boundary without
@@ -867,6 +878,15 @@ export function ViewCardOverviewChart({
           lets the axis labels sit at the card edge, lining the plot up
           with everything else. The X-axis labels are the natural
           bottom edge, so no `pb` either. */}
+      {/* Composite layout: when a `sourcesSlot` is supplied (the unified
+          project_overview block) the chart body + sources panel share
+          this grid, sitting UNDER the single header above. The
+          `contents`-class wrappers vanish from layout when there's no
+          slot, so the standalone chart renders exactly as before. The
+          @xl container-query split is driven by the composite's own
+          `@container` ancestor (`OverviewComposite`). */}
+      <div className={sourcesSlot ? 'grid grid-cols-1 @xl:grid-cols-[1fr_minmax(240px,320px)] gap-4 @xl:min-h-[420px]' : 'contents'}>
+      <div className={sourcesSlot ? 'h-[320px] @xl:h-auto flex flex-col min-h-0' : 'contents'}>
       <div
         data-no-dnd="true"
         className={
@@ -969,6 +989,12 @@ export function ViewCardOverviewChart({
             </>
           ) : null}
         </div>
+      </div>
+      </div>
+      {/* Sources panel — the right grid cell in composite mode; null for
+          the standalone chart (the grid wrappers above are then
+          `display:contents`, so the body fills the card as before). */}
+      {sourcesSlot}
       </div>
     </ViewWrapper>
 
