@@ -29,9 +29,9 @@ interface SidebarFolderItemProps {
   onNavigate?: (projectId: string, folderId: string) => void
   /**
    * The folder currently open in the body (from the route). When it
-   * matches this row, the row renders ACTIVE — same brand dashed
-   * outline + tint the project sidebar's nav rows use, so a folder
-   * opened from the body grid and one opened from here look identical.
+   * matches this row, the row renders ACTIVE — the same soft-grey fill
+   * the project sidebar's nav rows use, so a folder opened from the
+   * body grid and one opened from here look identical.
    */
   activeFolderId?: string | null
   /**
@@ -78,7 +78,7 @@ export function SidebarFolderItem({
         className={cn(
           'group flex items-center gap-1 rounded-md pr-3 transition-colors border',
           isActive
-            ? 'bg-brand/25 border-dashed border-brand'
+            ? 'bg-black/[0.06] border-transparent'
             : 'border-transparent hover:bg-hover-fill',
         )}
         style={{ paddingLeft: `${26 + depth * 14}px` }}

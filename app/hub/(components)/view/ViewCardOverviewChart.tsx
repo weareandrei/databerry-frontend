@@ -62,7 +62,7 @@ import { ViewWrapper } from './ViewWrapper'
 import { OverviewChart } from './OverviewChart'
 import { PosthogEventPickerDialog } from './PosthogEventPickerDialog'
 import { TrafficConnectionPicker } from '../modals/TrafficConnectionPicker'
-import type { OverviewChartResponse } from '@/lib/api'
+import type { OverviewChartResponse, PosthogEventDefinition } from '@/lib/api'
 import { bucketLabelForNow } from '@/utils/overviewBucketLabel'
 import type {
   ConnectionMetricRef,
@@ -230,6 +230,7 @@ function MetricDropdown<T extends string | null>({
   onPickConnection,
   onRequestPosthogEvent,
   projectId,
+  connectionsOverride,
 }: {
   iconSrc: string
   iconAlt: string
@@ -252,6 +253,11 @@ function MetricDropdown<T extends string | null>({
   /** Project that owns this chart — used to filter connections
    *  for the cascade (project-scoped OR Common). */
   projectId: string
+  /** Demo escape hatch: when set, drives the connection cascade in
+   *  place of `useDashboardOptional()` (which is null on the landing-
+   *  page demo, where there's no `DashboardProvider`). Real callers
+   *  omit it and the cascade reads from dashboard context as before. */
+  connectionsOverride?: { id: string; type: string; projectId: string | null }[] | null
 }) {
   // `useDashboardOptional` returns null on the landing-page demo (no
   // `DashboardProvider` in that tree). Without the optional variant,
@@ -264,7 +270,7 @@ function MetricDropdown<T extends string | null>({
   // section is silently skipped, which is the right behaviour for
   // a static mock-data demo anyway.
   const dashboard = useDashboardOptional()
-  const allConnections = dashboard?.connections.connections ?? null
+  const allConnections = connectionsOverride ?? dashboard?.connections.connections ?? null
 
   // Filter the user's connections to those eligible for THIS chart:
   // project-scoped to its project, OR Common. Matches the
@@ -567,6 +573,20 @@ interface ViewCardOverviewChartProps {
    * exactly as before.
    */
   sourcesSlot?: ReactNode
+  /**
+   * Demo escape hatch — forwarded to the metric dropdowns' connection
+   * cascade. The landing-page demo has no `DashboardProvider`, so the
+   * cascade is otherwise empty; passing the demo's connections here is
+   * what surfaces "PostHog → Event count" (and any other connection
+   * metric) in the demo chart. Real callers omit it.
+   */
+  connectionsOverride?: { id: string; type: string; projectId: string | null }[] | null
+  /**
+   * Demo escape hatch — event list for the PostHog event picker dialog.
+   * When set, the picker lists these instead of fetching from the
+   * backend (unreachable in the demo). Real callers omit it.
+   */
+  posthogEventsOverride?: PosthogEventDefinition[]
 }
 
 export function ViewCardOverviewChart({
@@ -594,6 +614,8 @@ export function ViewCardOverviewChart({
   externalHoveredSourceKey = null,
   withChrome = false,
   sourcesSlot,
+  connectionsOverride,
+  posthogEventsOverride,
 }: ViewCardOverviewChartProps) {
   // `nowTick` bumps once per minute so the "now" reference line advances to
   // the next bucket when the wall clock crosses an hour/day boundary without
@@ -743,6 +765,7 @@ export function ViewCardOverviewChart({
             })
           }
           projectId={view.projectId}
+          connectionsOverride={connectionsOverride}
         />
         {/* Swap button — toggles the bar/line visual encoding. After click,
             the bars plot the secondary metric and the line plots the primary
@@ -774,6 +797,7 @@ export function ViewCardOverviewChart({
             })
           }
           projectId={view.projectId}
+          connectionsOverride={connectionsOverride}
         />
         {projectName && (
           <span className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0">
@@ -1031,6 +1055,7 @@ export function ViewCardOverviewChart({
         }}
         connectionId={posthogPicker.connectionId}
         initialEventName={posthogPicker.initialEventName}
+        eventsOverride={posthogEventsOverride}
         onConfirm={eventName => {
           const ref: ConnectionMetricRef = {
             connectionId: posthogPicker.connectionId,

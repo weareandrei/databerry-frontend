@@ -12,16 +12,25 @@
  * A person with nothing ingested yet shows the empty state.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowsClockwise, Lightning } from '@phosphor-icons/react'
 import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
 import { ALGORITHM, type PersonRow, type PersonEvent } from '@/lib/api'
+import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { PersonAvatar } from './PersonAvatar'
 
 /** Capitalise the first letter — for login-method labels like "Google". */
 function capitalize(s: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
+
+/**
+ * Short connection name for a filter badge — strips the "(Connect)" /
+ * "(Twitter)" qualifiers in CONNECTION_DISPLAY_NAMES so badges stay tidy.
+ */
+function connectionName(source: string): string {
+  return (CONNECTION_DISPLAY_NAMES[source] ?? capitalize(source)).replace(/\s*\(.*\)$/, '')
 }
 
 /** "Jun 14, 2026 · 3:42 PM" — absolute date + time, local zone. */
@@ -71,12 +80,19 @@ function detailFor(ev: PersonEvent): string | null {
   return null
 }
 
-function useTimeline(person: PersonRow | null) {
+function useTimeline(person: PersonRow | null, override?: PersonEvent[]) {
   const [events, setEvents] = useState<PersonEvent[] | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!person) return
+    // Demo: the caller hands us the timeline directly — no backend
+    // round-trip (the landing-page demo has no API/auth).
+    if (override) {
+      setEvents(override)
+      setLoading(false)
+      return
+    }
     let cancelled = false
     setEvents(null)
     setLoading(true)
@@ -87,7 +103,7 @@ function useTimeline(person: PersonRow | null) {
     return () => {
       cancelled = true
     }
-  }, [person])
+  }, [person, override])
 
   return { events, loading }
 }
@@ -95,9 +111,19 @@ function useTimeline(person: PersonRow | null) {
 export function PersonEventsSheet({
   person,
   onClose,
+  eventsOverride,
+  container,
 }: {
   person: PersonRow | null
   onClose: () => void
+  /** Demo escape hatch: render THESE events instead of fetching from
+   *  the backend (the landing-page demo has no API/auth). Real callers
+   *  omit it and the sheet fetches `GET /people/:id/events` as usual. */
+  eventsOverride?: PersonEvent[]
+  /** Portal target for the bottom sheet. The demo passes its card so
+   *  the sheet stays inside the demo surface; real callers omit it and
+   *  the sheet portals to the document body. */
+  container?: HTMLElement | null
 }) {
   // Keep the last opened person so the slide-down close animation still
   // has a name/avatar to render after the parent clears `person`.
@@ -106,11 +132,15 @@ export function PersonEventsSheet({
     if (person) setShown(person)
   }, [person])
 
-  const { events, loading } = useTimeline(person)
+  const { events, loading } = useTimeline(person, eventsOverride)
   const who = person ?? shown
 
   return (
-    <BottomDialog open={person !== null} onOpenChange={o => !o && onClose()}>
+    <BottomDialog
+      open={person !== null}
+      onOpenChange={o => !o && onClose()}
+      container={container}
+    >
       <BottomDialog.Page
         pageKey={who?.id ?? 'person'}
         bodyVariant="card"
@@ -156,7 +186,27 @@ function Timeline({
   // Accumulating reveal: show PAGE_SIZE, "Load more" adds another
   // PAGE_SIZE while keeping what's shown. Reset when the person changes.
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  useEffect(() => setVisibleCount(PAGE_SIZE), [events])
+  // Single-select connection filter (null = all). Reset when the person
+  // (events) changes; re-collapse the reveal whenever the filter changes.
+  const [activeSource, setActiveSource] = useState<string | null>(null)
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+    setActiveSource(null)
+  }, [events])
+  useEffect(() => setVisibleCount(PAGE_SIZE), [activeSource])
+
+  // Per-connection event counts across ALL of this person's events
+  // (stable regardless of the active filter), busiest connection first.
+  const sources = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const e of events ?? []) {
+      const key = e.source ?? 'custom'
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([key, count]) => ({ key, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [events])
 
   if (loading || events === null) {
     return (
@@ -186,11 +236,48 @@ function Timeline({
     )
   }
 
-  const visible = events.slice(0, visibleCount)
-  const remaining = events.length - visible.length
+  const filtered = activeSource
+    ? events.filter(e => (e.source ?? 'custom') === activeSource)
+    : events
+  const visible = filtered.slice(0, visibleCount)
+  const remaining = filtered.length - visible.length
 
   return (
     <>
+      {/* Connection filter — one badge per connection that detected an
+          event, showing that connection's event count. Click a badge to
+          show only its events; click it again to clear. Hidden when only
+          one connection is present (nothing to filter). */}
+      {sources.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {sources.map(({ key, count }) => {
+            const active = activeSource === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveSource(active ? null : key)}
+                className={`inline-flex items-center gap-1.5 rounded-full border py-1 pl-1.5 pr-1 text-xs font-medium transition-colors cursor-pointer ${
+                  active
+                    ? 'border-grey-darkest bg-main text-grey-darkest'
+                    : 'border-stroke bg-white text-grey-dark hover:bg-hover-fill'
+                }`}
+              >
+                <ConnectionIcon type={key} size={16} />
+                <span>{connectionName(key)}</span>
+                <span
+                  className={`flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums ${
+                    active ? 'bg-grey-darkest text-white' : 'bg-main text-grey-dark'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <ol className="divide-y divide-stroke">
         {visible.map(ev => {
           const detail = detailFor(ev)

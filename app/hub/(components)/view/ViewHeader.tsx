@@ -196,7 +196,7 @@ export function ViewHeader({
           */}
           <ConnectionIcon
             type={connectionType}
-            size={dense ? 28 : 34}
+            size={dense ? 28 : 36}
             className="shrink-0 text-grey-dark"
           />
           <div className="min-w-0">

@@ -138,10 +138,10 @@ function NavRow({
       onClick={onClick}
       className={`group w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-left cursor-pointer ${
         active
-          ? // Soft brand tint (25%) behind the dashed brand outline.
-            'bg-brand/10 border border-dashed border-brand text-grey-darkest'
-          : // Inactive → hover only darkens text/icon (no bg change).
-            'border border-transparent text-grey-dark hover:text-grey-darkest'
+          ? // Selected → plain soft-grey fill.
+            'border border-transparent bg-black/[0.06] text-grey-darkest font-medium'
+          : // Inactive → subtle grey on hover.
+            'border border-transparent text-grey-dark hover:text-grey-darkest hover:bg-black/[0.04]'
       }`}
     >
       {/* Icon grows a touch on row hover for a clearer affordance. It's
@@ -221,7 +221,7 @@ export function ProjectSidebar({ project }: { project: Project }) {
     // `left-20` = the 64-px icon rail + the shared 16-px gap, so
     // rail→sidebar spacing equals sidebar→body spacing.
     <aside
-      className={`hidden md:flex flex-col fixed top-3 bottom-3 left-20 ${PROJECT_SIDEBAR_WIDTH_CLASS} z-20 font-semibold tracking-[0.05em] overflow-hidden bg-white rounded-2xl border border-stroke shadow-card`}
+      className={`hidden md:flex flex-col fixed top-3 bottom-3 left-20 ${PROJECT_SIDEBAR_WIDTH_CLASS} z-20 font-semibold tracking-[0.05em] overflow-hidden bg-white/50 rounded-2xl border border-stroke shadow-card`}
     >
       {/* Project identity row. The 3-dots menu carries the project-
           level actions (Edit / Delete) that used to live on the

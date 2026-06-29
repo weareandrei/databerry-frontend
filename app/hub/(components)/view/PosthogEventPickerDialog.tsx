@@ -49,6 +49,10 @@ interface Props {
   initialEventName?: string | null
   /** Fires with the picked event name when the user confirms. */
   onConfirm: (eventName: string) => void
+  /** Demo escape hatch: when set, the dialog lists THESE events
+   *  instead of fetching from the backend (which the landing-page
+   *  demo can't reach). Real callers omit it. */
+  eventsOverride?: PosthogEventDefinition[]
 }
 
 export function PosthogEventPickerDialog({
@@ -57,6 +61,7 @@ export function PosthogEventPickerDialog({
   connectionId,
   initialEventName,
   onConfirm,
+  eventsOverride,
 }: Props) {
   const [events, setEvents] = useState<PosthogEventDefinition[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -71,7 +76,16 @@ export function PosthogEventPickerDialog({
   // Re-fetch events when the dialog opens for a different connection.
   // Closing + re-opening the same dialog reuses the cached list.
   useEffect(() => {
-    if (!open || !connectionId) return
+    if (!open) return
+    // Demo: the caller hands us the event list directly — no backend
+    // round-trip (the landing-page demo has no API/auth).
+    if (eventsOverride) {
+      setEvents(eventsOverride)
+      setLoading(false)
+      setError(null)
+      return
+    }
+    if (!connectionId) return
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -90,7 +104,7 @@ export function PosthogEventPickerDialog({
     return () => {
       cancelled = true
     }
-  }, [open, connectionId])
+  }, [open, connectionId, eventsOverride])
 
   // Reset selection on open so reopening with a different
   // `initialEventName` correctly pre-selects it.

@@ -12,6 +12,7 @@ import { FeedbackWidget } from '@/app/hub/(components)/FeedbackWidget'
 import { OnboardingGate } from '@/app/hub/(components)/OnboardingGate'
 import { TrialKickoff } from '@/app/hub/(components)/TrialKickoff'
 import { SubscriptionGate } from '@/app/hub/(components)/SubscriptionGate'
+import { ServerStatusGate } from '@/app/hub/(components)/ServerStatusGate'
 
 const jakarta = Plus_Jakarta_Sans({
   variable: '--font-jakarta',
@@ -109,6 +110,12 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
                 how long ago the trial lapsed. Fail-open on unknown
                 account state; see its docblock for the trigger. */}
             <SubscriptionGate />
+            {/* Top-most overlay: when the backend is unreachable (every
+                bootstrap fetch — projects, account, views — fails with a
+                network error / gateway 5xx), covers everything with a
+                "server is down" notice + support contact and auto-reloads
+                when the server recovers. Renders nothing while reachable. */}
+            <ServerStatusGate />
           </UserSettingsProvider>
         </DashboardProvider>
       </StoreProvider>

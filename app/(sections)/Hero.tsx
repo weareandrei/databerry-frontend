@@ -16,7 +16,7 @@ const heroFade = (delay: number) => ({
 
 const LOGOS = [
   { src: '/landing/logos/stripe_logo.png', alt: 'Stripe' },
-  { src: '/landing/logos/calendly_logo.png', alt: 'Calendly' },
+  { src: '/connections/datafast_icon.png', alt: 'Datafast' },
   { src: '/landing/logos/posthog_logo.png', alt: 'PostHog' },
   { src: '/landing/logos/ga4_logo.png', alt: 'Google Analytics' },
   { src: '/landing/logos/gmail_logo.png', alt: 'Gmail' },

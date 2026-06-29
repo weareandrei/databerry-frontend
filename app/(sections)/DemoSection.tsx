@@ -29,16 +29,37 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
     offset: ['start start', 'end end'],
   })
 
-  const scale = useTransform(scrollYProgress, [0, 0.4, 0.7, 1], [1, 1.1, 1.2, 1.25])
+  // Desktop grows the card on scroll (1 → 1.18×). The growth FINISHES by
+  // ~55% of the scroll and holds, so the side-padding melt (below) runs
+  // AFTER it rather than at the same time — the two were fighting
+  // (transform vs. layout) and read as a lag when overlapped. Mobile does
+  // NOT grow — it stays pinned at a fixed wide 1.25× the whole way down
+  // (that value just sizes the mobile card; it isn't the scroll zoom).
+  const scale = useTransform(
+    scrollYProgress,
+    [0, 0.2, 0.4, 0.55],
+    isMobile ? [1.25, 1.25, 1.25, 1.25] : [1, 1.07, 1.14, 1.15],
+  )
   const badgeOpacity = useTransform(scrollYProgress, [0.5, 0.9], [1, 0])
   const badgeY = useTransform(scrollYProgress, [0.5, 0.9], [0, -16])
   const spacerHeight = useTransform(scrollYProgress, [0.5, 0.9], [48, 0])
-  // Mobile-only: flatten the corners as the card scales out to meet the
-  // viewport edges (`w-[80vw]` × scale 1.25 = 100vw at max scroll). Rounded
-  // corners would read as a clipping artefact against a flush edge.
-  // 18px = the `rounded-2xl` value in this project's theme
-  // (var(--radius-2xl) = 0.625rem × 1.8 = 1.125rem).
-  const borderRadius = useTransform(scrollYProgress, [0, 1], isMobile ? [18, 0] : [18, 18])
+  // Corners stay rounded at every scroll position. (Previously the mobile
+  // card flattened to square as it scaled out to a flush 100vw edge; the
+  // demo was since shrunk ~12.5%, so it no longer reaches the viewport
+  // edges and a rounded inset card reads cleaner than a square one with a
+  // side gap.) 18px = this project's `rounded-2xl`.
+  const borderRadius = useTransform(scrollYProgress, [0, 1], [18, 18])
+  // Desktop: the dashboard's left/right inset melts from 16px → 0, but only
+  // AFTER the resize above has finished (it runs over [0.55, 0.9], picking
+  // up where `scale` stops). Sequencing it this way — grow first, then
+  // expand to fill — avoids running a layout animation (padding) at the
+  // same time as the transform animation (scale), which felt laggy. Mobile
+  // is left untouched (the card doesn't resize there, so the inset stays).
+  const sidePadding = useTransform(
+    scrollYProgress,
+    [0.55, 0.9],
+    isMobile ? [16, 16] : [16, 0],
+  )
 
   return (
     <div
@@ -49,13 +70,18 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
         ['--demo-offset' as string]: `${topOffset}px`,
       }}
     >
-      {/* Width tiers:
-            - default `w-[80vw]`: calibrated against the 1.25× scale max so the card reaches exactly 100vw (edge-to-edge, zero side gap) at full scroll. If you change either side, keep `mobile-width × scale-max = 100vw`.
-            - md+: pinned to `w-2xl` design width
-            - xl+: scales with viewport at `72vw` for wide-screen breathing room
-            - 3xl+ (≥112rem viewport): caps at `w-8xl` (88rem = 1408px) so the card stops growing on huge displays
-          Custom `3xl` breakpoint and `8xl` container live in `globals.css`. */}
-      <div className="sticky z-[20] mx-auto w-[80vw] md:w-[75vw] xl:w-[72vw] 3xl:w-8xl pb-24" style={{ top: stickyTop }}>
+      {/* Width tiers. Mobile/base sits ~12.5% under the original
+          calibration; the desktop tiers (md+) are pulled in a further ~12%
+          so the card reads a touch narrower on wide screens (heights
+          unchanged). The scroll-driven `scale` still grows the DESKTOP card
+          1→1.25×; mobile is pinned at 1.25× (see `scale` above), so its
+          layout box stays `w-[70vw]` while rendering ~88vw wide.
+            - default `w-[70vw]`  (mobile / small)
+            - md+   `w-[62vw]`
+            - xl+   `w-[59vw]`   (wide-screen breathing room)
+            - 3xl+  `w-[72rem]`  (caps growth on huge displays; ≈1152px)
+          Custom `3xl` breakpoint lives in `globals.css`. */}
+      <div className="sticky z-[20] mx-auto w-[70vw] md:w-[62vw] xl:w-[59vw] 3xl:w-[72rem] pb-24" style={{ top: stickyTop }}>
         <motion.div
           ref={cardRef}
           style={{ scale, borderRadius }}
@@ -93,13 +119,17 @@ function DemoCard({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
                 card stays comfortably shorter than vh at every breakpoint — the
                 scroll-driven `scale` animation grows the card to 1.25× and we
                 need room above/below for that without overflowing the viewport. */}
-            {/* Mobile base height bumped from 440px → 506px (+15%) so
-                the phone preview reads as a substantial surface; xl+
-                tiers untouched since they were already sized off the
-                wider viewport. */}
-            <div className="dashboard h-[506px] xl:h-[500px] 2xl:h-[560px] 3xl:h-[620px] p-4 pt-0">
+            {/* Heights ~12.5% smaller than before, in step with the width
+                reduction above, so the card keeps its ~2:1–2.3:1 aspect at
+                every tier while reading a notch smaller overall. */}
+            {/* `pt-0 pb-4` keep the top/bottom insets; the left/right inset
+                is the scroll-driven `sidePadding` (16px → 0 on desktop). */}
+            <motion.div
+              className="dashboard h-[443px] xl:h-[438px] 2xl:h-[490px] 3xl:h-[543px] pt-0 pb-4"
+              style={{ paddingLeft: sidePadding, paddingRight: sidePadding }}
+            >
               <InteractableDemo />
-            </div>
+            </motion.div>
           </motion.div>
         </motion.div>
       </div>

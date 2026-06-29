@@ -3,41 +3,62 @@
 /**
  * Demo create-connection modal.
  *
- * Replaces the OAuth + API-key flow the real app has with a no-op
- * picker: choose an integration, name it, click Add. The new
- * connection drops into the demo's connections list immediately.
+ * Mirrors the real `<CreateConnectionModal>` flow as far as it can
+ * WITHOUT performing a real connection:
  *
- * No backend hit. No API key field. No OAuth. The user explicitly
- * asked for create-connection to work in the demo, but without any
- * way to enter real credentials.
+ *   1. Pick an integration from the grid.
+ *   2. Land on that integration's REAL setup form — the same
+ *      `<PostHogForm>` / `<StripeManualForm>` / `<WebhookForm>`
+ *      (or an OAuth-instructions card) the live app renders, with all
+ *      the "create an API key with these scopes / paste it here"
+ *      instructions intact. The visitor can read the process and fill
+ *      the fields.
+ *   3. Clicking **Connect** does NOT create anything — it surfaces an
+ *      inline "demo only" note. The flow deliberately stops one step
+ *      before a real connection is made.
  *
- * Uses the same `BottomDialog` primitive the real dashboard uses, so
- * the demo's bottom-sheet UX matches what users will see once they
- * sign up. Same `Page` slot pattern, same `headerRight` save/cancel
- * cluster — only the underlying logic is mocked.
+ * The forms are imported straight from the shared
+ * `components/connections/ConnectionForms` — they're fully controlled
+ * (value + onChange props, no backend/context coupling), so the demo
+ * holds the field state locally and feeds them the same way the real
+ * modal does. No OAuth, no API calls, no `createConnection`.
  */
 
 import { useState } from 'react'
+import { Warning } from '@phosphor-icons/react'
 import { BottomDialog } from '@/components/ui/Dialog/BottomDialog'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import {
+  PostHogForm,
+  StripeManualForm,
+  WebhookForm,
+  PrerequisitesCard,
+  SetupStep,
+} from '@/components/connections/ConnectionForms'
+import { POSTHOG_HOSTS } from '@/lib/connections/connectionFlows'
 import { cn } from '@/lib/utils'
 import { useDemoContext } from './context/DemoContext'
+
+type Flow = 'posthog' | 'stripe' | 'webhook' | 'oauth'
 
 interface IntegrationOption {
   type: string
   label: string
   description: string
+  flow: Flow
 }
 
+// Aligned with the real modal's enabled integrations. `type` doubles
+// as the `<ConnectionIcon>` key; `flow` picks which setup form renders
+// in step 2.
 const INTEGRATIONS: IntegrationOption[] = [
-  { type: 'stripe_manual',     label: 'Stripe',           description: 'Gross volume, MRR, customers' },
-  { type: 'posthog',           label: 'PostHog',          description: 'Product analytics + events' },
-  { type: 'calendly',          label: 'Calendly',         description: 'Scheduled meetings' },
-  { type: 'google_analytics',  label: 'Google Analytics', description: 'GA4 traffic + sources' },
-  { type: 'github',            label: 'GitHub',           description: 'Stars, issues, PRs' },
-  { type: 'sentry',            label: 'Sentry',           description: 'Errors, perf' },
+  { type: 'posthog',          label: 'PostHog',          description: 'Product analytics & event tracking', flow: 'posthog' },
+  { type: 'stripe_manual',    label: 'Stripe',           description: 'Payments, revenue & subscriptions',  flow: 'stripe' },
+  { type: 'calendly',         label: 'Calendly',         description: 'Scheduled meetings & booking links', flow: 'oauth' },
+  { type: 'google_analytics', label: 'Google Analytics', description: 'Website traffic & user behavior',    flow: 'oauth' },
+  { type: 'sentry',           label: 'Sentry',           description: 'Error monitoring & issues',           flow: 'oauth' },
+  { type: 'webhook',          label: 'Custom Webhook',   description: 'Accept POST requests from any source', flow: 'webhook' },
 ]
 
 interface Props {
@@ -45,59 +66,93 @@ interface Props {
   onOpenChange: (v: boolean) => void
 }
 
-export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
-  const { createConnection, dialogContainer } = useDemoContext()
-  const [pickedType, setPickedType] = useState<string | null>(null)
-  const [name, setName] = useState('')
+/** OAuth integrations have no form — show what authorizing will do. */
+function OAuthInstructions({ label }: { label: string }) {
+  return (
+    <div className="space-y-6 max-w-md">
+      <PrerequisitesCard
+        items={[
+          `You have a ${label} account`,
+          `You're an admin who can authorize access on it`,
+        ]}
+      />
+      <SetupStep n={1} title={`Authorize Databerry to read your ${label} data`}>
+        <p className="text-sm text-grey-dark">
+          Clicking <span className="font-semibold">Connect</span> opens{' '}
+          {label}&apos;s secure authorization screen in a new tab. Databerry
+          only ever <span className="font-semibold">reads</span> — it never
+          writes anything back to your {label} account.
+        </p>
+      </SetupStep>
+    </div>
+  )
+}
 
-  function reset() {
-    setPickedType(null)
-    setName('')
+export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
+  const { dialogContainer } = useDemoContext()
+  const [picked, setPicked] = useState<IntegrationOption | null>(null)
+  // Set when the visitor hits Connect — the demo's "we won't actually
+  // connect" acknowledgement. Reset whenever they change integration.
+  const [demoNoteShown, setDemoNoteShown] = useState(false)
+
+  // Field state for the controlled forms (held here exactly as the real
+  // modal holds it). None of it is ever submitted anywhere.
+  const [posthogApiKey, setPosthogApiKey] = useState('')
+  const [posthogHost, setPosthogHost] = useState<string>(POSTHOG_HOSTS[0].id)
+  const [stripeName, setStripeName] = useState('Stripe')
+  const [stripeKey, setStripeKey] = useState('')
+  const [webhookName, setWebhookName] = useState('')
+
+  function resetAll() {
+    setPicked(null)
+    setDemoNoteShown(false)
+    setPosthogApiKey('')
+    setPosthogHost(POSTHOG_HOSTS[0].id)
+    setStripeName('Stripe')
+    setStripeKey('')
+    setWebhookName('')
   }
 
   function handleClose(v: boolean) {
-    if (!v) reset()
+    if (!v) resetAll()
     onOpenChange(v)
   }
 
-  function handleAdd() {
-    if (!pickedType) return
-    const finalName =
-      name.trim() ||
-      // Default to "<Integration> connection" when the user hasn't
-      // typed anything. Same fallback the real `<CreateConnectionModal>`
-      // applies when its OAuth callback didn't return a workspace name.
-      `${INTEGRATIONS.find(i => i.type === pickedType)?.label ?? 'New'} connection`
-    createConnection(pickedType, finalName)
-    handleClose(false)
+  // Step back to the integration grid — clear the just-filled form so
+  // re-entering a flow starts clean.
+  function backToList() {
+    setPicked(null)
+    setDemoNoteShown(false)
+    setPosthogApiKey('')
+    setStripeKey('')
+    setWebhookName('')
+  }
+
+  // The whole point: Connect does NOT connect. Acknowledge the click
+  // with an inline note and stop here.
+  function handleFakeConnect() {
+    setDemoNoteShown(true)
   }
 
   return (
     <BottomDialog open={open} onOpenChange={handleClose} container={dialogContainer}>
-      <BottomDialog.Page
-        title="Add a connection"
-        bodyMaxWidth="42rem"
-      >
-        <p className="text-sm text-muted-foreground -mt-1 mb-4">
-          Pick an integration and give it a name. The demo skips OAuth and API
-          keys — connections are mock-only.
-        </p>
-
-        {/* Integration picker — radio-style cards, two columns to fit
-            the dialog width comfortably. */}
-        <div className="grid grid-cols-2 gap-2">
-          {INTEGRATIONS.map(int => {
-            const isSelected = pickedType === int.type
-            return (
+      {/* ── Step 1 · pick an integration ───────────────────────────── */}
+      {!picked && (
+        <BottomDialog.Page title="Add a connection" bodyMaxWidth="42rem">
+          <p className="text-sm text-muted-foreground -mt-1 mb-4">
+            Pick an integration to see how connecting it works.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {INTEGRATIONS.map(int => (
               <button
                 key={int.type}
                 type="button"
-                onClick={() => setPickedType(int.type)}
+                onClick={() => {
+                  setPicked(int)
+                  setDemoNoteShown(false)
+                }}
                 className={cn(
-                  'flex items-center gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer',
-                  isSelected
-                    ? 'border-foreground bg-foreground/5'
-                    : 'bg-card hover:border-foreground/20',
+                  'flex items-center gap-2.5 rounded-lg border p-3 text-left transition-colors cursor-pointer bg-card hover:border-foreground/20',
                 )}
               >
                 <ConnectionIcon type={int.type} size={20} className="text-muted-foreground shrink-0" />
@@ -108,47 +163,70 @@ export function DemoCreateConnectionModal({ open, onOpenChange }: Props) {
                   </p>
                 </div>
               </button>
-            )
-          })}
-        </div>
-
-        {/* Connection name input — only shows after an integration is
-            picked, so the dialog feels natural to skim ("first pick,
-            then name"). */}
-        {pickedType && (
-          <div className="mt-4">
-            <label className="block text-xs font-medium mb-1.5 text-foreground">
-              Connection name
-            </label>
-            <Input
-              placeholder={`${INTEGRATIONS.find(i => i.type === pickedType)?.label} workspace`}
-              value={name}
-              onChange={e => setName(e.target.value)}
-              autoFocus
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleAdd()
-              }}
-            />
-            <p className="text-[10px] text-muted-foreground mt-1">
-              No API key in the demo — just pick a label.
-            </p>
+            ))}
           </div>
-        )}
+        </BottomDialog.Page>
+      )}
 
-        {/* Action row pinned at the bottom of the body. The real modal
-            puts these in `headerRight`; for a single-page demo dialog
-            having them inline at the bottom of the form reads more
-            naturally and matches the user's mental "fill in form →
-            click confirm at bottom" flow. */}
-        <div className="mt-6 flex items-center justify-end gap-2">
-          <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={handleAdd} disabled={!pickedType}>
-            Add
-          </Button>
-        </div>
-      </BottomDialog.Page>
+      {/* ── Step 2 · the real setup form (no real connect) ─────────── */}
+      {picked && (
+        <BottomDialog.Page
+          title={picked.label}
+          titleIcon={<ConnectionIcon type={picked.type} size={22} />}
+          pageKey={`connection-${picked.type}`}
+          onBack={backToList}
+          bodyMaxWidth="42rem"
+        >
+          {picked.flow === 'posthog' && (
+            <PostHogForm
+              apiKey={posthogApiKey}
+              host={posthogHost}
+              error={null}
+              onApiKeyChange={setPosthogApiKey}
+              onHostChange={setPosthogHost}
+            />
+          )}
+          {picked.flow === 'stripe' && (
+            <StripeManualForm
+              name={stripeName}
+              apiKey={stripeKey}
+              error={null}
+              onNameChange={setStripeName}
+              onApiKeyChange={setStripeKey}
+            />
+          )}
+          {picked.flow === 'webhook' && (
+            <WebhookForm
+              name={webhookName}
+              error={null}
+              onNameChange={setWebhookName}
+            />
+          )}
+          {picked.flow === 'oauth' && <OAuthInstructions label={picked.label} />}
+
+          {/* Inline "demo only" acknowledgement — appears after Connect. */}
+          {demoNoteShown && (
+            <div className="mt-5 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 max-w-md">
+              <Warning size={14} weight="bold" className="text-amber-700 shrink-0 mt-0.5" />
+              <p className="text-xs font-medium text-amber-900">
+                This is a demo — we won&apos;t actually connect your account.
+                Sign up to link {picked.label} for real.
+              </p>
+            </div>
+          )}
+
+          {/* Action row. Connect intentionally stops short of a real
+              connection (see `handleFakeConnect`). */}
+          <div className="mt-6 flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => handleClose(false)}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleFakeConnect}>
+              {picked.flow === 'webhook' ? 'Create' : 'Connect'}
+            </Button>
+          </div>
+        </BottomDialog.Page>
+      )}
     </BottomDialog>
   )
 }

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client'
+import { reportServerReachable, reportServerUnreachable } from '@/lib/serverHealth'
 import type { Project } from '@/types/project'
 import type { Folder } from '@/types/folder'
 import type { Connection } from '@/types/connection'
@@ -288,14 +289,36 @@ function tzParam(tz?: string | null): string {
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   const auth = await getAuthHeader()
-  const res = await fetch(`${BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: auth,
-      ...options.headers,
-    },
-  })
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: auth,
+        ...options.headers,
+      },
+    })
+  } catch (err) {
+    // The fetch itself rejected — connection refused / DNS / timeout /
+    // CORS-on-down. The server is unreachable; flip the global flag so
+    // `<ServerStatusGate>` can surface the "server is down" screen, then
+    // rethrow so the caller's own error handling still runs.
+    reportServerUnreachable()
+    throw err
+  }
+
+  // A gateway 5xx means the proxy is up but our backend is down/unavailable
+  // — treat it as unreachable too. Any other status (including a 4xx the
+  // server deliberately returned, e.g. 401/404/410) proves the server
+  // answered, so we're reachable.
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    reportServerUnreachable()
+  } else {
+    reportServerReachable()
+  }
+
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     // Structured reauth signal from backend `IntegrationReauthRequiredException`.
@@ -875,15 +898,23 @@ export const ALGORITHM = {
    * List a project's end-users (people), newest-first. Backs the
    * "General → Users" view. `limit` caps the page (backend clamps to
    * 500). `search` does a cheap email/name match.
+   *
+   * Returns `{ people, isResyncing }`: the people we have RIGHT NOW plus
+   * whether the backend kicked off a background resync because the data
+   * was stale. When `isResyncing` is true the frontend keeps the list
+   * visible (with a loading hint) and polls again until it flips false —
+   * see `ProjectPeople`. Pass `autoResync: false` to read without ever
+   * triggering a resync (the flag then just reflects an already-running one).
    */
   getPeople: (
     projectId: string,
-    opts?: { limit?: number; search?: string },
+    opts?: { limit?: number; search?: string; autoResync?: boolean },
   ) => {
     const params = new URLSearchParams({ projectId })
     if (opts?.limit != null) params.set('limit', String(opts.limit))
     if (opts?.search) params.set('search', opts.search)
-    return apiFetch<PersonRow[]>(`/people?${params.toString()}`)
+    if (opts?.autoResync === false) params.set('autoResync', 'false')
+    return apiFetch<PeopleListResult>(`/people?${params.toString()}`)
   },
 
   /**
@@ -927,6 +958,17 @@ export const ALGORITHM = {
  * them. `updatedAt` is "last time we observed activity/identity for
  * this person" — the sort key for the recent-first users list.
  */
+/**
+ * Response shape of `GET /people` (backend `PeopleController.list`).
+ * `people` is the current page; `isResyncing` is true while the backend
+ * is pulling fresher data in the background — the UI shows a loading hint
+ * (skeleton top rows) and polls until it flips false.
+ */
+export interface PeopleListResult {
+  people: PersonRow[]
+  isResyncing: boolean
+}
+
 export interface PersonRow {
   id: string
   projectId: string

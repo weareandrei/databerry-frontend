@@ -535,6 +535,14 @@ interface ViewCardFunnelProps {
   chromeless?: boolean
   /** See `ViewCard.dense`. Demo-only. */
   dense?: boolean
+  /**
+   * Extra classes merged onto the funnel's outer `<ViewWrapper>` — lets a
+   * caller size/position it without an extra wrapper (the wrapper is
+   * already `h-full`, so a fixed-height *parent* is the most reliable way
+   * to set its height; this is for spans, margins, etc.). Merged after the
+   * grid-span classes.
+   */
+  className?: string
 }
 
 export function ViewCardFunnel({
@@ -551,6 +559,7 @@ export function ViewCardFunnel({
   onConnectionAssigned,
   chromeless = false,
   dense = false,
+  className,
 }: ViewCardFunnelProps) {
   const [reassignOpen, setReassignOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -590,7 +599,7 @@ export function ViewCardFunnel({
   return (
     <>
       <ViewWrapper
-        className={`${gridSpan}`}
+        className={cn(gridSpan, className)}
         variant={chromeless ? 'borderless' : 'default'}
       >
         <ViewHeader

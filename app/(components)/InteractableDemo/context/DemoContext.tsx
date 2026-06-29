@@ -51,7 +51,7 @@ import {
   type DemoTimeSeriesRow,
 } from './demoTimeSeries'
 import { SOURCE_STYLE } from '@/constants/trafficSources'
-import type { OverviewChartResponse } from '@/lib/api'
+import type { OverviewChartResponse, PosthogEventDefinition } from '@/lib/api'
 import type {
   OverviewPrimaryMetric,
   OverviewSecondaryMetric,
@@ -73,7 +73,19 @@ export type {
 // `steps`, etc.) because they're not common to every variant.
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
 
-export type DemoPage = 'home' | 'project' | 'connections' | 'settings'
+/**
+ * Demo surfaces, mirroring the redesigned dashboard's nav:
+ *   - `home`        → the global home (pinned row + projects)
+ *   - `overview`    → a project's overview (the demo's START surface)
+ *   - `pinned`      → a project's pinned views
+ *   - `agent`       → a project's Ask-agent chat
+ *   - `connections` → connections list (global when `currentProjectId`
+ *                     is null, the project's when it's set)
+ * `overview` / `pinned` / `agent` (and project-scoped `connections`)
+ * keep the `<DemoProjectSidebar>` chrome; `home` + global `connections`
+ * drop it.
+ */
+export type DemoPage = 'home' | 'overview' | 'pinned' | 'agent' | 'connections'
 
 export interface DemoChatMessage {
   id: string
@@ -344,12 +356,66 @@ function secondaryValueForDay(
   }
 }
 
+// ─── Demo PostHog events ──────────────────────────────────────────────────
+//
+// Catalogue powering the overview chart's "PostHog → Event count"
+// cascade option: pick one of these and the chart plots its per-bucket
+// count. Counts are synthetic — each event fires at `rate` × that day's
+// visitors, so the series stays date-aware (it moves when you change the
+// range) and the events keep realistic relative magnitudes (sign-ups
+// common, plan upgrades rare). Purely a demo affordance; real mode pulls
+// the event list + counts from the user's PostHog connection.
+const DEMO_EVENT_RATES: { name: string; rate: number }[] = [
+  { name: 'signed_up',            rate: 0.14 },
+  { name: 'payment_succeeded',    rate: 0.035 },
+  { name: 'checkout_started',     rate: 0.06 },
+  { name: 'subscription_started', rate: 0.022 },
+  { name: 'trial_started',        rate: 0.048 },
+  { name: 'project_created',      rate: 0.09 },
+  { name: 'feature_activated',    rate: 0.31 },
+  { name: 'invite_sent',          rate: 0.018 },
+  { name: 'upgraded_plan',        rate: 0.011 },
+]
+
+const DEMO_EVENT_RATE = new Map(DEMO_EVENT_RATES.map(e => [e.name, e.rate]))
+
+/** The demo's PostHog event definitions, in the shape the real event
+ *  picker (`<PosthogEventPickerDialog>` / `<PosthogEventList>`) expects. */
+export const DEMO_POSTHOG_EVENTS: PosthogEventDefinition[] = DEMO_EVENT_RATES.map(
+  (e, i) => ({
+    id: `demo-evt-${i}`,
+    name: e.name,
+    // Rough 30-day volume = rate × ~1,450 avg daily visitors × 30 days.
+    volume_30_day: Math.round(e.rate * 1450 * 30),
+    computed_volume: Math.round(e.rate * 1450 * 30),
+    last_seen_at: '2026-04-08T11:30:00Z',
+    last_url: null,
+  }),
+)
+
+/** Synthetic per-day count for one PostHog event — `rate × visitors`,
+ *  so it tracks traffic and stays date-aware. Unknown events fall back
+ *  to a modest 5% rate so a stray ref never zeroes the chart. */
+function eventCountForDay(
+  r: DemoTimeSeriesRow,
+  projectId: string,
+  eventName: string,
+): number {
+  const rate = DEMO_EVENT_RATE.get(eventName) ?? 0.05
+  return Math.round(visitorsForDay(r, projectId).total * rate)
+}
+
 export function buildOverviewChart(
   projectId: string,
   range: DemoGlobalDate,
   rows: DemoTimeSeriesRow[],
   primary: OverviewPrimaryMetric,
   secondary: OverviewSecondaryMetric,
+  // When set, the corresponding axis plots a PostHog event's per-bucket
+  // count instead of the predefined metric — mirrors the real chart's
+  // `primaryConnectionMetric` / `secondaryConnectionMetric` override.
+  primaryEventName: string | null = null,
+  secondaryEventName: string | null = null,
 ): OverviewChartResponse | null {
   if (rows.length === 0) return null
   if (projectId !== 'proj-acme' && projectId !== 'proj-side') return null
@@ -358,16 +424,28 @@ export function buildOverviewChart(
   const { groups } = groupRowsByGranularity(rows, from, to)
   if (groups.length === 0) return null
 
+  // Per-day primary / secondary value providers. When an event name is
+  // set for an axis, that axis plots the PostHog event's count; otherwise
+  // it uses the predefined metric. Event counts are always summed across
+  // a bucket (like revenue), never averaged.
+  const primaryOfDay = (r: DemoTimeSeriesRow): number =>
+    primaryEventName
+      ? eventCountForDay(r, projectId, primaryEventName)
+      : primaryTotalForDay(r, projectId, primary)
+  const secondaryOfDay = (r: DemoTimeSeriesRow): number | null =>
+    secondaryEventName
+      ? eventCountForDay(r, projectId, secondaryEventName)
+      : secondaryValueForDay(r, projectId, secondary)
+  const secondaryIsSum = secondaryEventName != null || secondary === 'revenue'
+  const hasSecondary = secondaryEventName != null || secondary !== null
+
   const buckets = groups.map(g => {
     // Bucket-wide primary total = sum of per-day primary values.
     // Bucket-wide visitor split = sum of per-day source values.
     // We then SCALE the per-source split to the primary total so
     // `bySource` always sums exactly to `total` regardless of which
     // primary metric the user picked.
-    const primaryTotal = g.rows.reduce(
-      (s, r) => s + primaryTotalForDay(r, projectId, primary),
-      0,
-    )
+    const primaryTotal = g.rows.reduce((s, r) => s + primaryOfDay(r), 0)
     const visitorSplit = g.rows.reduce<Record<string, { label: string; value: number }>>(
       (acc, r) => {
         const day = visitorsForDay(r, projectId)
@@ -400,13 +478,13 @@ export function buildOverviewChart(
 
     // Secondary value: rates / averages need to be AVG-over-bucket,
     // not summed (summing a percentage across days is meaningless).
-    // Counts (revenue) are summed.
+    // Counts (revenue, event counts) are summed.
     const secondaryValues = g.rows
-      .map(r => secondaryValueForDay(r, projectId, secondary))
+      .map(r => secondaryOfDay(r))
       .filter((v): v is number => v != null)
     let secondaryBucket: number | null = null
     if (secondaryValues.length > 0) {
-      if (secondary === 'revenue') {
+      if (secondaryIsSum) {
         secondaryBucket = secondaryValues.reduce((s, v) => s + v, 0)
       } else {
         secondaryBucket =
@@ -424,17 +502,16 @@ export function buildOverviewChart(
   })
 
   // Top-level secondary total — same aggregation rule as the per-
-  // bucket value (sum for revenue, average for rates).
+  // bucket value (sum for revenue / event counts, average for rates).
   let totalSecondary: number | null = null
-  if (secondary !== null) {
+  if (hasSecondary) {
     const all = rowsInRange(rows, from, to)
-      .map(r => secondaryValueForDay(r, projectId, secondary))
+      .map(r => secondaryOfDay(r))
       .filter((v): v is number => v != null)
     if (all.length > 0) {
-      totalSecondary =
-        secondary === 'revenue'
-          ? all.reduce((s, v) => s + v, 0)
-          : Math.round((all.reduce((s, v) => s + v, 0) / all.length) * 10) / 10
+      totalSecondary = secondaryIsSum
+        ? all.reduce((s, v) => s + v, 0)
+        : Math.round((all.reduce((s, v) => s + v, 0) / all.length) * 10) / 10
     }
   }
 
@@ -563,9 +640,13 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   // <BottomDialog container={…}> re-render once the ref resolves.
   const [dialogContainer, setDialogContainer] = useState<HTMLElement | null>(null)
 
-  // Navigation
-  const [pageOpen, setPageOpen] = useState<DemoPage>('home')
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+  // Navigation — the demo opens straight onto the first project's
+  // Overview (not the home page), the way a returning user lands inside
+  // their main project.
+  const [pageOpen, setPageOpen] = useState<DemoPage>('overview')
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
+    INITIAL_PROJECTS[0]?.id ?? null,
+  )
 
   // Date pill
   const [globalDate, setGlobalDate] = useState<DemoGlobalDate>(INITIAL_DATE)
@@ -607,7 +688,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   // ─── Navigation ────────────────────────────────────────────────────────
   const goToPage = useCallback((page: DemoPage, projectId: string | null = null) => {
     setPageOpen(page)
-    setCurrentProjectId(page === 'project' ? projectId : null)
+    // The caller decides scoping: project surfaces pass a project id (so
+    // the sidebar shows), home + global connections pass null.
+    setCurrentProjectId(projectId)
   }, [])
 
   // ─── Date ──────────────────────────────────────────────────────────────

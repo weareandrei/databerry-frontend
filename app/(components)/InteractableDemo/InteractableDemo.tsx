@@ -15,11 +15,14 @@ import { useEffect } from 'react'
 import { Warning, X } from '@phosphor-icons/react'
 import { DemoProvider, useDemoContext } from './context/DemoContext'
 import { DemoErrorBoundary } from './DemoErrorBoundary'
-import { DemoSidebar } from './DemoSidebar'
+import { DemoIconRail } from './DemoIconRail'
+import { DemoProjectSidebar } from './DemoProjectSidebar'
+import { DemoTopBar } from './DemoTopBar'
+import { DemoAgentBody } from './DemoAgentBody'
+import { DemoProjectView } from './projects/DemoProjectView'
+import { DemoPinned } from './projects/DemoPinned'
 import { DemoHomePage } from './pages/DemoHomePage'
 import { DemoConnectionsPage } from './pages/DemoConnectionsPage'
-import { DemoSettingsPage } from './pages/DemoSettingsPage'
-import { DemoProjectPage } from './pages/DemoProjectPage'
 
 const DEMO_UNSUPPORTED_NOTICE = "This feature isn't available in the demo."
 
@@ -92,7 +95,11 @@ function DemoNotice() {
 }
 
 function DemoContent() {
-  const { pageOpen, showNotice, setDialogContainer } = useDemoContext()
+  const { pageOpen, currentProjectId, projects, showNotice, setDialogContainer } =
+    useDemoContext()
+  const project = currentProjectId
+    ? projects.find(p => p.id === currentProjectId) ?? null
+    : null
 
   // `text-left` resets the `text-center` the surrounding landing-page
   // `<DemoSection>` applies for its hero copy. Without this, every
@@ -119,15 +126,48 @@ function DemoContent() {
       ref={setDialogContainer}
       className="relative overflow-hidden bg-background rounded-lg flex h-full text-left"
     >
-      <DemoSidebar />
+      {/* Left icon spine — always present on desktop (the real IconRail). */}
+      <DemoIconRail />
+      {/* Per-project floating sidebar — only while inside a project. */}
+      {project && <DemoProjectSidebar projectId={project.id} />}
+
       <DemoErrorBoundary onError={() => showNotice(DEMO_UNSUPPORTED_NOTICE)}>
-        {pageOpen === 'home' && <DemoHomePage />}
-        {pageOpen === 'project' && <DemoProjectPage />}
-        {pageOpen === 'connections' && <DemoConnectionsPage />}
-        {pageOpen === 'settings' && <DemoSettingsPage />}
-        {/* Agent chat is no longer a separate page — it now lives
-            embedded inside <DemoHomePage> under the Agent mode switch,
-            matching the real /hub/home dashboard. */}
+        <div className="flex-1 min-w-0 h-full overflow-hidden flex flex-col">
+          {/* Project dashboard surfaces — date controls on top, body
+              scrolls beneath (mirrors `<ProjectOverviewScreen>`). */}
+          {pageOpen === 'overview' && project && (
+            <>
+              <DemoTopBar />
+              <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
+                <DemoProjectView project={project} />
+              </div>
+            </>
+          )}
+          {pageOpen === 'pinned' && project && (
+            <>
+              <DemoTopBar />
+              <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
+                <DemoPinned project={project} />
+              </div>
+            </>
+          )}
+          {/* Agent / connections / home own their full internal layout. */}
+          {pageOpen === 'agent' && (
+            <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <DemoAgentBody />
+            </div>
+          )}
+          {pageOpen === 'connections' && (
+            <div className="flex-1 min-h-0 flex flex-col">
+              <DemoConnectionsPage />
+            </div>
+          )}
+          {pageOpen === 'home' && (
+            <div className="flex-1 min-h-0 flex flex-col">
+              <DemoHomePage />
+            </div>
+          )}
+        </div>
       </DemoErrorBoundary>
       <DemoNotice />
     </div>

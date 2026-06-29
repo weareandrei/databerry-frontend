@@ -1,43 +1,34 @@
 'use client'
 
 /**
- * Demo home page — `<DemoTopBar>` on top, then EITHER the dashboard
- * (pinned-views card + project list) OR the embedded Agent chat,
- * controlled by a `Dashboard / Agent mode` switch hosted in the top
- * bar. Same architecture the real `/hub/home` uses since the recent
- * dashboard refresh: switching doesn't change the route, doesn't
- * touch the sidebar, just swaps the body component below the same
- * top bar with a short fade.
+ * Demo home page — mirrors the redesigned real `/hub/home`:
  *
- * Section labels (`PINNED VIEWS`, `PROJECTS`) match the real
- * dashboard's typography so the demo reads as the same product.
+ *   1. Top bar (search + global date controls) — `<DemoTopBar>`.
+ *   2. Agent launcher — a "Chat with Agent" pill above an "Ask
+ *      anything" box, with the AI disclaimer + MCP chips beneath
+ *      (exactly the real home's launcher, which embeds `<ChatEmpty>`).
+ *      The box doesn't host the conversation: clicking it (or the
+ *      pill) opens the demo Agent page (`goToPage('agent')`), the same
+ *      way the real launcher deep-links to `/hub/agent-chat`.
+ *   3. Pinned views below.
+ *
+ * The old Dashboard/Agent toggle + stacked project bodies are gone —
+ * projects are reached from the icon rail now, and the agent has its
+ * own page.
  */
 
-import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowRight, ArrowUp, Sparkle } from '@phosphor-icons/react'
 import { useDemoContext } from '../context/DemoContext'
 import { DemoTopBar } from '../DemoTopBar'
 import { DemoPinnedViews } from '../projects/DemoPinnedViews'
-import { DemoMobileProjectsList } from '../projects/DemoMobileProjectsList'
-import { DemoProjectView } from '../projects/DemoProjectView'
-import { DemoAgentBody } from '../DemoAgentBody'
-import {
-  DashboardAgentSwitch,
-  type SwitchValue,
-} from '@/app/hub/home/(components)/DashboardAgentSwitch'
+import { UserMcpChip, ConfigMcpChip } from '@/app/hub/agent-chat/(components)/ChatEmpty'
 
 export function DemoHomePage() {
-  const { projects, views } = useDemoContext()
+  const { views, goToPage } = useDemoContext()
 
-  // Local Dashboard / Agent mode toggle. Lives at this level so the
-  // top bar (rendered here) and the body (rendered here) can both
-  // read it — no need to push it up to `DemoContext`. The real
-  // `/hub/home` does the same.
-  const [view, setView] = useState<SwitchValue>('dashboard')
-
-  // Hide the pinned-views section entirely when there's nothing
-  // pinned — same affordance the real home page has, no orphan
-  // label hovering over an empty grid.
+  // Hide the pinned section entirely when there's nothing pinned —
+  // same affordance the real home has, no orphan label over an empty
+  // grid.
   const hasPins = views.some(
     v =>
       v.pinned &&
@@ -45,96 +36,77 @@ export function DemoHomePage() {
       v.kind !== 'overview-sources',
   )
 
+  const launchAgent = () => goToPage('agent')
+
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-background">
-      <DemoTopBar view={view} onViewChange={setView} />
+      <DemoTopBar />
 
-      {/* Mobile-only full-width Dashboard / Agent mode switch row.
-          Matches the real mobile dashboard pattern: at `<md` the
-          inline switch in `<DemoTopBar>` is hidden (the demo card
-          can't fit switch + date pills on one row at phone widths)
-          and the switch moves down here as a full-bleed control,
-          flush with the body's `px-3` horizontal rhythm. Desktop
-          (`md+`) keeps the inline switch in the top bar and this
-          row never renders. */}
-      <div className="md:hidden shrink-0 px-3 pb-3">
-        <DashboardAgentSwitch value={view} onChange={setView} fullWidth />
-      </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="px-3 pt-6 pb-8 flex flex-col gap-9">
+          {/* ── Agent launcher ──────────────────────────────────────
+              "Chat with Agent" pill over the ask box, mirroring the
+              real home. The whole ask box is a button — the demo
+              doesn't type here; it opens the Agent page where the
+              scripted conversation plays. */}
+          <section className="flex flex-col items-center">
+            <button
+              type="button"
+              onClick={launchAgent}
+              className="mb-2 inline-flex items-center gap-2.5 rounded-xl border border-stroke bg-white pl-1.5 pr-4 py-1.5 shadow-sm cursor-pointer hover:bg-hover-fill transition-colors"
+            >
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main text-grey-darkest">
+                <ArrowRight size={13} weight="bold" />
+              </span>
+              <span className="text-sm font-semibold text-grey-darkest">
+                Chat with Agent
+              </span>
+            </button>
 
-      {/* Body swap. `AnimatePresence mode="wait"` runs the outgoing
-          body's fade-out before the incoming body mounts — same
-          pattern the real home uses. `initial={false}` skips the
-          fade on first paint so the dashboard doesn't fade in for
-          no reason on page load. */}
-      <AnimatePresence mode="wait" initial={false}>
-        {view === 'agent' ? (
-          <motion.div
-            key="agent"
-            className="flex-1 min-h-0 flex flex-col"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <DemoAgentBody />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="dashboard"
-            className="flex-1 overflow-y-auto"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            <div className="px-3 pb-6 space-y-5">
-              {hasPins && (
-                <section>
-                  <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                    Pinned views
-                  </h2>
-                  <div className="rounded-xl border bg-card shadow-card p-3">
-                    <DemoPinnedViews />
-                  </div>
-                </section>
-              )}
-
-              <section className="space-y-3">
-                <h2 className="px-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  Projects
-                </h2>
-                {/* Mobile: flat list of project rows, each navigates to the
-                    dedicated project page on tap. Same drill-down pattern
-                    the real `<MobileHomeBody>` uses — stacking every full
-                    `<DemoProjectView>` body in the narrow demo card means
-                    the user can't see anything without scrolling several
-                    screens, and they don't get a per-project landing they
-                    can actually inspect. The flat list keeps the home
-                    page glanceable and pushes detail to the dedicated
-                    project page (`pageOpen === 'project'`). */}
-                <div className="block md:hidden">
-                  <DemoMobileProjectsList projects={projects} />
+            <div className="w-full max-w-2xl flex flex-col items-center">
+              {/* Clickable ask box — looks like the real `<ChatEmpty>`
+                  input pill, but the whole surface launches the Agent
+                  page rather than hosting an inline conversation. */}
+              <button
+                type="button"
+                onClick={launchAgent}
+                aria-label="Chat with Agent"
+                className="group w-full text-left relative flex flex-col items-stretch rounded-2xl bg-main border border-stroke px-4 pt-4 pb-3 min-h-[96px] hover:border-grey-light transition-colors cursor-pointer"
+              >
+                <div className="flex items-start gap-2.5">
+                  <Sparkle size={18} weight="fill" className="text-brand shrink-0 mt-0.5" />
+                  <span className="flex-1 text-sm text-grey-light">Ask anything</span>
                 </div>
+                <span className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-brand text-white group-hover:bg-brand/90 transition-colors">
+                  <ArrowUp size={14} weight="bold" />
+                </span>
+              </button>
 
-                {/* Desktop / tablet: keep the stacked project bodies — at
-                    `md+` the demo card is wide enough that each body's
-                    folder grid + overview lane + tile grid render
-                    comfortably side-by-side within their own card. */}
-                <div className="hidden md:block space-y-3">
-                  {projects.map(project => (
-                    <DemoProjectView key={project.id} project={project} />
-                  ))}
-                  {projects.length === 0 && (
-                    <p className="px-1 text-xs text-muted-foreground">
-                      No projects yet — create one from the sidebar.
-                    </p>
-                  )}
-                </div>
-              </section>
+              <p className="mt-3 text-[11px] text-grey-light text-center">
+                Databerry AI copilot can be inaccurate. Please double-check responses.
+              </p>
+
+              {/* MCP chips — two fake user MCPs + the trailing "Config
+                  MCP's" CTA, which opens the demo Connections page. */}
+              <div className="mt-6 w-full flex items-center justify-center flex-wrap gap-3">
+                <UserMcpChip name="Beehiiv" />
+                <UserMcpChip name="Notion" />
+                <ConfigMcpChip onClick={() => goToPage('connections')} />
+              </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </section>
+
+          {/* ── Pinned views ────────────────────────────────────────── */}
+          {hasPins && (
+            <section>
+              <h2 className="px-1 mb-3 text-[10px] font-medium uppercase tracking-wider text-grey-light">
+                Pinned views
+              </h2>
+              <DemoPinnedViews />
+            </section>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

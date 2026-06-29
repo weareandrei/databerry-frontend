@@ -30,7 +30,7 @@ function SkeletonSection({ rows }: { rows: number }) {
 export function ProjectSidebarSkeleton() {
   return (
     <aside
-      className="hidden md:flex flex-col fixed top-4 bottom-4 left-20 w-60 z-20 overflow-hidden bg-white rounded-2xl border border-stroke shadow-card animate-pulse"
+      className="hidden md:flex flex-col fixed top-4 bottom-4 left-20 w-60 z-20 overflow-hidden bg-white/50 rounded-2xl border border-stroke shadow-card animate-pulse"
       aria-hidden="true"
     >
       {/* Identity row — favicon + name + 3-dots. */}

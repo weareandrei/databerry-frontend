@@ -107,6 +107,33 @@ function PersonRowItem({ person }: { person: PersonRow }) {
   )
 }
 
+/**
+ * A shimmering placeholder matching `PersonRowItem`'s layout. Shown at the
+ * top of the list while the backend resyncs, so the tile signals "fresher
+ * people incoming" without hiding the people we already have.
+ */
+function PersonSkeletonRowItem() {
+  return (
+    <div
+      aria-hidden
+      className="flex items-center gap-3 py-2 border-b last:border-b-0 border-black/[0.06] animate-pulse"
+    >
+      <div className="h-8 w-8 shrink-0 rounded-full bg-black/[0.06]" />
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <div className="h-3 w-32 rounded bg-black/[0.06]" />
+        <div className="h-2.5 w-44 rounded bg-black/[0.04]" />
+      </div>
+      <div className="h-3 w-12 shrink-0 rounded bg-black/[0.06]" />
+    </div>
+  )
+}
+
+/** Skeleton placeholder rows shown at the top while a resync is incoming. */
+const RESYNC_SKELETON_ROWS = 2
+
+/** Poll cadence while the backend reports `isResyncing`. */
+const RESYNC_POLL_MS = 3000
+
 interface Props {
   view: View
   onUntrack?: (id: string) => void
@@ -128,16 +155,23 @@ export function ViewCardProjectUsersConnected({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  // True while the backend pulls fresher data in the background — drives
+  // the skeleton top-rows hint + the poll loop below.
+  const [resyncing, setResyncing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(false)
     try {
-      const rows = await ALGORITHM.getPeople(view.projectId, { limit: 200 })
+      const { people: rows, isResyncing } = await ALGORITHM.getPeople(view.projectId, {
+        limit: 200,
+      })
       setPeople(rows)
+      setResyncing(isResyncing)
     } catch {
       setError(true)
       setPeople(null)
+      setResyncing(false)
     } finally {
       setLoading(false)
     }
@@ -146,6 +180,26 @@ export function ViewCardProjectUsersConnected({
   useEffect(() => {
     void load()
   }, [load])
+
+  // Poll quietly (no `loading` flip) while the server is still resyncing so
+  // the list stays put and swaps in fresher people until it flips false.
+  useEffect(() => {
+    if (!resyncing) return
+    let cancelled = false
+    const id = setInterval(() => {
+      ALGORITHM.getPeople(view.projectId, { limit: 200 })
+        .then(({ people: rows, isResyncing }) => {
+          if (cancelled) return
+          setPeople(rows)
+          setResyncing(isResyncing)
+        })
+        .catch(() => {})
+    }, RESYNC_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [resyncing, view.projectId])
 
   /**
    * "Sync people" — pull people from every identity-bearing
@@ -221,7 +275,10 @@ export function ViewCardProjectUsersConnected({
         data-no-dnd="true"
         className="flex-1 overflow-y-auto min-h-0 px-4 pb-3 mt-2"
       >
-        {loading ? (
+        {loading || (resyncing && (!people || people.length === 0)) ? (
+          // Full skeleton on first load OR while a background resync is
+          // populating an as-yet-empty list — better than flashing the
+          // empty state while data is actively being pulled in.
           <SkeletonRows count={5} rowClassName="h-9" />
         ) : error ? (
           <div className="py-2">
@@ -264,7 +321,16 @@ export function ViewCardProjectUsersConnected({
             </button>
           </div>
         ) : people ? (
-          people.map(p => <PersonRowItem key={p.id} person={p} />)
+          <>
+            {/* Resync in flight → top rows are skeletons (not data) so the
+                tile shows fresher people are landing; existing rows stay
+                visible right below. */}
+            {resyncing &&
+              Array.from({ length: RESYNC_SKELETON_ROWS }).map((_, i) => (
+                <PersonSkeletonRowItem key={`resync-skeleton-${i}`} />
+              ))}
+            {people.map(p => <PersonRowItem key={p.id} person={p} />)}
+          </>
         ) : null}
       </div>
     </ViewWrapper>

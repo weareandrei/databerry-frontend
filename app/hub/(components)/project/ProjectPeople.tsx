@@ -87,28 +87,43 @@ function formatLastSeen(iso: string): string {
   return d.getFullYear() === now.getFullYear() ? base : `${base} ${d.getFullYear()}`
 }
 
+/**
+ * Most-recently-seen FIRST (descending by last-seen); the earliest
+ * last-seen sinks to the bottom. Unresolved timestamps sort last.
+ */
+function sortByLastSeen(rows: PersonRow[]): PersonRow[] {
+  return [...rows].sort((a, b) => {
+    if (!a.lastSeenAt) return 1
+    if (!b.lastSeenAt) return -1
+    return b.lastSeenAt.localeCompare(a.lastSeenAt)
+  })
+}
+
+/** Poll cadence while the backend reports `isResyncing`. */
+const RESYNC_POLL_MS = 3000
+
 function useProjectPeople(projectId: string) {
   const [people, setPeople] = useState<PersonRow[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  // True while the backend is pulling fresher data in the background.
+  // Drives the skeleton top-rows hint + the poll loop below.
+  const [resyncing, setResyncing] = useState(false)
 
   const load = useCallback(() => {
     let cancelled = false
     setLoading(true)
     ALGORITHM.getPeople(projectId, { limit: 500 })
-      .then(rows => {
+      .then(({ people: rows, isResyncing }) => {
         if (cancelled) return
-        // Most-recently-seen FIRST (descending by last-seen); the
-        // earliest last-seen sinks to the bottom. Unresolved
-        // timestamps sort last either way.
-        const sorted = [...rows].sort((a, b) => {
-          if (!a.lastSeenAt) return 1
-          if (!b.lastSeenAt) return -1
-          return b.lastSeenAt.localeCompare(a.lastSeenAt)
-        })
-        setPeople(sorted)
+        setPeople(sortByLastSeen(rows))
+        setResyncing(isResyncing)
       })
-      .catch(() => !cancelled && setPeople([]))
+      .catch(() => {
+        if (cancelled) return
+        setPeople([])
+        setResyncing(false)
+      })
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -116,6 +131,29 @@ function useProjectPeople(projectId: string) {
   }, [projectId])
 
   useEffect(() => load(), [load])
+
+  // While the server is still resyncing, re-fetch on a cadence WITHOUT
+  // flipping `loading` — the table stays on screen (with its skeleton
+  // top-rows) and just swaps in fresher people until `isResyncing` is
+  // false. The backend's in-flight guard means these polls won't stack a
+  // second sync.
+  useEffect(() => {
+    if (!resyncing) return
+    let cancelled = false
+    const id = setInterval(() => {
+      ALGORITHM.getPeople(projectId, { limit: 500 })
+        .then(({ people: rows, isResyncing }) => {
+          if (cancelled) return
+          setPeople(sortByLastSeen(rows))
+          setResyncing(isResyncing)
+        })
+        .catch(() => {})
+    }, RESYNC_POLL_MS)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [resyncing, projectId])
 
   const sync = async () => {
     setSyncing(true)
@@ -139,7 +177,7 @@ function useProjectPeople(projectId: string) {
     }
   }
 
-  return { people, loading, syncing, sync }
+  return { people, loading, syncing, resyncing, sync }
 }
 
 /** People revealed per "Load more" press (accumulating, not paging). */
@@ -151,8 +189,41 @@ const COL_HEAD =
   'sticky top-0 z-10 bg-white border-b border-stroke px-3 py-2 text-left text-xs font-medium text-grey-light whitespace-nowrap'
 const CELL = 'px-3 py-2.5 align-middle whitespace-nowrap'
 
+/** Skeleton placeholder rows shown at the top while a resync is incoming. */
+const RESYNC_SKELETON_ROWS = 2
+
+/**
+ * A shimmering placeholder row matching the people table's columns. Shown
+ * at the top of the list while the backend resyncs, signalling that fresher
+ * people are on the way without hiding the data we already have.
+ */
+function PersonSkeletonRow() {
+  return (
+    <tr aria-hidden className="animate-pulse">
+      <td className={CELL}>
+        <div className="flex items-center gap-2.5">
+          <div className="h-9 w-9 shrink-0 rounded-full bg-black/[0.06]" />
+          <div className="flex flex-col gap-1.5">
+            <div className="h-3 w-28 rounded bg-black/[0.06]" />
+            <div className="h-2.5 w-40 rounded bg-black/[0.04]" />
+          </div>
+        </div>
+      </td>
+      <td className={CELL}>
+        <div className="h-3 w-20 rounded bg-black/[0.06]" />
+      </td>
+      <td className={CELL}>
+        <div className="h-3 w-16 rounded bg-black/[0.06]" />
+      </td>
+      <td className={CELL}>
+        <div className="h-3 w-14 rounded bg-black/[0.06]" />
+      </td>
+    </tr>
+  )
+}
+
 export function ProjectPeople({ projectId }: { projectId: string }) {
-  const { people, loading, syncing, sync } = useProjectPeople(projectId)
+  const { people, loading, syncing, resyncing, sync } = useProjectPeople(projectId)
 
   // Row click → open the event-timeline bottom sheet for that person.
   const [selected, setSelected] = useState<PersonRow | null>(null)
@@ -228,11 +299,14 @@ export function ProjectPeople({ projectId }: { projectId: string }) {
         </DropdownMenu>
       </div>
 
-      {/* Skeleton while loading OR while a refresh/sync is in flight.
+      {/* Full skeleton while loading OR while a refresh/sync is in flight.
           `sync()` flips `syncing` immediately (the people re-fetch only
           runs after it finishes), so without `|| syncing` the stale rows
-          would just sit there for the whole refresh. */}
-      {loading || syncing ? (
+          would just sit there for the whole refresh. We also show it when a
+          background resync is running and we have nothing to show yet —
+          better than flashing the "No people yet" empty state while data is
+          actively being pulled in. */}
+      {loading || syncing || (resyncing && (!people || people.length === 0)) ? (
         <div className="space-y-2 animate-pulse">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-11 rounded-lg bg-black/[0.04]" />
@@ -276,6 +350,13 @@ export function ProjectPeople({ projectId }: { projectId: string }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-stroke">
+              {/* Resync in flight → top rows are skeletons (not data), so
+                  users see that fresher people are landing. The people we
+                  already have stay visible right below. */}
+              {resyncing &&
+                Array.from({ length: RESYNC_SKELETON_ROWS }).map((_, i) => (
+                  <PersonSkeletonRow key={`resync-skeleton-${i}`} />
+                ))}
               {visible.map(p => (
                 <tr
                   key={p.id}

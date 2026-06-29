@@ -6,6 +6,7 @@ import DemoSection from '@/app/(sections)/DemoSection'
 import ConnectSection from '@/app/(sections)/ConnectSection'
 import VideoSection from '@/app/(sections)/VideoSection'
 import AgentModeSection from '@/app/(sections)/AgentModeSection'
+import MergedUsersSection from '@/app/(sections)/MergedUsersSection'
 import Pricing from '@/app/(sections)/Pricing'
 import FAQ from '@/app/(sections)/FAQ'
 import Contact from '@/app/(sections)/Contact'
@@ -123,6 +124,7 @@ export default function LandingPage() {
       <DemoSection />
       <ConnectSection />
       <VideoSection />
+      <MergedUsersSection />
       <FeaturesSection />
       <AgentModeSection />
       <Pricing />

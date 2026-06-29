@@ -24,7 +24,7 @@ export function Footer() {
   return (
     <footer className="relative px-[10vw] pt-20 pb-0 overflow-hidden">
       {/* Main grid */}
-      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-10 pb-12 border-t border-white/20 pt-10">
+      <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-10 pb-12 border-t border-white/20 pt-10">
 
         {/* Brand + tagline + CTA */}
         <RevealOnScroll delay={0}>
@@ -122,26 +122,71 @@ export function Footer() {
       {/* Copyright. Terms / Privacy live in the "Legal" column above
           where they're actually visible. */}
       <RevealOnScroll delay={0.05} y={12}>
-        <div className="pb-4 text-xs text-white/40">
+        <div className="relative z-10 pb-4 text-xs text-white/40">
           © {new Date().getFullYear()} Databerry. All rights reserved.
         </div>
       </RevealOnScroll>
 
-      {/* Huge DATABERRY watermark */}
+      {/* Huge DATABERRY watermark.
+          Rendered as an inline SVG (not a CSS-sized div) because text
+          can't be made to EXACTLY fill a box with CSS alone: `textLength`
+          scales the word to the box so it fills the available width on
+          desktop and — rotated — the full footer height on mobile, with
+          no overflow either way. Visually identical to before: same faint
+          black, same weight 900, same Inter letterforms. */}
+
+      {/* Desktop: horizontal, fills the content width, sits at the bottom. */}
       <RevealOnScroll delay={0.15} y={40}>
-        <div
-          className="w-full flex items-end leading-none select-none pointer-events-none"
-          style={{
-            fontSize: 'clamp(60px, 18vw, 18vw)',
-            fontWeight: 900,
-            letterSpacing: '-0.04em',
-            color: 'rgba(0,0,0,0.10)',
-            lineHeight: 0.85,
-          }}
+        <svg
+          aria-hidden
+          viewBox="0 0 1000 160"
+          preserveAspectRatio="none"
+          className="hidden md:block w-full select-none pointer-events-none"
         >
-          DATABERRY
-        </div>
+          <text
+            x="0"
+            y="150"
+            textLength="1000"
+            lengthAdjust="spacingAndGlyphs"
+            fontSize="200"
+            fontWeight="900"
+            fill="rgba(0,0,0,0.10)"
+            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+          >
+            DATABERRY
+          </text>
+        </svg>
       </RevealOnScroll>
+
+      {/* Mobile: rotated 90°, stretched to the full footer height. The
+          inset-0 layer is a definite-size container, so `100cqh` resolves
+          to the footer's real height; once the SVG is rotated, that width
+          becomes its vertical extent. Sits behind the content (z-0). */}
+      <div
+        className="md:hidden absolute inset-0 z-0 overflow-hidden pointer-events-none select-none"
+        style={{ containerType: 'size' }}
+      >
+        <svg
+          aria-hidden
+          viewBox="0 0 1000 160"
+          preserveAspectRatio="none"
+          className="absolute left-1/2 top-1/2"
+          style={{ width: '100cqh', transform: 'translate(-50%, -50%) rotate(-90deg)' }}
+        >
+          <text
+            x="0"
+            y="150"
+            textLength="1000"
+            lengthAdjust="spacingAndGlyphs"
+            fontSize="200"
+            fontWeight="900"
+            fill="rgba(0,0,0,0.10)"
+            style={{ fontFamily: 'var(--font-inter), sans-serif' }}
+          >
+            DATABERRY
+          </text>
+        </svg>
+      </div>
     </footer>
   )
 }
