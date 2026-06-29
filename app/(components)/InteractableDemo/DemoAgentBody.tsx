@@ -56,7 +56,7 @@ const POST_TYPE_PAUSE_MS = 400
 const REPLY_TYPING_MS = 1500
 const POST_REPLY_PAUSE_MS = 2200
 
-export function DemoAgentBody() {
+export const DemoAgentBody = () => {
   const { chat, sendChatMessage, pushChatMessage, clearChat, goToPage } =
     useDemoContext()
   const [inputValue, setInputValue] = useState('')
@@ -167,7 +167,9 @@ export function DemoAgentBody() {
           auto-scroll effect set `scrollTop` directly on THIS
           element — no DOM bubbling, no page hijack. */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 px-3">
-        <div className="max-w-2xl mx-auto py-3 space-y-3">
+        {/* `pt-12` on mobile clears the floating burger (`<DemoMobileNav>`,
+            top-left); desktop has no burger so it collapses to `pt-3`. */}
+        <div className="max-w-2xl mx-auto pt-12 pb-3 md:pt-3 space-y-3">
           {isEmpty ? (
             <DemoAgentEmpty
               inputValue={inputValue}
@@ -213,7 +215,7 @@ export function DemoAgentBody() {
  * No "Play demo" button — the auto-play is triggered automatically
  * on mount by `<DemoAgentBody>`'s effect, not by a manual click.
  */
-function DemoAgentEmpty({
+const DemoAgentEmpty = ({
   inputValue,
   onInputChange,
   onSubmit,
@@ -225,7 +227,7 @@ function DemoAgentEmpty({
   onSubmit: () => void
   locked: boolean
   onConfigMcp: () => void
-}) {
+}) => {
   return (
     <div className="flex flex-col items-center text-center py-6 px-2">
       <h2
@@ -269,7 +271,7 @@ function DemoAgentEmpty({
 // width, so we inline smaller demo variants instead of reusing the
 // production component. Same visual language, just scaled down.
 
-function DemoUserMcpChip({ name }: { name: string }) {
+const DemoUserMcpChip = ({ name }: { name: string }) => {
   return (
     <div className="inline-flex items-center gap-1.5 rounded-lg bg-white border border-stroke shadow-sm px-2 py-1">
       <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-main">
@@ -286,7 +288,7 @@ function DemoUserMcpChip({ name }: { name: string }) {
   )
 }
 
-function DemoConfigMcpChip({ onClick }: { onClick: () => void }) {
+const DemoConfigMcpChip = ({ onClick }: { onClick: () => void }) => {
   return (
     <button
       type="button"
@@ -340,7 +342,7 @@ function DemoConfigMcpChip({ onClick }: { onClick: () => void }) {
  * The send button is present in both modes but greys to 40 % when
  * `locked` or when there's nothing to send.
  */
-function DemoInput({
+const DemoInput = ({
   value,
   onChange,
   onSubmit,
@@ -350,7 +352,7 @@ function DemoInput({
   onChange: (next: string) => void
   onSubmit: () => void
   locked: boolean
-}) {
+}) => {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (locked) return
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {

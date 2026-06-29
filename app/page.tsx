@@ -105,7 +105,7 @@ const SITE_JSONLD = [
   },
 ]
 
-export default function LandingPage() {
+const LandingPage = () => {
   return (
     <main>
       {/* Schema.org JSON-LD — see the `SITE_JSONLD` comment above
@@ -117,8 +117,7 @@ export default function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SITE_JSONLD) }}
       />
-      <LoadingScreen />
-      <PhoneBezel />
+      {renderDecorations()}
       <Navbar />
       <Hero />
       <DemoSection />
@@ -132,5 +131,16 @@ export default function LandingPage() {
       <Contact />
       <Footer />
     </main>
+  )
+}
+
+export default LandingPage
+
+const renderDecorations = () => {
+  return (
+    <>
+      <LoadingScreen />
+      <PhoneBezel />
+    </>
   )
 }

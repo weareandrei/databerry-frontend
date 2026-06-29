@@ -24,170 +24,7 @@ const LOGOS = [
   { src: '/landing/logos/notion_logo.png', alt: 'Notion' },
 ]
 
-function DesktopLogos() {
-  return (
-    <div className="hidden md:block mt-12 w-full max-w-3xl">
-      <div className="flex items-center justify-center gap-12">
-        {LOGOS.map((logo, i) => (
-          <div
-            key={logo.alt}
-            id={`logo-${i}`}
-            className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
-          >
-            <Image src={logo.src} alt={logo.alt} width={60} height={60} className="rounded-[10px]" />
-          </div>
-        ))}
-      </div>
-
-      {/* `mt-4` pulls the dot upward so it sits inside the visual
-          convergence of the converging Xarrow grid lines (previously
-          `mt-10` parked it below the convergence point — the lines
-          terminated *above* the dot and the dot read as floating).
-          `relative z-20` lifts the dot above the Xarrow SVGs (which
-          paint at their default DOM-order z-stack), so the line tips
-          tuck UNDER the dot rather than crossing through it. */}
-      <div className="flex justify-center mt-4 relative z-20">
-        <div
-          id="hub-dot"
-          className="h-4 w-4 rounded-full bg-[#e85c20] border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
-        />
-      </div>
-
-      {LOGOS.map((logo, i) => (
-        <Xarrow
-          key={logo.alt}
-          start={`logo-${i}`}
-          end="hub-dot"
-          color="rgba(255,255,255,0.7)"
-          strokeWidth={2.5}
-          headSize={0}
-          curveness={0.6}
-          startAnchor="bottom"
-          // Terminate lines at the dot's CENTER (not its top edge) so
-          // the convergence visually lives inside the dot and the
-          // line tips hide behind it thanks to the `z-20` above.
-          endAnchor="middle"
-          path="grid"
-        />
-      ))}
-
-      {/* Vertical connecting line between the hub-dot and the demo
-          card below. The demo card is absolutely positioned at the
-          anchor's bottom (see `DemoSection`'s `topOffset` math), so
-          this line's HEIGHT directly controls the gap between the
-          icons row and the top of the demo card. We grow it at xl+
-          because the demo card scales to 84vw on wide screens — much
-          wider than the `max-w-3xl` icons row — and the original 32px
-          gap reads as overlap once the card dwarfs the icons. */}
-      <div className="flex justify-center">
-        <div className="h-8 xl:h-12 3xl:h-16 w-0.5 bg-white/70" />
-      </div>
-
-      <div id="demo-anchor" />
-      <div className="h-[150px]" />
-    </div>
-  )
-}
-
-function MobileLogos() {
-  return (
-    <div className="md:hidden block mt-12 w-full max-w-3xl">
-      <div className="flex items-center justify-center gap-12">
-        {LOGOS.slice(0, 3).map((logo, i) => (
-          <div
-            key={logo.alt}
-            id={`m-logo-top-${i}`}
-            className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
-          >
-            <Image
-              src={logo.src}
-              alt={logo.alt}
-              width={60}
-              height={60}
-              className="rounded-[10px]"
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="flex justify-center my-5">
-        <div
-          id="m-hub-dot"
-          className="h-4 w-4 rounded-full bg-[#e85c20] border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
-        />
-      </div>
-
-      <div className="flex items-center justify-center gap-12">
-        {LOGOS.slice(3, 7).map((logo, i) => (
-          <div
-            key={logo.alt}
-            id={`m-logo-bot-${i}`}
-            className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
-          >
-            <Image
-              src={logo.src}
-              alt={logo.alt}
-              width={60}
-              height={60}
-              className="rounded-[10px]"
-            />
-          </div>
-        ))}
-      </div>
-
-      {(['left', 'top', 'right'] as const).map((hubAnchor, i) => (
-        <Xarrow
-          key={LOGOS[i].alt}
-          start={`m-logo-top-${i}`}
-          end="m-hub-dot"
-          color="rgba(255,255,255,0.7)"
-          strokeWidth={2.5}
-          headSize={0}
-          curveness={0.6}
-          startAnchor="bottom"
-          endAnchor={hubAnchor}
-          path="grid"
-        />
-      ))}
-
-      {(['left', 'left', 'right', 'right'] as const).map((hubAnchor, i) => (
-        <Xarrow
-          key={LOGOS[3 + i].alt}
-          start={`m-logo-bot-${i}`}
-          end="m-hub-dot"
-          color="rgba(255,255,255,0.7)"
-          strokeWidth={2.5}
-          headSize={0}
-          curveness={0.6}
-          startAnchor="top"
-          endAnchor={hubAnchor}
-          path="grid"
-        />
-      ))}
-
-      <div className="flex justify-center">
-        <div id="m-demo-line" className="h-8 w-0.5 bg-white/70" />
-      </div>
-
-      <Xarrow
-        start="m-hub-dot"
-        end="m-demo-line"
-        color="rgba(255,255,255,0.7)"
-        strokeWidth={2.5}
-        headSize={0}
-        curveness={0}
-        startAnchor="bottom"
-        endAnchor="top"
-        path="straight"
-      />
-
-      <div id="m-demo-anchor" />
-      <div className="h-[150px]" />
-    </div>
-  )
-}
-
-export function Hero() {
+export const Hero = () => {
   return (
     <section className="relative w-full md:h-screen">
       <CanvasBackground />
@@ -295,3 +132,171 @@ export function Hero() {
     </section>
   )
 }
+
+const DesktopLogos = () => {
+  return (
+    <div className="hidden md:block mt-12 w-full max-w-3xl">
+      <div className="flex items-center justify-center gap-12">
+        {LOGOS.map((logo, i) => (
+          <div
+            key={logo.alt}
+            id={`logo-${i}`}
+            className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+          >
+            <Image src={logo.src} alt={logo.alt} width={60} height={60} className="rounded-[10px]" />
+          </div>
+        ))}
+      </div>
+
+      {/* `mt-4` pulls the dot upward so it sits inside the visual
+          convergence of the converging Xarrow grid lines (previously
+          `mt-10` parked it below the convergence point — the lines
+          terminated *above* the dot and the dot read as floating).
+          `relative z-20` lifts the dot above the Xarrow SVGs (which
+          paint at their default DOM-order z-stack), so the line tips
+          tuck UNDER the dot rather than crossing through it. */}
+      <div className="flex justify-center mt-4 relative z-20">
+        <div
+          id="hub-dot"
+          className="h-4 w-4 rounded-full bg-[#e85c20] border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
+        />
+      </div>
+
+      {LOGOS.map((logo, i) => (
+        <Xarrow
+          key={logo.alt}
+          start={`logo-${i}`}
+          end="hub-dot"
+          color="rgba(255,255,255,0.7)"
+          strokeWidth={2.5}
+          headSize={0}
+          curveness={0.6}
+          startAnchor="bottom"
+          // Terminate lines at the dot's CENTER (not its top edge) so
+          // the convergence visually lives inside the dot and the
+          // line tips hide behind it thanks to the `z-20` above.
+          endAnchor="middle"
+          path="grid"
+        />
+      ))}
+
+      {/* Vertical connecting line between the hub-dot and the demo
+          card below. The demo card is absolutely positioned at the
+          anchor's bottom (see `DemoSection`'s `topOffset` math), so
+          this line's HEIGHT directly controls the gap between the
+          icons row and the top of the demo card. We grow it at xl+
+          because the demo card scales to 84vw on wide screens — much
+          wider than the `max-w-3xl` icons row — and the original 32px
+          gap reads as overlap once the card dwarfs the icons. */}
+      <div className="flex justify-center">
+        <div className="h-8 xl:h-12 3xl:h-16 w-0.5 bg-white/70" />
+      </div>
+
+      <div id="demo-anchor" />
+      <div className="h-[150px]" />
+    </div>
+  )
+}
+
+const MobileLogos = () => {
+  return (
+    <div className="md:hidden block mt-12 w-full max-w-3xl">
+      <div className="flex items-center justify-center gap-12">
+        {LOGOS.slice(0, 3).map((logo, i) => (
+          <div
+            key={logo.alt}
+            id={`m-logo-top-${i}`}
+            className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+          >
+            <Image
+              src={logo.src}
+              alt={logo.alt}
+              width={60}
+              height={60}
+              className="rounded-[10px]"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-center my-5">
+        <div
+          id="m-hub-dot"
+          className="h-4 w-4 rounded-full bg-[#e85c20] border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
+        />
+      </div>
+
+      <div className="flex items-center justify-center gap-12">
+        {LOGOS.slice(3, 7).map((logo, i) => (
+          <div
+            key={logo.alt}
+            id={`m-logo-bot-${i}`}
+            className="rounded-[18px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.18)]"
+          >
+            <Image
+              src={logo.src}
+              alt={logo.alt}
+              width={60}
+              height={60}
+              className="rounded-[10px]"
+            />
+          </div>
+        ))}
+      </div>
+
+      {(['left', 'top', 'right'] as const).map((hubAnchor, i) => (
+        <Xarrow
+          key={LOGOS[i].alt}
+          start={`m-logo-top-${i}`}
+          end="m-hub-dot"
+          color="rgba(255,255,255,0.7)"
+          strokeWidth={2.5}
+          headSize={0}
+          curveness={0.6}
+          startAnchor="bottom"
+          endAnchor={hubAnchor}
+          path="grid"
+        />
+      ))}
+
+      {(['left', 'left', 'right', 'right'] as const).map((hubAnchor, i) => (
+        <Xarrow
+          key={LOGOS[3 + i].alt}
+          start={`m-logo-bot-${i}`}
+          end="m-hub-dot"
+          color="rgba(255,255,255,0.7)"
+          strokeWidth={2.5}
+          headSize={0}
+          curveness={0.6}
+          startAnchor="top"
+          endAnchor={hubAnchor}
+          path="grid"
+        />
+      ))}
+
+      {/* White line dropping out of the hub toward the demo card below.
+          The mobile demo card (see `DemoSection`) is absolutely positioned
+          at `m-demo-anchor`'s bottom, so this line bridges the icon hub and
+          the card the same way `DesktopLogos` does. */}
+      <div className="flex justify-center">
+        <div id="m-demo-line" className="h-8 w-0.5 bg-white/70" />
+      </div>
+
+      <Xarrow
+        start="m-hub-dot"
+        end="m-demo-line"
+        color="rgba(255,255,255,0.7)"
+        strokeWidth={2.5}
+        headSize={0}
+        curveness={0}
+        startAnchor="bottom"
+        endAnchor="top"
+        path="straight"
+      />
+
+      <div id="m-demo-anchor" />
+      <div className="h-[150px]" />
+    </div>
+  )
+}
+

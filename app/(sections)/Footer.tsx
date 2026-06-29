@@ -5,13 +5,13 @@ import { XLogo } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
 import { EVENT, trackEvent } from '@/lib/posthog'
 
-export function Footer() {
+export const Footer = () => {
   // Track each "maker of Databerry" link with a stable label + URL so
   // PostHog Insights can break down which sibling product is pulling
   // the most clicks. `section` distinguishes them from the @xdrewmiko
   // / contact entries in the next column.
   const trackFooterLink = (
-    section: 'maker' | 'creator' | 'contact',
+    section: 'maker' | 'creator' | 'contact' | 'resource',
     label: string,
     url: string,
   ) =>
@@ -99,6 +99,28 @@ export function Footer() {
                   {label}
                 </a>
               ))}
+            </div>
+          </div>
+        </RevealOnScroll>
+
+        {/* Resources — site-meta links aimed at AI agents / crawlers.
+            `llms.txt` is a static file in /public served at /llms.txt, so
+            it's a plain anchor (not a Next <Link> route) opened in a new
+            tab. Kept in its own column so future docs/API links slot in
+            beside it without disturbing the Legal column. */}
+        <RevealOnScroll delay={0.25}>
+          <div className="flex flex-col gap-2">
+            <span className="text-xs text-white/40 uppercase tracking-wider">Resources</span>
+            <div className="flex flex-col gap-1 text-sm text-white/70">
+              <a
+                href="/llms.txt"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackFooterLink('resource', 'llms.txt', '/llms.txt')}
+                className="hover:text-white transition-colors"
+              >
+                llms.txt
+              </a>
             </div>
           </div>
         </RevealOnScroll>

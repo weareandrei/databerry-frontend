@@ -19,12 +19,13 @@ import { ArrowRight, Check, X } from '@phosphor-icons/react/dist/ssr'
 import Navbar from '@/app/(components)/navbar'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
+import { Breadcrumbs } from '@/app/(components)/Breadcrumbs'
 import { Footer } from '@/app/(sections)/Footer'
 import { COMPARISON_LINKS, type Comparison } from '../comparisons'
 
 const SITE = 'https://databerry.app'
 
-export function ComparisonPage({ data }: { data: Comparison }) {
+export const ComparisonPage = ({ data }: { data: Comparison }) => {
   const { slug, competitor, metaDescription, tagline, lead, stats, keyPoints, atAGlance, fitFor, notFor, verdict } =
     data
 
@@ -82,16 +83,20 @@ export function ComparisonPage({ data }: { data: Comparison }) {
         <main>
           {/* ── Hero header, on the orange canvas ───────────────────── */}
           <section className="px-6 pt-36 pb-12 md:pt-48 md:pb-16 text-center">
-            <span className="inline-block mb-6 rounded-full bg-white/20 px-4 py-1.5 text-sm font-medium text-white shadow-[0_4px_24px_rgba(0,0,0,0.25)] backdrop-blur-sm">
-              Comparison
-            </span>
+            <Breadcrumbs
+              className="mb-6"
+              items={[
+                { label: 'Home', href: '/' },
+                { label: 'Compare', href: '/compare' },
+                { label: `Databerry vs ${competitor}` },
+              ]}
+            />
             <h1
               className="mx-auto max-w-4xl text-4xl md:text-6xl font-semibold leading-[1.05] tracking-[-0.04em]"
               style={{ fontFamily: 'var(--font-bricolage)' }}
             >
               <span className="text-white">Databerry</span>
-              <span className="text-black/45"> vs </span>
-              <span className="text-black">{competitor}</span>
+              <span className="text-black">{' '}vs {competitor}</span>
             </h1>
             <p
               className="mx-auto mt-7 max-w-2xl text-base md:text-lg leading-[1.5] text-black"
@@ -102,7 +107,7 @@ export function ComparisonPage({ data }: { data: Comparison }) {
           </section>
 
           {/* Blend the orange hero down into the white panel. */}
-          <div className="h-16 bg-gradient-to-b from-transparent to-white" />
+          <div className="h-16" />
 
           {/* ── Comparison content, on a full-width white panel ─────
               The panel spans edge-to-edge (so the orange canvas only

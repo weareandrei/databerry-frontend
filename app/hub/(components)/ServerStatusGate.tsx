@@ -31,7 +31,7 @@ const SUPPORT_EMAIL = 'team@heavenmade.org'
 /** How often to re-probe the server while it looks down. */
 const RETRY_INTERVAL_MS = 5000
 
-export function ServerStatusGate() {
+export const ServerStatusGate = () => {
   const reachable = useServerReachable()
 
   // Track whether we were ever down this session, so a recovery (reachable
@@ -80,10 +80,6 @@ export function ServerStatusGate() {
         className="rounded-lg"
         priority
       />
-
-      <span className="flex items-center justify-center w-14 h-14 rounded-full bg-white shadow-sm">
-        <Plugs size={26} weight="bold" className="text-grey-dark" />
-      </span>
 
       <div className="max-w-sm">
         <h1 className="text-lg font-semibold text-grey-darkest">Server is down</h1>

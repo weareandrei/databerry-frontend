@@ -2,7 +2,7 @@ import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
 
 /**
  * Demo video section — a single embedded YouTube player, centered
- * horizontally, sitting just before the Features section.
+ * horizontally, sitting right after the Connect section.
  *
  * Background: `bg-white`. The sections above (Hero / Demo / Connect)
  * float over the Hero's dark `CanvasBackground`; Features is the first
@@ -21,8 +21,12 @@ import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
  * less vertical room (`pt-12 pb-6`) — the default `py-24` stacked
  * with the Features section's own top padding left a large empty
  * band below the video on small screens.
+ *
+ * Shown at every breakpoint: the mobile `<DemoSection>` is a blurred
+ * screenshot teaser (not the video), so this is the single place the
+ * actual product video plays on both mobile and desktop.
  */
-export default function VideoSection() {
+const VideoSection = () => {
   return (
     <section className="relative z-30 bg-white px-4 pt-12 pb-6 md:px-[10vw] md:py-24">
       <RevealOnScroll>
@@ -42,3 +46,5 @@ export default function VideoSection() {
     </section>
   )
 }
+
+export default VideoSection

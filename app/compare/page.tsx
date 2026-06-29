@@ -66,10 +66,10 @@ export default function CompareHub() {
               Comparisons
             </span>
             <h1
-              className="mx-auto max-w-4xl text-4xl md:text-6xl font-semibold leading-[1.05] tracking-[-0.04em] text-black"
+              className="mx-auto max-w-4xl text-4xl md:text-6xl font-semibold leading-[1.05] tracking-[-0.04em] text-white"
               style={{ fontFamily: 'var(--font-bricolage)' }}
             >
-              Compare <span className="text-white">Databerry</span>
+              Compare  Databerry
             </h1>
             <p
               className="mx-auto mt-7 max-w-2xl text-base md:text-lg leading-[1.5] text-black"

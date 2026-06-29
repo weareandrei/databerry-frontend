@@ -14,19 +14,7 @@
 import { PeopleShowcase } from '@/app/(components)/PeopleShowcase'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
 
-function MergedUsersBadge() {
-  // Same chip chrome as `<AgentModeBadge>` / `<DemoBadge>` so the
-  // showcase cards read as one family.
-  return (
-    <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
-      <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
-        Merged profiles
-      </span>
-    </span>
-  )
-}
-
-export default function MergedUsersSection() {
+const MergedUsersSection = () => {
   return (
     <section
       id="merged-users"
@@ -79,3 +67,18 @@ export default function MergedUsersSection() {
     </section>
   )
 }
+
+export default MergedUsersSection
+
+const MergedUsersBadge = () => {
+  // Same chip chrome as `<AgentModeBadge>` / `<DemoBadge>` so the
+  // showcase cards read as one family.
+  return (
+    <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
+      <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
+        Merged profiles
+      </span>
+    </span>
+  )
+}
+

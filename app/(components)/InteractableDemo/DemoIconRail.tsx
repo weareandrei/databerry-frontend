@@ -4,13 +4,16 @@
  * Demo mirror of the real `<IconRail>` — the 64px icon spine on the
  * left of every hub page. Presentational + driven by `DemoContext`:
  * navigation goes through `goToPage` (not the Next router), and the
- * inert utilities (new project, suggest, subscription, settings, sign
- * out) surface the "not available in the demo" notice instead of doing
- * anything real.
+ * inert utilities (new project, settings, sign out) surface the "not
+ * available in the demo" notice instead of doing anything real.
  *
  * Laid out as a flex column INSIDE the demo card (the real rail is
  * `fixed` to the viewport — here it's a normal flex child so it stays
  * within the scaled demo frame).
+ *
+ * Desktop-only (`hidden md:flex`) — exactly like the real `<IconRail>`.
+ * On mobile the demo navigates via the burger + bottom-sheet in
+ * `<DemoMobileNav>` (the mirror of the real `<MobileTopBar>` burger).
  */
 
 import Image from 'next/image'
@@ -19,52 +22,14 @@ import {
   SquaresFour,
   Plus,
   Gear,
-  CreditCard,
   SignOut,
-  Lightbulb,
 } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
 import { useDemoContext } from './context/DemoContext'
 
 const UNSUPPORTED = "This feature isn't available in the demo."
 
-function RailButton({
-  active,
-  danger,
-  brand,
-  label,
-  onClick,
-  children,
-}: {
-  active?: boolean
-  danger?: boolean
-  brand?: boolean
-  label: string
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      title={label}
-      className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors cursor-pointer ${
-        brand
-          ? 'bg-brand border-transparent text-white hover:bg-brand/90'
-          : active
-            ? 'bg-white border-stroke shadow-sm text-grey-darkest'
-            : danger
-              ? 'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm hover:text-destructive'
-              : 'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-export function DemoIconRail() {
+export const DemoIconRail = () => {
   const { projects, pageOpen, currentProjectId, goToPage, showNotice } = useDemoContext()
 
   return (
@@ -118,12 +83,6 @@ export function DemoIconRail() {
 
       {/* Bottom utilities — all inert in the demo. */}
       <div className="flex flex-col items-center gap-2">
-        <RailButton label="Help us improve" brand onClick={() => showNotice(UNSUPPORTED)}>
-          <Lightbulb size={16} weight="bold" />
-        </RailButton>
-        <RailButton label="Subscription" onClick={() => showNotice(UNSUPPORTED)}>
-          <CreditCard size={16} weight="bold" />
-        </RailButton>
         <RailButton label="Settings" onClick={() => showNotice(UNSUPPORTED)}>
           <Gear size={16} weight="bold" />
         </RailButton>
@@ -132,5 +91,41 @@ export function DemoIconRail() {
         </RailButton>
       </div>
     </aside>
+  )
+}
+
+const RailButton = ({
+  active,
+  danger,
+  brand,
+  label,
+  onClick,
+  children,
+}: {
+  active?: boolean
+  danger?: boolean
+  brand?: boolean
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className={`flex items-center justify-center w-9 h-9 rounded-xl border transition-colors cursor-pointer ${
+        brand
+          ? 'bg-brand border-transparent text-white hover:bg-brand/90'
+          : active
+            ? 'bg-white border-stroke shadow-sm text-grey-darkest'
+            : danger
+              ? 'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm hover:text-destructive'
+              : 'bg-hover-fill border-transparent text-grey-dark hover:bg-white hover:border-stroke hover:shadow-sm'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
