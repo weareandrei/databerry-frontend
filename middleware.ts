@@ -28,6 +28,16 @@ const UNIVERSAL_PUBLIC_PATHS = [
   '/',
   '/terms',
   '/privacy',
+  // Public marketing surfaces that need NO session and aren't auth-flow
+  // pages — so a signed-OUT visitor (or an AI/search crawler) reaches them
+  // without being bounced to /login, and a signed-IN visitor is NOT bounced
+  // to /hub/home:
+  //   - `/demo`    — the self-contained, mock-data sandbox behind the
+  //                  landing page's "See demo" CTA.
+  //   - `/compare` — the "Databerry vs X" SEO pages (in sitemap + robots);
+  //                  `startsWith` also covers `/compare/<competitor>`.
+  '/demo',
+  '/compare',
 ]
 const DEFAULT_AUTHENTICATED = '/hub/home'
 const DEFAULT_UNAUTHENTICATED = '/login'
