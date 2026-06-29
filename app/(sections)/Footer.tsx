@@ -180,10 +180,19 @@ export const Footer = () => {
         </svg>
       </RevealOnScroll>
 
-      {/* Mobile: rotated 90°, stretched to the full footer height. The
-          inset-0 layer is a definite-size container, so `100cqh` resolves
-          to the footer's real height; once the SVG is rotated, that width
-          becomes its vertical extent. Sits behind the content (z-0). */}
+      {/* Mobile: rotated 90°, stretched to the full footer height and
+          flush against the RIGHT edge. The inset-0 layer is a definite-size
+          container, so `100cqh` resolves to the footer's real height; once
+          the SVG is rotated, that width becomes its vertical extent. Sits
+          behind the content (z-0).
+
+          Right-anchoring math: the rotated text forms a vertical band whose
+          thickness equals the SVG's rendered height — `100cqh × 160/1000 =
+          16cqh` (so half-band = 8cqh). Anchored `right-0`, the element's
+          centre sits at `W − 50cqh`; `translateX(calc(50cqh - 8cqh))` pushes
+          that centre to `W − 8cqh`, landing the band's right edge exactly on
+          the footer's right edge. translateY(-50%) centres it vertically so
+          it still fills the full height. */}
       <div
         className="md:hidden absolute inset-0 z-0 overflow-hidden pointer-events-none select-none"
         style={{ containerType: 'size' }}
@@ -192,8 +201,8 @@ export const Footer = () => {
           aria-hidden
           viewBox="0 0 1000 160"
           preserveAspectRatio="none"
-          className="absolute left-1/2 top-1/2"
-          style={{ width: '100cqh', transform: 'translate(-50%, -50%) rotate(-90deg)' }}
+          className="absolute right-0 top-1/2"
+          style={{ width: '100cqh', transform: 'translate(calc(50cqh - 8cqh), -50%) rotate(-90deg)' }}
         >
           <text
             x="0"
