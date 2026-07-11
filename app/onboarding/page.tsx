@@ -53,7 +53,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { NotchBar } from '@/app/(components)/navbar'
-import { PosthogEventPickerDialog } from '@/app/hub/(components)/view/PosthogEventPickerDialog'
+import { PosthogEventPickerDialog } from '@/app/hub/(components)/view/(components)/PosthogEventPickerDialog'
 import {
   POSTHOG_HOSTS,
   connectPosthog,
@@ -74,12 +74,12 @@ import {
   TOOLS,
   TOOL_LABELS,
   VIEW_SECTIONS,
-} from './(components)/constants'
+} from './constants'
 import {
   useOnboardingProgress,
   saveProgress,
   clearProgress,
-} from './(components)/useOnboardingProgress'
+} from './useOnboardingProgress'
 import { WelcomeStep } from './(components)/WelcomeStep'
 import { ToolsStep } from './(components)/ToolsStep'
 import { ConnectingStep } from './(components)/ConnectingStep'
@@ -629,15 +629,15 @@ export default function OnboardingPage() {
               <span
                 className={cn(
                   'h-2 w-2 rounded-full transition-colors',
-                  i === activeIdx ? 'bg-brand' : 'bg-brand/25',
+                  i === activeIdx ? 'bg-primary' : 'bg-primary/25',
                 )}
               />
               <span
                 className={cn(
                   'text-sm whitespace-nowrap',
                   i === activeIdx
-                    ? 'font-semibold text-grey-darkest'
-                    : 'text-grey-dark',
+                    ? 'font-semibold text-foreground'
+                    : 'text-muted-foreground',
                 )}
               >
                 {s.label}
@@ -648,7 +648,7 @@ export default function OnboardingPage() {
         <button
           type="button"
           onClick={signOut}
-          className="text-sm font-medium text-grey-darkest underline underline-offset-2 hover:text-black transition-colors cursor-pointer"
+          className="text-sm font-medium text-foreground underline underline-offset-2 hover:text-black transition-colors cursor-pointer"
         >
           Sign out
         </button>
@@ -682,7 +682,7 @@ export default function OnboardingPage() {
                   step — `step`'s initial value is just a useState
                   default, not the truth. */}
               {restoring && (
-                <div className="flex items-center gap-2 text-sm text-grey-dark">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <ArrowsClockwise
                     size={14}
                     weight="bold"

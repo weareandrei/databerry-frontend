@@ -1,8 +1,8 @@
 'use client'
 
 import { Gear } from '@phosphor-icons/react'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
-import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
+import { SectionHeader } from '@/app/hub/(components)/layout/SectionHeader'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
 import { TrafficSourceSelector } from './(components)/TrafficSourceSelector'
 import {
   TimezonePicker,
@@ -46,23 +46,23 @@ export default function SettingsPage() {
             <SectionHeader
               icon={
                 <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                  <Gear size={14} weight="bold" className="text-grey-darkest" />
+                  <Gear size={14} weight="bold" className="text-foreground" />
                 </span>
               }
-              title={<span className="text-base font-bold text-grey-darkest">Settings</span>}
+              title={<span className="text-base font-bold text-foreground">Settings</span>}
               subtitle="Global preferences shared across every project."
-              // `bg-main` was previously the SectionHeader default; pass
+              // `bg-surface` was previously the SectionHeader default; pass
               // it explicitly now that the component no longer hardcodes
               // a bg.
-              className="bg-main"
+              className="bg-surface"
             />
           </div>
 
           <div className="p-5 space-y-8">
             {/* Traffic source */}
             <section>
-              <h3 className="text-sm font-semibold text-grey-darkest mb-1">Traffic source</h3>
-              <p className="text-xs text-grey-light mb-3">
+              <h3 className="text-sm font-semibold text-foreground mb-1">Traffic source</h3>
+              <p className="text-xs text-subtle mb-3">
                 Which connection provides the stacked visitors chart and sources list. When set to
                 Auto, we pick Google Analytics if available, else PostHog. Conversion events are
                 configured per-project from each overview chart&rsquo;s menu.
@@ -73,8 +73,8 @@ export default function SettingsPage() {
             {/* Timezone — `id` enables the deep-link from the sidebar
                 3-dots menu (`/hub/settings#timezone`). */}
             <section id="timezone" ref={timezoneSectionRef}>
-              <h3 className="text-sm font-semibold text-grey-darkest mb-1">Timezone</h3>
-              <p className="text-xs text-grey-light mb-3">
+              <h3 className="text-sm font-semibold text-foreground mb-1">Timezone</h3>
+              <p className="text-xs text-subtle mb-3">
                 Used for date ranges and the &ldquo;Now&rdquo; indicator across every view. Changing
                 this re-fetches all open tiles to align with your selected zone&rsquo;s wall-clock day.
               </p>

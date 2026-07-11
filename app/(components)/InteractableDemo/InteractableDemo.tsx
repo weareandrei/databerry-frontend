@@ -13,17 +13,16 @@
 
 import { useEffect } from 'react'
 import { Warning, X } from '@phosphor-icons/react'
-import { DemoProvider, useDemoContext } from './context/DemoContext'
-import { DemoErrorBoundary } from './DemoErrorBoundary'
-import { DemoIconRail } from './DemoIconRail'
-import { DemoMobileNav } from './DemoMobileNav'
-import { DemoProjectSidebar } from './DemoProjectSidebar'
-import { DemoTopBar } from './DemoTopBar'
-import { DemoAgentBody } from './DemoAgentBody'
-import { DemoProjectView } from './projects/DemoProjectView'
-import { DemoPinned } from './projects/DemoPinned'
-import { DemoHomePage } from './pages/DemoHomePage'
-import { DemoConnectionsPage } from './pages/DemoConnectionsPage'
+import { DemoProvider, useDemoContext } from './(components)/context/DemoContext'
+import { DemoErrorBoundary } from './(components)/DemoErrorBoundary'
+import { DemoIconRail } from './(components)/DemoIconRail'
+import { DemoMobileNav } from './(components)/DemoMobileNav'
+import { DemoProjectSidebar } from './(components)/DemoProjectSidebar'
+import { DemoTopBar } from './(components)/DemoTopBar'
+import { DemoAgentBody } from './(components)/DemoAgentBody'
+import { DemoProjectView } from './(components)/projects/DemoProjectView'
+import { DemoHomePage } from './(components)/pages/DemoHomePage'
+import { DemoConnectionsPage } from './(components)/pages/DemoConnectionsPage'
 
 const DEMO_UNSUPPORTED_NOTICE = "This feature isn't available in the demo."
 
@@ -95,14 +94,6 @@ const DemoContent = () => {
               <DemoTopBar />
               <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
                 <DemoProjectView project={project} />
-              </div>
-            </>
-          )}
-          {pageOpen === 'pinned' && project && (
-            <>
-              <DemoTopBar />
-              <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
-                <DemoPinned project={project} />
               </div>
             </>
           )}

@@ -10,7 +10,7 @@
  *
  * ## Visual model
  *
- * The popup uses the *dashboard surface colour* (`bg-main`) — i.e. the
+ * The popup uses the *dashboard surface colour* (`bg-surface`) — i.e. the
  * sheet looks like a giant dashboard card sliding up from the bottom.
  * Page content can be rendered in one of two ways:
  *
@@ -145,7 +145,7 @@ interface BottomDialogPageProps {
    * the body (so the dashboard bg never bleeds through below the
    * content) and scrolls internally when content overflows.
    *
-   * `'plain'` is an escape hatch — content sits directly on bg-main
+   * `'plain'` is an escape hatch — content sits directly on bg-surface
    * with no wrapper. Reserved for the rare case where the page IS its
    * own panel (e.g. a full-bleed media viewer); not used today. Reach
    * for it only when the card chrome actively interferes with the
@@ -187,13 +187,13 @@ const BACKDROP_CLASS_CONTAINED = `absolute ${BACKDROP_CLASS_BASE}`
 // (so the white card visually fills the dialog rather than leaving the
 // dashboard background bleeding through below it).
 //
-// Background is `bg-main` — the same colour as the dashboard surface — so
+// Background is `bg-surface` — the same colour as the dashboard surface — so
 // the sheet reads as "the dashboard, slid up" rather than a separate UI
 // element. The white-card variant lives inside the body, not on the popup
 // itself, mirroring how dashboard cards sit on the dashboard.
 const POPUP_CLASS_BASE =
   'inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl ' +
-  'bg-main text-foreground ring-1 ring-foreground/10 outline-none ' +
+  'bg-surface text-foreground ring-1 ring-foreground/10 outline-none ' +
   'transition-transform ease-out duration-300 ' +
   'data-starting-style:translate-y-full data-ending-style:translate-y-full'
 const POPUP_CLASS_FIXED = `fixed min-h-[50vh] max-h-[92vh] ${POPUP_CLASS_BASE}`
@@ -273,7 +273,7 @@ function BottomDialog({
         <DrawerPrimitive.Popup
           className={cn(container ? POPUP_CLASS_CONTAINED : POPUP_CLASS_FIXED, className)}
         >
-          {/* Header row. No background — it sits on the popup's `bg-main`
+          {/* Header row. No background — it sits on the popup's `bg-surface`
               directly. Three slots: optional back arrow, headerLeft (or
               fallback title), headerRight (or fallback close button). */}
           {/* `items-center` vertically centers the back arrow, the
@@ -329,7 +329,7 @@ function BottomDialog({
                 // for every dialog that doesn't override `headerRight`.
                 <DrawerPrimitive.Close
                   data-slot="dialog-close"
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-grey-darkest shadow-pill transition-colors hover:bg-hover-fill cursor-pointer"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-foreground shadow-pill transition-colors hover:bg-hover-fill cursor-pointer"
                 >
                   <X size={14} weight="bold" />
                   <span className="sr-only">Close</span>
@@ -355,7 +355,7 @@ function BottomDialog({
                 transition={{ duration: 0.22, ease: 'easeOut' }}
                 // `min-h-full` only on the card variant. For plain pages
                 // (picker grids) we want the content to sit at its
-                // natural height with bg-main flowing below it.
+                // natural height with bg-surface flowing below it.
                 className={bodyVariant === 'card' ? 'min-h-full' : undefined}
               >
                 {bodyVariant === 'card' ? (
@@ -373,9 +373,9 @@ function BottomDialog({
                     </div>
                   </div>
                 ) : (
-                  // Plain variant: content sits directly on bg-main. No
+                  // Plain variant: content sits directly on bg-surface. No
                   // vertical stretch — the picker grids look fine sitting
-                  // at their natural height with bg-main filling below.
+                  // at their natural height with bg-surface filling below.
                   <div style={bodyMaxWidth ? { maxWidth: bodyMaxWidth } : undefined}>
                     {current?.props.children}
                   </div>

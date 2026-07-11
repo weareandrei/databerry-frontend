@@ -1,6 +1,6 @@
-import { Plus } from '@phosphor-icons/react'
-import { FolderCard } from './FolderCard'
-import { ViewWrapper } from '@/app/hub/(components)/view/ViewWrapper'
+import { FolderSimplePlus } from '@phosphor-icons/react'
+import { FolderCard } from './(components)/FolderCard'
+import { ViewWrapper } from '@/app/hub/(components)/view/(components)/ViewWrapper'
 import type { Folder } from '@/types/folder'
 
 interface FolderGridProps {
@@ -27,7 +27,7 @@ export function FolderGrid({
   if (folders.length === 0 && !onCreateFolder) return null
 
   return (
-    <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 5xl:grid-cols-6">
+    <div className="flex flex-wrap items-start gap-2">
       {folders.map(folder => (
         <FolderCard
           key={folder.id}
@@ -40,10 +40,10 @@ export function FolderGrid({
       ))}
       {onCreateFolder && (
         <button onClick={onCreateFolder} className="flex w-fit text-left cursor-pointer">
-          <ViewWrapper>
-            <div className="flex items-center gap-2 px-3 py-3">
-              <Plus size={16} weight="bold" className="text-grey-light shrink-0" />
-              <span className="text-sm font-medium text-grey-light whitespace-nowrap">New folder</span>
+          <ViewWrapper radius="lg" compact className="w-fit">
+            <div className="flex items-center gap-1.5 px-2.5 py-2">
+              <FolderSimplePlus size={14} weight="bold" className="text-subtle shrink-0" />
+              <span className="text-sm font-medium text-subtle whitespace-nowrap">New folder</span>
             </div>
           </ViewWrapper>
         </button>

@@ -220,13 +220,13 @@ export function EditFunnelModal({
         </p>
 
         {loadingEvents && (
-          <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+          <p className="text-sm text-subtle py-4 text-center">Loading events…</p>
         )}
         {eventsError && (
           <p className="text-sm text-destructive py-4 text-center">{eventsError}</p>
         )}
         {events && events.length === 0 && (
-          <p className="text-sm text-grey-light py-4 text-center">
+          <p className="text-sm text-subtle py-4 text-center">
             No events found in this PostHog project.
           </p>
         )}

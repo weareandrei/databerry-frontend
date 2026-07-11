@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Cube, Plus, X } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import {
   BottomDialog,
   type BottomDialogPageSlotContext,
 } from '@/components/ui/Dialog'
-import { HeaderSaveCancel } from './HeaderSaveCancel'
+import { HeaderSaveCancel } from './(components)/HeaderSaveCancel'
 import { cn } from '@/lib/utils'
 import { ALGORITHM, type PosthogEventDefinition } from '@/lib/api'
 import {
@@ -24,14 +24,14 @@ import {
 } from '@/constants/viewOptions'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import type { Connection } from '@/types/connection'
-import { ViewPickerBar } from './ViewPickerBar'
-import { DisplayModePicker } from './DisplayModePicker'
+import { ViewPickerBar } from './(components)/ViewPickerBar'
+import { DisplayModePicker } from './(components)/DisplayModePicker'
 import {
   ViewScopePicker,
   connectionMatchesScope,
   projectIdForScope,
   type ViewScope,
-} from './ViewScopePicker'
+} from './(components)/ViewScopePicker'
 
 // ── Sub-page state types ────────────────────────────────────────────────────
 
@@ -947,13 +947,13 @@ export function CreateViewModal() {
             Each selected event becomes a {eventsStep.displayMode === 'chart' ? 'chart' : 'value'} tile.
           </p>
           {eventsStep.loading && (
-            <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+            <p className="text-sm text-subtle py-4 text-center">Loading events…</p>
           )}
           {eventsStep.error && (
             <p className="text-sm text-destructive py-4 text-center">{eventsStep.error}</p>
           )}
           {eventsStep.events && eventsStep.events.length === 0 && (
-            <p className="text-sm text-grey-light py-4 text-center">No events found.</p>
+            <p className="text-sm text-subtle py-4 text-center">No events found.</p>
           )}
           {eventsStep.events && eventsStep.events.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-2">
@@ -968,21 +968,21 @@ export function CreateViewModal() {
                     className={cn(
                       'rounded-lg border p-3 flex flex-col gap-2 cursor-pointer transition-all select-none',
                       isSelected
-                        ? 'border-brand bg-brand/5'
+                        ? 'border-primary bg-primary/5'
                         : 'border-stroke bg-white hover:bg-hover-fill',
                     )}
                   >
-                    <p className="text-sm font-semibold text-grey-darkest truncate">{def.name}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{def.name}</p>
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-grey-light">30d events</span>
-                        <span className="text-xs font-medium text-grey-dark">
+                        <span className="text-xs text-subtle">30d events</span>
+                        <span className="text-xs font-medium text-muted-foreground">
                           {volume.toLocaleString()}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-grey-light">Last seen</span>
-                        <span className="text-xs font-medium text-grey-dark">
+                        <span className="text-xs text-subtle">Last seen</span>
+                        <span className="text-xs font-medium text-muted-foreground">
                           {def.last_seen_at
                             ? new Date(def.last_seen_at).toLocaleDateString()
                             : '—'}
@@ -990,8 +990,8 @@ export function CreateViewModal() {
                       </div>
                       {urlPath && (
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-xs text-grey-light shrink-0">Last URL</span>
-                          <span className="text-xs font-medium text-grey-dark truncate text-right">
+                          <span className="text-xs text-subtle shrink-0">Last URL</span>
+                          <span className="text-xs font-medium text-muted-foreground truncate text-right">
                             {urlPath}
                           </span>
                         </div>
@@ -1067,13 +1067,13 @@ export function CreateViewModal() {
             within the conversion window.
           </p>
           {funnelStep.loading && (
-            <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+            <p className="text-sm text-subtle py-4 text-center">Loading events…</p>
           )}
           {funnelStep.error && (
             <p className="text-sm text-destructive py-4 text-center">{funnelStep.error}</p>
           )}
           {funnelStep.events && funnelStep.events.length === 0 && (
-            <p className="text-sm text-grey-light py-4 text-center">
+            <p className="text-sm text-subtle py-4 text-center">
               No events found in this PostHog project.
             </p>
           )}
@@ -1172,13 +1172,13 @@ export function CreateViewModal() {
             return for the <em>return event</em> in each subsequent period.
           </p>
           {retentionStep.loading && (
-            <p className="text-sm text-grey-light py-4 text-center">Loading events…</p>
+            <p className="text-sm text-subtle py-4 text-center">Loading events…</p>
           )}
           {retentionStep.error && (
             <p className="text-sm text-destructive py-4 text-center">{retentionStep.error}</p>
           )}
           {retentionStep.events && retentionStep.events.length === 0 && (
-            <p className="text-sm text-grey-light py-4 text-center">
+            <p className="text-sm text-subtle py-4 text-center">
               No events found in this PostHog project.
             </p>
           )}
@@ -1233,7 +1233,7 @@ export function CreateViewModal() {
                       className={cn(
                         'flex-1 cursor-pointer rounded-md border px-3 py-2 text-center text-sm capitalize transition-colors',
                         retentionStep.period === p
-                          ? 'border-brand bg-brand/5 text-foreground'
+                          ? 'border-primary bg-primary/5 text-foreground'
                           : 'border-stroke bg-background text-muted-foreground hover:bg-hover-fill',
                       )}
                     >
@@ -1428,7 +1428,7 @@ export function CreateViewModal() {
                     views.closeModal()
                     resetSubPages()
                   }}
-                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-grey-darkest shadow-pill transition-colors hover:bg-hover-fill"
+                  className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-foreground shadow-pill transition-colors hover:bg-hover-fill"
                   aria-label="Close"
                 >
                   <X size={14} weight="bold" />
@@ -1543,7 +1543,7 @@ export function CreateViewModal() {
                     views.closeModal()
                     connections.openModal(views.createViewFolderId)
                   }}
-                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-[12px] font-medium text-grey-darkest shadow-sm transition-colors hover:bg-hover-fill"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-hover-fill"
                 >
                   <Plus size={12} weight="bold" />
                   New connection

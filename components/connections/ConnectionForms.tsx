@@ -26,7 +26,7 @@ import { useState } from 'react'
 import { Check } from '@phosphor-icons/react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { InlineErrorBanner } from '@/app/hub/(components)/modals/InlineErrorBanner'
+import { InlineErrorBanner } from '@/app/hub/(components)/modals/(components)/InlineErrorBanner'
 import { cn } from '@/lib/utils'
 import {
   POSTHOG_HOSTS,
@@ -40,8 +40,8 @@ export function PrerequisitesCard({ items }: { items: React.ReactNode[] }) {
   // `max-w-md` keeps the card from stretching the full form width — it
   // sizes to a comfortable reading column instead.
   return (
-    <div className="max-w-md rounded-2xl border border-stroke bg-main/40 p-3 md:p-4">
-      <p className="text-sm font-medium text-grey-light mb-2.5">Pre-requisites</p>
+    <div className="max-w-md rounded-2xl border border-stroke bg-surface/40 p-3 md:p-4">
+      <p className="text-sm font-medium text-subtle mb-2.5">Pre-requisites</p>
       <div className="space-y-2">
         {items.map((it, i) => (
           <PrerequisiteItem key={i}>{it}</PrerequisiteItem>
@@ -68,12 +68,12 @@ function PrerequisiteItem({ children }: { children: React.ReactNode }) {
       <span
         className={cn(
           'shrink-0 grid place-items-center w-4 h-4 rounded-full border-2 transition-colors',
-          checked ? 'border-brand bg-brand text-white' : 'border-stroke',
+          checked ? 'border-primary bg-primary text-white' : 'border-stroke',
         )}
       >
         {checked && <Check size={10} weight="bold" />}
       </span>
-      <span className="text-sm font-semibold text-grey-darkest leading-snug">
+      <span className="text-sm font-semibold text-foreground leading-snug">
         {children}
       </span>
     </button>
@@ -91,8 +91,8 @@ export function SetupStep({
 }) {
   return (
     <div>
-      <p className="text-sm font-medium text-grey-light mb-1">Step {n}</p>
-      <div className="text-sm font-semibold text-grey-darkest leading-snug">
+      <p className="text-sm font-medium text-subtle mb-1">Step {n}</p>
+      <div className="text-sm font-semibold text-foreground leading-snug">
         {title}
       </div>
       {children ? <div className="mt-2.5">{children}</div> : null}
@@ -138,7 +138,7 @@ export function PostHogForm({
               href="https://app.posthog.com/settings/user-api-keys"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-grey-darkest transition-colors"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
               Personal API Keys
             </a>
@@ -146,8 +146,8 @@ export function PostHogForm({
           </>
         }
       >
-        <p className="text-sm text-grey-dark">Give it the following access:</p>
-        <ul className="mt-1 list-disc pl-5 text-sm text-grey-darkest space-y-1">
+        <p className="text-sm text-muted-foreground">Give it the following access:</p>
+        <ul className="mt-1 list-disc pl-5 text-sm text-foreground space-y-1">
           <li>
             <span className="font-semibold">Read</span> access to Project,
             Query, and Event definition.
@@ -159,7 +159,7 @@ export function PostHogForm({
             automatic updates.
           </li>
         </ul>
-        <p className="mt-2 text-xs text-grey-light">
+        <p className="mt-2 text-xs text-subtle">
           We only register a destination that forwards matching events to your
           dashboard — your events and other PostHog data are never modified.
         </p>
@@ -175,7 +175,7 @@ export function PostHogForm({
       </SetupStep>
 
       <SetupStep n={3} title="Select your region">
-        <p className="text-xs text-grey-light mb-2.5">
+        <p className="text-xs text-subtle mb-2.5">
           Find it in your PostHog URL —{' '}
           <code className="bg-muted px-1 rounded">us.posthog.com</code> or{' '}
           <code className="bg-muted px-1 rounded">eu.posthog.com</code>.
@@ -282,7 +282,7 @@ export function StripeManualForm({
               href="https://dashboard.stripe.com/apikeys/create"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-grey-darkest transition-colors"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
               Stripe Restricted Key
             </a>
@@ -290,11 +290,11 @@ export function StripeManualForm({
           </>
         }
       >
-        <p className="text-sm text-grey-dark">Give it Read access to:</p>
-        <ul className="mt-1 list-disc pl-5 text-sm text-grey-darkest">
+        <p className="text-sm text-muted-foreground">Give it Read access to:</p>
+        <ul className="mt-1 list-disc pl-5 text-sm text-foreground">
           <li>Charges, Customers, Subscriptions, and Products.</li>
         </ul>
-        <p className="mt-2 text-xs text-grey-light">
+        <p className="mt-2 text-xs text-subtle">
           It&apos;s read-only. We never write anything to your Stripe account.
         </p>
       </SetupStep>
@@ -314,7 +314,7 @@ export function StripeManualForm({
           value={name}
           onChange={e => onNameChange(e.target.value)}
         />
-        <p className="mt-1.5 text-xs text-grey-light">
+        <p className="mt-1.5 text-xs text-subtle">
           Helps you tell multiple Stripe accounts apart later.
         </p>
       </SetupStep>
@@ -353,7 +353,7 @@ export function VercelTokenForm({
               href="https://vercel.com/account/tokens"
               target="_blank"
               rel="noopener noreferrer"
-              className="underline underline-offset-2 hover:text-grey-darkest transition-colors"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
             >
               vercel.com/account/tokens
             </a>
@@ -361,9 +361,9 @@ export function VercelTokenForm({
           </>
         }
       >
-        <p className="text-xs text-grey-light">
+        <p className="text-xs text-subtle">
           Make sure it&apos;s a{' '}
-          <span className="font-semibold text-grey-darkest">Personal</span>{' '}
+          <span className="font-semibold text-foreground">Personal</span>{' '}
           token — not Team or Project scope.
         </p>
       </SetupStep>
@@ -443,7 +443,7 @@ export function WebhookForm({
           onChange={e => onNameChange(e.target.value)}
           autoFocus
         />
-        <p className="mt-1.5 text-xs text-grey-light">
+        <p className="mt-1.5 text-xs text-subtle">
           After connecting you&apos;ll get a unique webhook URL + API key.
           Point your tool at that URL and send it data.
         </p>

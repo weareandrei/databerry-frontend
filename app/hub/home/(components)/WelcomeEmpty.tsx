@@ -20,9 +20,9 @@ export function WelcomeEmpty({ onCreate }: WelcomeEmptyProps) {
   return (
     <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
       <div className="w-12 h-12 rounded-2xl bg-white border border-stroke shadow-card flex items-center justify-center mb-5">
-        <Cube size={22} weight="bold" className="text-brand" />
+        <Cube size={22} weight="bold" className="text-primary" />
       </div>
-      <h1 className="text-2xl font-semibold text-grey-darkest mb-2">
+      <h1 className="text-2xl font-semibold text-foreground mb-2">
         Welcome to your Databerry dashboard
       </h1>
       <p className="text-sm text-muted-foreground max-w-md mb-8 leading-relaxed">
@@ -33,7 +33,7 @@ export function WelcomeEmpty({ onCreate }: WelcomeEmptyProps) {
       </p>
       <Button
         onClick={onCreate}
-        className="bg-brand hover:bg-brand/90 text-white rounded-full px-5"
+        className="bg-primary hover:bg-primary/90 text-white rounded-full px-5"
       >
         <Plus size={14} weight="bold" className="mr-1.5" />
         Create your first project

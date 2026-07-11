@@ -3,7 +3,7 @@
 // ── "Connecting <tool>" step ────────────────────────────────────────────────
 
 import { ArrowLeft } from '@phosphor-icons/react'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import {
   PostHogForm,
   PostHogProjectSelectForm,
@@ -13,7 +13,7 @@ import type {
   OAuthConnectionType,
   PosthogProjectOption,
 } from '@/lib/connections/connectionFlows'
-import { TOOL_LABELS } from './constants'
+import { TOOL_LABELS } from '../constants'
 import { PrimaryCta, SkipLink } from './OnboardingControls'
 
 /**
@@ -70,21 +70,21 @@ export function ConnectingStep({
         type="button"
         onClick={onBack}
         disabled={busy}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-grey-light hover:text-grey-darkest transition-colors cursor-pointer disabled:opacity-50 mb-3"
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-subtle hover:text-foreground transition-colors cursor-pointer disabled:opacity-50 mb-3"
       >
         <ArrowLeft size={12} weight="bold" />
         Go back
       </button>
 
       <h1
-        className="flex items-center gap-3 text-3xl md:text-4xl font-semibold tracking-tight text-gray-900"
+        className="flex items-center gap-3 text-3xl md:text-4xl font-semibold tracking-tight text-foreground"
         style={{ fontFamily: 'var(--font-bricolage)' }}
       >
         <ConnectionIcon type={tool} size={32} />
         Connecting {TOOL_LABELS[tool] ?? tool}
       </h1>
       {total > 1 && (
-        <p className="mt-2 text-xs text-grey-light">
+        <p className="mt-2 text-xs text-subtle">
           Tool {position} of {total}
         </p>
       )}
@@ -97,7 +97,7 @@ export function ConnectingStep({
         {tool === 'posthog' &&
           (posthog.projects ? (
             <div className="w-full max-w-md text-left">
-              <p className="mb-2 text-sm font-semibold text-grey-darkest">
+              <p className="mb-2 text-sm font-semibold text-foreground">
                 Pick the PostHog project to track
               </p>
               <PostHogProjectSelectForm
@@ -127,9 +127,9 @@ export function ConnectingStep({
         )}
 
         {(tool === 'sentry' || tool === 'google_analytics') && (
-          <p className="max-w-sm text-sm text-gray-500 leading-relaxed">
+          <p className="max-w-sm text-sm text-muted-foreground leading-relaxed">
             We&apos;ll send you to{' '}
-            <span className="font-semibold text-grey-darkest">
+            <span className="font-semibold text-foreground">
               {TOOL_LABELS[tool]}
             </span>{' '}
             to authorize read-only access, then bring you right

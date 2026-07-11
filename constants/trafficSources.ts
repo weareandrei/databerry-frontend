@@ -3,7 +3,7 @@
  * Frontend uses this only to style / render segments when the backend supplies a key.
  *
  * Colours are restrained to fit the Kontext design system — muted greys with a
- * handful of controlled accent colours. The brand orange (#F46719) is reserved
+ * handful of controlled accent colours. The primary pink (#FF5D78) is reserved
  * for the Reddit source so the colour is re-used intentionally rather than
  * competing with primary UI chrome.
  */
@@ -36,9 +36,9 @@ export const SOURCE_STYLE: Record<string, NormalizedSource> = {
   chatgpt:     { key: 'chatgpt',     label: 'ChatGPT',     color: '#10a37f', logo: '/logos/chatgpt.svg' }, // brand emerald
   google:      { key: 'google',      label: 'Google',      color: '#ffffff', outlined: true, logo: '/logos/google.svg' },
   x:           { key: 'x',           label: 'x.com',       color: '#1f2937', logo: '/logos/x.png' }, // X wordmark grey
-  reddit:      { key: 'reddit',      label: 'Reddit',      color: '#F46719', logo: '/logos/reddit.svg' }, // brand orange
+  reddit:      { key: 'reddit',      label: 'Reddit',      color: '#FF4500', logo: '/logos/reddit.svg' }, // Reddit brand orange
   // ProductHunt — `#DA552F` is PH's actual brand red-orange. Sits
-  // close to our brand orange (`#F46719`) so it's still in the warm
+  // close to our primary (`#FF5D78`) so it's still in the warm
   // family that keeps the dashboard cohesive, but darker / redder so
   // it reads as a distinct source from Reddit when the two are
   // rendered side-by-side in a stacked bar.
@@ -54,7 +54,7 @@ export const SOURCE_STYLE: Record<string, NormalizedSource> = {
   tiktok:      { key: 'tiktok',      label: 'TikTok',      color: '#a855f7' }, // purple-500
   other:       { key: 'other',       label: 'other',       color: '#cbd5e1' }, // slate-300 — even quieter than direct
   total:       { key: 'total',       label: 'Total',       color: '#64748b' }, // slate-500
-  revenue:     { key: 'revenue',     label: 'Revenue',     color: '#F46719' }, // brand orange
+  revenue:     { key: 'revenue',     label: 'Revenue',     color: '#FF5D78' }, // primary
 }
 
 /**
@@ -119,7 +119,7 @@ function pickFallbackColor(seed: string): string {
 // Sources beyond the palette length re-use the last colour (FFD239).
 const CHART_RANKED_PALETTE: ReadonlyArray<string> = [
   '#FF4852', // 1st (biggest)  — deep coral red, bottom of stack
-  '#FF834D', // 2nd            — warm orange
+  '#FC5327', // 2nd            — secondary
   '#FFA446', // 3rd            — lighter orange
   '#FFD239', // 4th (smallest) — yellow
 ]

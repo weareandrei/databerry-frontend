@@ -1,22 +1,25 @@
 'use client'
 
 /**
- * Legacy mobile project route (`/hub/project/[projectId]`, singular).
- *
- * The mobile project page is now the SAME `[project]/overview` screen
- * as desktop (the project sidebar is simply hidden on mobile), so this
- * route just redirects there. Kept as a thin redirect rather than
- * deleted so any old links / history entries still resolve.
+ * `/hub/project/[id]` — project root: folders, overview composite,
+ * people, and view tiles.
  */
 
-import { useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { Gauge } from '@phosphor-icons/react'
+import { useParams } from 'next/navigation'
+import { ProjectPageBody } from '@/app/hub/(components)/project/ProjectPageBody'
+import { ProjectPageShell } from '@/app/hub/(components)/project/ProjectPageShell'
+import { useDashboard } from '@/contexts/DashboardContext'
 
-export default function LegacyProjectRedirect() {
+export default function ProjectOverviewPage() {
   const params = useParams()
-  const router = useRouter()
-  useEffect(() => {
-    router.replace(`/hub/projects/${params.projectId as string}/overview`)
-  }, [params.projectId, router])
-  return null
+  const { projects: projectsCtx } = useDashboard()
+  const project = projectsCtx.projects.find(p => p.id === (params.projectId as string))
+  if (!project) return null
+
+  return (
+    <ProjectPageShell project={project} pageLabel="Overview" pageIcon={Gauge} folderId={null}>
+      <ProjectPageBody project={project} folderId={null} />
+    </ProjectPageShell>
+  )
 }

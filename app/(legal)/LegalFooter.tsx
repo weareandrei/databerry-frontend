@@ -16,21 +16,21 @@ import Link from 'next/link'
 export function LegalFooter() {
   return (
     <footer className="border-t border-stroke">
-      <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-8 text-xs text-grey-light sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-3xl flex-col gap-3 px-6 py-8 text-xs text-subtle sm:flex-row sm:items-center sm:justify-between">
         <span>© {new Date().getFullYear()} Databerry. All rights reserved.</span>
         <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
-          <Link href="/" className="hover:text-grey-darkest transition-colors">
+          <Link href="/" className="hover:text-foreground transition-colors">
             Home
           </Link>
-          <Link href="/terms" className="hover:text-grey-darkest transition-colors">
+          <Link href="/terms" className="hover:text-foreground transition-colors">
             Terms
           </Link>
-          <Link href="/privacy" className="hover:text-grey-darkest transition-colors">
+          <Link href="/privacy" className="hover:text-foreground transition-colors">
             Privacy
           </Link>
           <a
             href="mailto:team@heavenmade.org"
-            className="hover:text-grey-darkest transition-colors"
+            className="hover:text-foreground transition-colors"
           >
             team@heavenmade.org
           </a>

@@ -54,7 +54,7 @@ export default function AgentModeSection() {
     // the glass effect is invisible.
     <section
       id="agent-mode"
-      className="relative px-4 md:px-[10vw] py-32 bg-gradient-to-b from-white via-gray-50 to-white overflow-x-clip"
+      className="relative px-4 md:px-[10vw] py-32 bg-gradient-to-b from-white via-surface to-white overflow-x-clip"
     >
       {/* Header cluster — H2 + subhead, centred. The orange "Demo"
           eyebrow was removed at the user's request; the floating
@@ -66,7 +66,7 @@ export default function AgentModeSection() {
       <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
         <RevealOnScroll delay={0} y={16}>
           <h2
-            className="text-4xl md:text-5xl font-semibold tracking-tight text-gray-900"
+            className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground"
             style={{ fontFamily: 'var(--font-bricolage)' }}
           >
             Agent mode
@@ -75,7 +75,7 @@ export default function AgentModeSection() {
 
         <RevealOnScroll delay={0.05} y={16}>
           <p
-            className="mt-5 text-base leading-relaxed text-gray-500 max-w-xl"
+            className="mt-5 text-base leading-relaxed text-muted-foreground max-w-xl"
             style={{ fontFamily: 'var(--font-inter)' }}
           >
             Ask anything about your business in plain English. Agent mode

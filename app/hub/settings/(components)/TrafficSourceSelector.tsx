@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { useUserSettings } from '@/contexts/UserSettingsContext'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 
 const TRAFFIC_TYPES = ['google_analytics', 'posthog'] as const
@@ -51,10 +51,10 @@ export function TrafficSourceSelector() {
         // `max-w-sm` (384 px) caps the trigger so it doesn't stretch
         // edge-to-edge on the now-wider Settings page. Still grows
         // with `w-full` on narrow viewports.
-        className="flex w-full max-w-sm items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2.5 text-left text-[13px] font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer disabled:opacity-60"
+        className="flex w-full max-w-sm items-center gap-2 rounded-lg border border-stroke bg-white px-3 py-2.5 text-left text-[13px] font-medium text-foreground hover:bg-surface transition-colors cursor-pointer disabled:opacity-60"
       >
         {selected ? (
-          <ConnectionIcon type={selected.type} size={16} className="shrink-0 text-grey-dark" />
+          <ConnectionIcon type={selected.type} size={16} className="shrink-0 text-muted-foreground" />
         ) : null}
         <span className="flex-1 truncate">{label}</span>
         <CaretDown size={10} weight="bold" className="text-muted-foreground shrink-0" />
@@ -67,7 +67,7 @@ export function TrafficSourceSelector() {
           <span className="flex-1">Auto (prefer Google Analytics)</span>
         </DropdownMenuItem>
         {eligible.length === 0 ? (
-          <DropdownMenuItem disabled className="text-xs text-grey-light">
+          <DropdownMenuItem disabled className="text-xs text-subtle">
             No Google Analytics or PostHog connections yet.
           </DropdownMenuItem>
         ) : (
@@ -80,9 +80,9 @@ export function TrafficSourceSelector() {
               <span className="w-4 shrink-0">
                 {selectedId === c.id && <Check size={12} weight="bold" />}
               </span>
-              <ConnectionIcon type={c.type} size={14} className="shrink-0 text-grey-dark" />
+              <ConnectionIcon type={c.type} size={14} className="shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate">{c.name}</span>
-              <span className="text-[10px] text-grey-light shrink-0">
+              <span className="text-[10px] text-subtle shrink-0">
                 {CONNECTION_DISPLAY_NAMES[c.type] ?? c.type}
               </span>
             </DropdownMenuItem>

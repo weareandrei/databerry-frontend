@@ -2,8 +2,8 @@
 import { useRef, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
+import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
+import { ViewCardChart } from '@/app/hub/(components)/view/(components)/ViewCardChart'
 import { CheckCircle, ArrowRight } from '@phosphor-icons/react'
 import type { View } from '@/types/view'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
@@ -277,20 +277,20 @@ function FeatureItem({
           <span
             className={`inline-block text-xs font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full transition-colors duration-300 ${
               active
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-400 group-hover:bg-orange-500 group-hover:text-white'
+                ? 'bg-primary text-white'
+                : 'bg-muted text-subtle group-hover:bg-primary group-hover:text-white'
             }`}
           >
             {badge}
           </span>
           <h3
-            className={`mt-4 text-2xl font-semibold tracking-tight leading-[1.2] transition-colors duration-300 ${active ? 'text-gray-900' : 'text-gray-300 group-hover:text-gray-400'}`}
+            className={`mt-4 text-2xl font-semibold tracking-tight leading-[1.2] transition-colors duration-300 ${active ? 'text-foreground' : 'text-gray-300 group-hover:text-subtle'}`}
             style={{ fontFamily: 'var(--font-bricolage)' }}
           >
             {header}
           </h3>
           <p
-            className={`mt-3 text-base leading-relaxed transition-colors duration-300 ${active ? 'text-gray-500' : 'text-gray-300 group-hover:text-gray-400'}`}
+            className={`mt-3 text-base leading-relaxed transition-colors duration-300 ${active ? 'text-muted-foreground' : 'text-gray-300 group-hover:text-subtle'}`}
           >
             {sub}
           </p>
@@ -298,12 +298,12 @@ function FeatureItem({
             {bullets.map((b, i) => (
               <li
                 key={i}
-                className={`flex items-start gap-2.5 text-sm transition-colors duration-300 ${active ? 'text-gray-600' : 'text-gray-300 group-hover:text-gray-400'}`}
+                className={`flex items-start gap-2.5 text-sm transition-colors duration-300 ${active ? 'text-muted-foreground' : 'text-gray-300 group-hover:text-subtle'}`}
               >
                 <CheckCircle
                   size={16}
                   weight="fill"
-                  className={`shrink-0 mt-0.5 transition-colors duration-300 ${active ? 'text-orange-500' : 'text-gray-200 group-hover:text-orange-300'}`}
+                  className={`shrink-0 mt-0.5 transition-colors duration-300 ${active ? 'text-primary' : 'text-gray-200 group-hover:text-primary/60'}`}
                 />
                 {b.text}
               </li>
@@ -319,7 +319,7 @@ function FeatureItem({
 
       <Link
         href="/signup"
-        className="inline-flex items-center gap-1.5 mt-1 mb-8 text-sm font-medium text-orange-500 hover:text-orange-600 transition-colors group/cta"
+        className="inline-flex items-center gap-1.5 mt-1 mb-8 text-sm font-medium text-primary hover:text-primary/90 transition-colors group/cta"
         onClick={e => e.stopPropagation()}
       >
         {cta}
@@ -329,7 +329,7 @@ function FeatureItem({
           className="transition-transform duration-200 group-hover/cta:translate-x-0.5"
         />
       </Link>
-      {divider && <div className="h-px bg-gray-200" />}
+      {divider && <div className="h-px bg-border" />}
     </div>
   )
 }
@@ -379,9 +379,9 @@ const FeaturesSection = () => {
         {/* Sticky header */}
         <div className="sticky top-0 z-30 bg-white pt-24 md:pt-20 pb-8 overflow-visible">
           <RevealOnScroll delay={0} y={16}>
-            <p className="text-xs font-medium text-orange-500 uppercase tracking-widest">Features</p>
+            <p className="text-xs font-medium text-primary uppercase tracking-widest">Features</p>
             <h2
-              className="mt-2 text-4xl font-semibold tracking-tight text-gray-900"
+              className="mt-2 text-4xl font-semibold tracking-tight text-foreground"
               style={{ fontFamily: 'var(--font-bricolage)' }}
             >
               All in one platform
@@ -394,7 +394,7 @@ const FeaturesSection = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.2 }}
-              className="mt-1.5 text-base text-gray-400"
+              className="mt-1.5 text-base text-subtle"
             >
               {FEATURES[activeIndex].tagline}
             </motion.p>

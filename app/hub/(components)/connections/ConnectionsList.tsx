@@ -3,7 +3,7 @@
 /**
  * Shared connections list — the rows used by BOTH the workspace
  * connections page (`/hub/connections`, all connections) and the
- * project-scoped one (`/hub/projects/[id]/connections`). Extracted
+ * project-scoped one (`/hub/project/[id]/connections`). Extracted
  * because the two pages had drifted into ~80 duplicated lines of
  * row markup.
  *
@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import { ProjectScopePill } from '@/app/hub/connections/(components)/ProjectScopePill'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import type { Connection } from '@/types/connection'
@@ -58,7 +58,7 @@ export function ConnectionsList({
     )
   }
   if (connections.length === 0) {
-    return <p className="text-sm text-grey-light px-4 py-5">{emptyText}</p>
+    return <p className="text-sm text-subtle px-4 py-5">{emptyText}</p>
   }
   return (
     <div className="divide-y divide-stroke">
@@ -104,13 +104,13 @@ function ConnectionRow({
   return (
     <div
       onClick={() => onSelect(connection)}
-      className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-main"
+      className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-surface"
     >
       <div className="flex items-center gap-3 min-w-0">
-        <ConnectionIcon type={connection.type} size={20} className="text-grey-dark shrink-0" />
+        <ConnectionIcon type={connection.type} size={20} className="text-muted-foreground shrink-0" />
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="text-sm font-medium text-grey-dark truncate">{connection.name}</p>
+            <p className="text-sm font-medium text-muted-foreground truncate">{connection.name}</p>
             <ProjectScopePill
               connection={connection}
               projectName={projectName}
@@ -118,7 +118,7 @@ function ConnectionRow({
               onReassign={id => onReassign(connection.id, id)}
             />
           </div>
-          <p className="text-xs text-grey-light">
+          <p className="text-xs text-subtle">
             {CONNECTION_DISPLAY_NAMES[connection.type] ?? connection.type} · Connected{' '}
             {new Date(connection.createdAt).toLocaleDateString()}
           </p>
@@ -134,7 +134,7 @@ function ConnectionRow({
               // button on mobile (no hover on touch).
               // `aria-expanded:opacity-100` covers the open-menu-
               // without-cursor case.
-              className="md:opacity-0 md:group-hover:opacity-100 aria-expanded:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-grey-darkest transition-colors cursor-pointer"
+              className="md:opacity-0 md:group-hover:opacity-100 aria-expanded:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-subtle hover:text-foreground transition-colors cursor-pointer"
               title="More actions"
             >
               <DotsThreeVertical size={16} weight="bold" />
@@ -158,7 +158,7 @@ function ConnectionRow({
             e.stopPropagation()
             onDelete(connection.id)
           }}
-          className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-destructive transition-colors cursor-pointer"
+          className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-subtle hover:text-destructive transition-colors cursor-pointer"
           title="Delete"
         >
           <Trash size={14} weight="bold" />

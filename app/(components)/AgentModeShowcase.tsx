@@ -237,27 +237,27 @@ export function AgentModeShowcase() {
  */
 function ShowcaseInput({ typingText }: { typingText: string }) {
   return (
-    <div className="relative rounded-2xl bg-main border border-stroke px-4 pt-4 pb-3 min-h-[90px]">
+    <div className="relative rounded-2xl bg-surface border border-stroke px-4 pt-4 pb-3 min-h-[90px]">
       <div className="flex items-start gap-2.5">
         <Sparkle
           size={18}
           weight="fill"
-          className="text-brand shrink-0 mt-0.5"
+          className="text-primary shrink-0 mt-0.5"
         />
         {/* Live-typed text + animated caret. Placeholder shows when
             nothing is being typed yet (or right after a "send"
             clears the field) — same copy as the real `<ChatEmpty>`. */}
-        <div className="flex-1 text-sm text-grey-darkest leading-relaxed min-h-[2.25rem]">
+        <div className="flex-1 text-sm text-foreground leading-relaxed min-h-[2.25rem]">
           {typingText ? (
             <span>
               {typingText}
               <span
                 aria-hidden
-                className="inline-block align-baseline w-[1px] h-[1em] bg-grey-darkest ml-0.5 animate-pulse"
+                className="inline-block align-baseline w-[1px] h-[1em] bg-foreground ml-0.5 animate-pulse"
               />
             </span>
           ) : (
-            <span className="text-grey-light">Ask anything</span>
+            <span className="text-subtle">Ask anything</span>
           )}
         </div>
       </div>
@@ -266,7 +266,7 @@ function ShowcaseInput({ typingText }: { typingText: string }) {
           pill reads as the same shape as the real product. */}
       <div
         aria-hidden
-        className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-brand text-white opacity-40"
+        className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-primary text-white opacity-40"
       >
         <ArrowUp size={14} weight="bold" />
       </div>

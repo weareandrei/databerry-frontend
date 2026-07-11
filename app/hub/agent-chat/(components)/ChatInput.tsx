@@ -2,7 +2,7 @@
 
 /**
  * Active-chat input pill. Visual language matches the empty-state
- * input on `<ChatEmpty>` — soft `bg-main` rounded box, brand-orange
+ * input on `<ChatEmpty>` — soft `bg-surface` rounded box, brand-orange
  * `Sparkle` icon top-left, auto-resizing textarea, small brand-orange
  * square send button bottom-right. The pair (empty + active) reads
  * as the SAME input that just slides into different surrounding
@@ -92,7 +92,7 @@ export function ChatInput({
         // demo turns these on today; real chat shows MCP chips in
         // the parent footer instead.
         <div className="mb-3">
-          <div className="text-[10px] uppercase tracking-wider text-grey-light font-medium mb-2 px-1">
+          <div className="text-[10px] uppercase tracking-wider text-subtle font-medium mb-2 px-1">
             Try asking
           </div>
           <div className="flex flex-wrap gap-2">
@@ -100,7 +100,7 @@ export function ChatInput({
               <button
                 key={p}
                 onClick={() => onChange(p)}
-                className="text-xs px-3 py-1.5 rounded-full border border-stroke hover:bg-hover-fill text-grey-dark transition-colors"
+                className="text-xs px-3 py-1.5 rounded-full border border-stroke hover:bg-hover-fill text-muted-foreground transition-colors"
               >
                 {p}
               </button>
@@ -113,12 +113,12 @@ export function ChatInput({
           input so the visual identity is consistent across both
           states. Sparkle (top-left) is decorative AI affordance,
           ArrowUp (bottom-right) is the send. */}
-      <div className="relative rounded-2xl bg-main border border-stroke px-4 pt-4 pb-3 min-h-[90px]">
+      <div className="relative rounded-2xl bg-surface border border-stroke px-4 pt-4 pb-3 min-h-[90px]">
         <div className="flex items-start gap-2.5">
           <Sparkle
             size={18}
             weight="fill"
-            className="text-brand shrink-0 mt-0.5"
+            className="text-primary shrink-0 mt-0.5"
           />
           <textarea
             ref={textareaRef}
@@ -128,7 +128,7 @@ export function ChatInput({
             onKeyDown={handleKeyDown}
             placeholder="Ask anything"
             disabled={sending}
-            className="flex-1 bg-transparent outline-none resize-none text-sm text-grey-darkest placeholder:text-grey-light disabled:opacity-60 max-h-40 leading-relaxed"
+            className="flex-1 bg-transparent outline-none resize-none text-sm text-foreground placeholder:text-subtle disabled:opacity-60 max-h-40 leading-relaxed"
           />
         </div>
         <button
@@ -138,7 +138,7 @@ export function ChatInput({
           }}
           disabled={!canSend}
           aria-label="Send message"
-          className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-brand text-white hover:bg-brand/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
+          className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
         >
           <ArrowUp size={14} weight="bold" />
         </button>

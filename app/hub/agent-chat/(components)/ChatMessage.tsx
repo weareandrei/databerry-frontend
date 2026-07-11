@@ -21,7 +21,7 @@
 import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Cpu, Warning } from '@phosphor-icons/react'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import type { ConnectionType } from '@/types/connection'
 import type { ChatMessage as Msg, ToolCallTrace } from './types'
 import { Renderables } from './Renderables'
@@ -40,7 +40,7 @@ const MARKDOWN_COMPONENTS = {
     <li className="leading-relaxed">{children}</li>
   ),
   code: ({ children }: { children?: React.ReactNode }) => (
-    <code className="font-mono text-xs px-1 py-0.5 bg-black/[0.04] rounded text-grey-darkest">
+    <code className="font-mono text-xs px-1 py-0.5 bg-black/[0.04] rounded text-foreground">
       {children}
     </code>
   ),
@@ -50,26 +50,26 @@ const MARKDOWN_COMPONENTS = {
     </pre>
   ),
   strong: ({ children }: { children?: React.ReactNode }) => (
-    <strong className="font-semibold text-grey-darkest">{children}</strong>
+    <strong className="font-semibold text-foreground">{children}</strong>
   ),
   a: ({ children, href }: { children?: React.ReactNode; href?: string }) => (
     <a
       href={href}
       target="_blank"
       rel="noreferrer"
-      className="text-brand underline underline-offset-2 hover:opacity-80"
+      className="text-primary underline underline-offset-2 hover:opacity-80"
     >
       {children}
     </a>
   ),
   h1: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="text-base font-semibold text-grey-darkest mt-3 mb-1">{children}</h3>
+    <h3 className="text-base font-semibold text-foreground mt-3 mb-1">{children}</h3>
   ),
   h2: ({ children }: { children?: React.ReactNode }) => (
-    <h3 className="text-sm font-semibold text-grey-darkest mt-3 mb-1">{children}</h3>
+    <h3 className="text-sm font-semibold text-foreground mt-3 mb-1">{children}</h3>
   ),
   h3: ({ children }: { children?: React.ReactNode }) => (
-    <h4 className="text-sm font-semibold text-grey-darkest mt-2 mb-1">{children}</h4>
+    <h4 className="text-sm font-semibold text-foreground mt-2 mb-1">{children}</h4>
   ),
 }
 
@@ -77,7 +77,7 @@ export function ChatMessage({ message }: { message: Msg }) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[75%] bg-brand text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-wrap">
+        <div className="max-w-[75%] bg-primary text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm leading-relaxed shadow-sm whitespace-pre-wrap">
           {message.content}
         </div>
       </div>
@@ -125,12 +125,12 @@ export function ChatMessage({ message }: { message: Msg }) {
   // so it visually anchors to the same side as the bubble.
   return (
     <div className="flex flex-col items-start gap-2">
-      <div className="max-w-[85%] text-sm text-grey-darkest space-y-2">
+      <div className="max-w-[85%] text-sm text-foreground space-y-2">
         {/* Assistant bubble — soft grey so it reads as the
             counterweight to the user's brand-orange pill, with a
             slightly more pronounced rounded shape on the bottom-left
             (mirror of the user bubble's top-right). */}
-        <div className="bg-main border border-stroke rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
+        <div className="bg-surface border border-stroke rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
           <ReactMarkdown components={MARKDOWN_COMPONENTS}>
             {message.content || '(no response)'}
           </ReactMarkdown>
@@ -261,7 +261,7 @@ function ToolCallsRow({ calls }: { calls: ToolCallTrace[] }) {
 
   return (
     <div className="flex items-center flex-wrap gap-2 pl-1">
-      <span className="text-[11px] text-grey-light shrink-0">
+      <span className="text-[11px] text-subtle shrink-0">
         Used {calls.length} {calls.length === 1 ? 'tool' : 'tools'}:
       </span>
       {groups.map(g => {
@@ -272,7 +272,7 @@ function ToolCallsRow({ calls }: { calls: ToolCallTrace[] }) {
               type="button"
               onClick={() => setExpanded(isOpen ? null : g.key)}
               aria-expanded={isOpen}
-              className={`inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2 py-1 text-[11px] font-medium text-grey-darkest shadow-sm hover:bg-hover-fill transition-colors ${
+              className={`inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2 py-1 text-[11px] font-medium text-foreground shadow-sm hover:bg-hover-fill transition-colors ${
                 isOpen ? 'ring-1 ring-brand/30' : ''
               }`}
             >
@@ -284,11 +284,11 @@ function ToolCallsRow({ calls }: { calls: ToolCallTrace[] }) {
               {g.kind.kind === 'connection' ? (
                 <ConnectionIcon type={g.kind.type} size={12} />
               ) : (
-                <Cpu size={12} weight="bold" className="text-grey-dark" />
+                <Cpu size={12} weight="bold" className="text-muted-foreground" />
               )}
               <span className="truncate max-w-[160px]">{g.label}</span>
               {g.entries.length > 1 && (
-                <span className="text-grey-light tabular-nums">
+                <span className="text-subtle tabular-nums">
                   ×{g.entries.length}
                 </span>
               )}
@@ -306,9 +306,9 @@ function ToolCallsRow({ calls }: { calls: ToolCallTrace[] }) {
                   const displayedName = c.mcp ? c.mcp.toolName : c.name
                   return (
                     <div key={i} className="font-mono text-[10px] leading-snug">
-                      <div className="text-grey-dark break-all">
+                      <div className="text-muted-foreground break-all">
                         {displayedName}
-                        <span className="text-grey-light">
+                        <span className="text-subtle">
                           (
                           {Object.entries(c.input)
                             .map(([k, v]) => `${k}=${JSON.stringify(v)}`)

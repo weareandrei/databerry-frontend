@@ -29,8 +29,8 @@ import {
   usePosthogRetention,
   usePosthogUsers,
 } from '../data'
-import { ViewCardRetention } from '../ViewCardRetention'
-import { ViewCardUsers } from '../ViewCardUsers'
+import { ViewCardRetention } from '../(components)/ViewCardRetention'
+import { ViewCardUsers } from '../(components)/ViewCardUsers'
 import type { View } from '@/types/view'
 
 interface WidePosthogProps {

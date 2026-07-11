@@ -17,9 +17,9 @@
  */
 
 import { useSelector } from 'react-redux'
-import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
-import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
+import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
+import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/(components)/ViewCardOverviewChartConnected'
+import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/(components)/ViewCardOverviewSourcesConnected'
 import {
   WidePosthogViewRenderer,
   isWidePosthogView,

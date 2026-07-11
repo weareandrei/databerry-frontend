@@ -67,7 +67,7 @@ function CompareDropdown() {
     <div className="relative group">
       <button
         type="button"
-        className="flex items-center gap-1 text-sm font-medium text-gray-600 transition-colors group-hover:text-black cursor-pointer"
+        className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors group-hover:text-black cursor-pointer"
       >
         Compare
         <CaretDown
@@ -84,7 +84,7 @@ function CompareDropdown() {
             <Link
               key={c.slug}
               href={`/compare/${c.slug}`}
-              className="block rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 hover:text-black"
+              className="block rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-black"
             >
               Databerry vs {c.competitor}
             </Link>
@@ -171,7 +171,7 @@ const Navbar = () => {
           <Link href="/" className="flex items-center gap-2 md:gap-1.5 mx-auto md:mx-0">
             <Image src="/databerry_logo_v2.svg" alt="DataBerry" width={24} height={24} className="md:w-[28px] md:h-[28px] rounded-md" />
             <span
-              className="text-lg md:text-[28px] font-bold text-[#E96021]"
+              className="text-lg md:text-[28px] font-bold text-primary"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '-0.01em' }}
             >
               DataBerry
@@ -234,7 +234,7 @@ const Navbar = () => {
               <Link
                 href="/signup"
                 onClick={() => setMenuOpen(false)}
-                className="text-3xl font-semibold text-gray-900 hover:text-orange-500 transition-colors"
+                className="text-3xl font-semibold text-foreground hover:text-primary transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
                 Start
@@ -242,14 +242,14 @@ const Navbar = () => {
               <Link
                 href="/login"
                 onClick={() => setMenuOpen(false)}
-                className="text-2xl font-medium text-gray-600 hover:text-orange-500 transition-colors"
+                className="text-2xl font-medium text-muted-foreground hover:text-primary transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
                 Log in
               </Link>
             </div>
 
-            <div className="px-8 pb-10 text-sm text-gray-400">
+            <div className="px-8 pb-10 text-sm text-subtle">
               © {new Date().getFullYear()} Databerry
             </div>
           </motion.div>

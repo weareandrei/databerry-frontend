@@ -5,15 +5,15 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
-import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
-import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
-import { ViewCardFunnel } from '@/app/hub/(components)/view/ViewCardFunnel'
-import { ViewCardSentryIssues } from '@/app/hub/(components)/view/ViewCardSentryIssues'
+import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
+import { ViewCardChart } from '@/app/hub/(components)/view/(components)/ViewCardChart'
+import { ViewCardList } from '@/app/hub/(components)/view/(components)/ViewCardList'
+import { ViewCardFunnel } from '@/app/hub/(components)/view/(components)/ViewCardFunnel'
+import { ViewCardSentryIssues } from '@/app/hub/(components)/view/(components)/ViewCardSentryIssues'
 import {
   MOCK_POSTHOG_FUNNEL,
   MOCK_SENTRY_ISSUES_ACME,
-} from '@/app/(components)/InteractableDemo/demoMocks'
+} from '@/app/(components)/InteractableDemo/(components)/demoMocks'
 import type { View } from '@/types/view'
 import type { CalendlyMeeting } from '@/lib/api'
 
@@ -398,7 +398,7 @@ const ConnectSection = () => {
             <span className="inline-flex w-fit rounded-[18px] bg-white/25 p-1.5 shadow-sm">
               <Link
                 href="/hub/connections"
-                className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-gray-900 hover:bg-white/90 transition-colors"
+                className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-foreground hover:bg-white/90 transition-colors"
               >
                 View connections
               </Link>
@@ -436,7 +436,7 @@ const ConnectSection = () => {
           <span className="inline-flex w-fit rounded-[18px] bg-white/25 p-1.5 shadow-sm">
             <Link
               href="/hub/connections"
-              className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-gray-900 hover:bg-white/90 transition-colors"
+              className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-foreground hover:bg-white/90 transition-colors"
             >
               View connections
             </Link>

@@ -31,7 +31,7 @@ const VideoSection = () => {
     <section className="relative z-30 bg-white px-4 pt-12 pb-6 md:px-[10vw] md:py-24">
       <RevealOnScroll>
         <div className="mx-auto w-full max-w-5xl">
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-gray-200 shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
             <iframe
               src="https://www.youtube.com/embed/YptDji8Wc5A"
               title="Databerry demo"

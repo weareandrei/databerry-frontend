@@ -19,21 +19,21 @@
  *     dedicated agent routes. (The `DashboardAgentSwitch` component
  *     file survives because the landing-page demo still renders it.)
  *   - The all-projects grid — projects now live at
- *     `/hub/projects/[id]/overview`, reached via the icon rail.
+ *     `/hub/project/[id]`, reached via the icon rail.
  */
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowRight } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { HubTopBar } from '@/app/hub/(components)/HubTopBar'
+import { DashboardHeader } from '@/app/hub/(components)/layout/DashboardHeader'
 import { PinnedViews } from '@/app/hub/home/(components)/PinnedViews'
 import { PinnedViewsSkeleton } from '@/app/hub/home/(components)/PinnedViewsSkeleton'
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
 import { ChatEmpty } from '@/app/hub/agent-chat/(components)/ChatEmpty'
-import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
-import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
-import { MobileHomeBody } from '@/app/hub/(components)/mobile/MobileHomeBody'
+import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
+import { MobileHomeBody } from '@/app/hub/(components)/mobile/MobileHomeBody/MobileHomeBody'
 import type { Project } from '@/types/project'
 import type { View } from '@/types/view'
 
@@ -92,33 +92,20 @@ export default function HomePage() {
       {/* `<MobileHomeBody>` owns the whole scrollable column now:
           agent launcher (ask-box + "Chat with Agent") → projects →
           pinned views per project. */}
-      <div className="md:hidden h-[calc(100dvh-60px)] flex flex-col bg-main">
+      <div className="md:hidden h-[calc(100dvh-60px)] flex flex-col bg-surface">
         <MobileTopBar variant="home" />
         <MobileHomeBody />
       </div>
 
       {/* ─── Desktop layout (md+) ─────────────────────────────────── */}
       <div className="hidden md:flex h-screen flex-col">
-        <HubTopBar
-          search={{
-            value: query,
-            onChange: setQuery,
-            placeholder: 'Search your data',
-          }}
-        />
+        <DashboardHeader searchValue={query} onSearch={setQuery} />
 
-        {/* One white panel wraps the ENTIRE page body; the top bar +
-            panel together fill the viewport (h-screen on the column)
-            and only the panel's inside scrolls — the page itself
-            never does. Same card chrome as the agent surface.
-            `mx-4 mb-4` = the shared 16-px margin rhythm (aligns with
-            the top bar's `px-4` and the project sidebar's `top-4 /
-            bottom-4`). */}
-        <div className="flex-1 min-h-0 mx-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card overflow-y-auto overscroll-contain">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {showWelcome ? (
             <WelcomeEmpty onCreate={() => projectsCtx.openModal()} />
           ) : (
-            <div className="flex flex-col gap-10 px-6 pt-10 pb-12">
+            <div className="flex flex-col gap-10 px-6 pt-8 pb-12">
               {/* ── Agent launcher ────────────────────────────────
                   Centered column: the "Chat with Agent" pill above
                   the ask box. The box is the SAME `<ChatEmpty>` the
@@ -131,10 +118,10 @@ export default function HomePage() {
                   onClick={() => launchAgent()}
                   className="mb-2 inline-flex items-center gap-2.5 rounded-xl border border-stroke bg-white pl-1.5 pr-4 py-1.5 shadow-sm cursor-pointer hover:bg-hover-fill transition-colors"
                 >
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main text-grey-darkest">
+                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface text-foreground">
                     <ArrowRight size={13} weight="bold" />
                   </span>
-                  <span className="text-sm font-semibold text-grey-darkest">
+                  <span className="text-sm font-semibold text-foreground">
                     Chat with Agent
                   </span>
                 </button>
@@ -164,12 +151,12 @@ export default function HomePage() {
                 <section key={project.id}>
                   <button
                     type="button"
-                    onClick={() => router.push(`/hub/projects/${project.id}/overview`)}
+                    onClick={() => router.push(`/hub/project/${project.id}`)}
                     className="flex items-center gap-2 px-1 mb-4 cursor-pointer group"
                     title={`Open ${project.name}`}
                   >
                     <ProjectIcon websiteUrl={project.websiteUrl} size={22} pill />
-                    <h2 className="text-xs font-medium uppercase tracking-wider text-grey-light group-hover:text-grey-darkest transition-colors">
+                    <h2 className="text-xs font-medium uppercase tracking-wider text-subtle group-hover:text-foreground transition-colors">
                       Pinned views
                     </h2>
                   </button>
@@ -183,14 +170,14 @@ export default function HomePage() {
               ))}
 
               {isSearching && pinGroups.length === 0 && (
-                <div className="rounded-xl border border-dashed border-stroke bg-main/50 px-6 py-12 text-center">
-                  <p className="text-sm text-grey-darkest font-medium">
+                <div className="rounded-xl border border-dashed border-stroke bg-surface/50 px-6 py-12 text-center">
+                  <p className="text-sm text-foreground font-medium">
                     No pinned views match &ldquo;{query}&rdquo;
                   </p>
                   <button
                     type="button"
                     onClick={() => setQuery('')}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-xs font-medium text-grey-darkest hover:bg-main transition-colors cursor-pointer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors cursor-pointer"
                   >
                     Clear search
                   </button>

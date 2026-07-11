@@ -134,7 +134,7 @@ export default function Contact() {
       <div className="flex flex-col items-center text-center max-w-3xl mx-auto">
         <RevealOnScroll delay={0.05} y={16}>
           <h2
-            className="mt-3 text-4xl md:text-5xl font-semibold tracking-tight text-gray-900"
+            className="mt-3 text-4xl md:text-5xl font-semibold tracking-tight text-foreground"
             style={{ fontFamily: 'var(--font-bricolage)' }}
           >
             Contact us
@@ -142,7 +142,7 @@ export default function Contact() {
         </RevealOnScroll>
 
         <RevealOnScroll delay={0.1} y={16}>
-          <p className="mt-5 text-base leading-relaxed text-gray-500 max-w-xl">
+          <p className="mt-5 text-base leading-relaxed text-muted-foreground max-w-xl">
             We read every message. Drop your email and what&apos;s on your mind
             — we&apos;ll get back to you within 48&nbsp;hours.
           </p>
@@ -157,7 +157,7 @@ export default function Contact() {
           <div>
             <label
               htmlFor="contact-email"
-              className="block text-sm font-medium text-gray-700 mb-1.5"
+              className="block text-sm font-medium text-muted-foreground mb-1.5"
             >
               Your email
             </label>
@@ -170,14 +170,14 @@ export default function Contact() {
               onChange={e => setEmail(e.target.value)}
               placeholder="you@company.com"
               disabled={status.kind === 'submitting'}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-shadow disabled:opacity-60"
+              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow disabled:opacity-60"
             />
           </div>
 
           <div>
             <label
               htmlFor="contact-message"
-              className="block text-sm font-medium text-gray-700 mb-1.5"
+              className="block text-sm font-medium text-muted-foreground mb-1.5"
             >
               Message
             </label>
@@ -189,7 +189,7 @@ export default function Contact() {
               onChange={e => setMessage(e.target.value)}
               placeholder="What would you like to ask or tell us?"
               disabled={status.kind === 'submitting'}
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20 transition-shadow resize-none disabled:opacity-60"
+              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow resize-none disabled:opacity-60"
             />
           </div>
 
@@ -226,7 +226,7 @@ export default function Contact() {
           <button
             type="submit"
             disabled={status.kind === 'submitting'}
-            className="inline-flex items-center justify-center gap-2 mt-2 rounded-full bg-orange-500 px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-orange-600 transition-colors disabled:opacity-60 disabled:hover:bg-orange-500"
+            className="inline-flex items-center justify-center gap-2 mt-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:hover:bg-primary"
           >
             {status.kind === 'submitting' ? 'Sending…' : 'Send message'}
             {status.kind !== 'submitting' && (

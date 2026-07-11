@@ -26,9 +26,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { PersonAvatar } from '@/app/hub/(components)/project/PersonAvatar'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
-import { SourceIcon } from '@/app/hub/(components)/view/SourceIcon'
+import { PersonAvatar } from '@/app/hub/(components)/project/(components)/PersonAvatar'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
+import { SourceIcon } from '@/app/hub/(components)/view/(components)/SourceIcon'
+import { CountryFlag } from '@/components/CountryFlag'
+import { SearchBar } from '@/components/SearchBar'
 
 // ── Data ────────────────────────────────────────────────────────────
 //
@@ -47,7 +49,7 @@ interface ShowPerson {
   name: string | null
   email: string
   source: string
-  flag: string
+  countryCode: string
   events: ShowEvent[]
 }
 
@@ -57,7 +59,7 @@ const PEOPLE: ShowPerson[] = [
     name: 'Alice Johnson',
     email: 'alice@acme.dev',
     source: 'google.com',
-    flag: '🇺🇸',
+    countryCode: 'US',
     events: [
       { source: 'stripe', label: 'Payment', detail: '$49.00', time: '2h ago' },
       { source: 'stripe', label: 'Subscription started', detail: 'Pro · monthly', time: '2h ago' },
@@ -75,7 +77,7 @@ const PEOPLE: ShowPerson[] = [
     name: null,
     email: 'bob@startup.io',
     source: 'direct',
-    flag: '🇬🇧',
+    countryCode: 'GB',
     events: [
       { source: 'posthog', label: 'Page view', detail: '/pricing', time: '5h ago' },
       { source: 'posthog', label: 'Clicked', detail: '“Start free trial”', time: '5h ago' },
@@ -91,7 +93,7 @@ const PEOPLE: ShowPerson[] = [
     name: 'Carol White',
     email: 'carol@studio.com',
     source: 'reddit.com',
-    flag: '🇩🇪',
+    countryCode: 'DE',
     events: [
       { source: 'stripe', label: 'Payment', detail: '$99.00', time: '1h ago' },
       { source: 'posthog', label: 'Checkout started', time: '1h ago' },
@@ -107,7 +109,7 @@ const PEOPLE: ShowPerson[] = [
     name: 'Evan Lee',
     email: 'evan@example.com',
     source: 't.co',
-    flag: '🇦🇺',
+    countryCode: 'AU',
     events: [
       { source: 'stripe', label: 'Payment', detail: '$29.00', time: '28m ago' },
       { source: 'posthog', label: 'Checkout started', time: '30m ago' },
@@ -198,10 +200,7 @@ export function PeopleShowcase() {
       {/* People table — the always-present backdrop. */}
       <div className="flex flex-col min-h-0">
         <div className="px-3 sm:px-4 pt-3.5 pb-2">
-          <div className="flex w-full max-w-[280px] items-center gap-2 rounded-full border border-stroke bg-white px-3 py-1.5 shadow-sm">
-            <span className="h-1.5 w-1.5 rounded-full bg-grey-light/60" />
-            <span className="text-xs text-grey-light">Search people…</span>
-          </div>
+          <SearchBar value="" readOnly placeholder="Search by name or email…" />
         </div>
         <div className="px-1 sm:px-2">
           {PEOPLE.map((p, i) => (
@@ -248,12 +247,12 @@ export function PeopleShowcase() {
               <PersonAvatar seed={person.id} name={person.name ?? person.email} size={36} />
               <div className="min-w-0">
                 <p
-                  className="truncate text-base font-semibold tracking-tight text-grey-darkest"
+                  className="truncate text-base font-semibold tracking-tight text-foreground"
                   style={{ fontFamily: 'var(--font-bricolage)' }}
                 >
                   {person.name ?? 'Unknown person'}
                 </p>
-                <p className="truncate text-xs text-grey-light">{person.email}</p>
+                <p className="truncate text-xs text-subtle">{person.email}</p>
               </div>
             </div>
 
@@ -269,12 +268,12 @@ export function PeopleShowcase() {
                       <ConnectionIcon type={ev.source} size={18} />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-grey-darkest">{ev.label}</p>
+                      <p className="text-sm font-medium text-foreground">{ev.label}</p>
                       {ev.detail && (
-                        <p className="truncate text-xs text-grey-light">{ev.detail}</p>
+                        <p className="truncate text-xs text-subtle">{ev.detail}</p>
                       )}
                     </div>
-                    <time className="shrink-0 pt-0.5 text-xs text-grey-light">{ev.time}</time>
+                    <time className="shrink-0 pt-0.5 text-xs text-subtle">{ev.time}</time>
                   </li>
                 ))}
               </ol>
@@ -298,21 +297,21 @@ function PeopleRow({ person, active }: { person: ShowPerson; active: boolean }) 
       <PersonAvatar seed={person.id} name={person.name ?? person.email} size={28} />
       <div className="flex min-w-0 flex-1 flex-col leading-tight">
         {person.name && (
-          <span className="truncate text-sm font-medium text-grey-darkest">{person.name}</span>
+          <span className="truncate text-sm font-medium text-foreground">{person.name}</span>
         )}
         <span
-          className={`truncate ${person.name ? 'text-xs text-grey-light' : 'text-sm text-grey-dark'}`}
+          className={`truncate ${person.name ? 'text-xs text-subtle' : 'text-sm text-muted-foreground'}`}
         >
           {person.email}
         </span>
       </div>
-      <span className="hidden items-center gap-1.5 text-xs text-grey-light sm:inline-flex">
+      <span className="hidden items-center gap-1.5 text-xs text-subtle sm:inline-flex">
         <SourceIcon sourceKey={person.source} label={person.source} size={16} />
         <span className="hidden md:inline">
           {person.source === 'direct' ? 'Direct' : person.source}
         </span>
       </span>
-      <span className="shrink-0 text-base">{person.flag}</span>
+      <CountryFlag code={person.countryCode} size="sm" />
     </div>
   )
 }
@@ -329,11 +328,11 @@ function SourceBadges({ events }: { events: ShowEvent[] }) {
       {sources.map(([key, count]) => (
         <span
           key={key}
-          className="inline-flex items-center gap-1.5 rounded-full border border-stroke bg-white py-1 pl-1.5 pr-1 text-xs font-medium text-grey-dark"
+          className="inline-flex items-center gap-1.5 rounded-full border border-stroke bg-white py-1 pl-1.5 pr-1 text-xs font-medium text-muted-foreground"
         >
           <ConnectionIcon type={key} size={16} />
           <span className="hidden sm:inline">{SOURCE_NAME[key] ?? key}</span>
-          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-main px-1 text-[10px] font-semibold tabular-nums text-grey-dark">
+          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-surface px-1 text-[10px] font-semibold tabular-nums text-muted-foreground">
             {count}
           </span>
         </span>

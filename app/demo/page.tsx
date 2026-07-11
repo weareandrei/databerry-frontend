@@ -32,7 +32,7 @@ const DemoPage = () => {
       <Link
         href="/"
         aria-label="Back to website"
-        className="fixed bottom-5 right-5 z-[100] flex items-center gap-2 rounded-full bg-grey-darkest/95 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-opacity hover:opacity-90"
+        className="fixed bottom-5 right-5 z-[100] flex items-center gap-2 rounded-full bg-foreground/95 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-opacity hover:opacity-90"
       >
         <ArrowLeft size={16} weight="bold" />
         Back to website

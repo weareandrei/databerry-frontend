@@ -167,7 +167,7 @@ function ResetPasswordPageInner() {
             <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
               {status === 'checking' ? (
                 <div className="flex flex-col items-center gap-2 py-4 text-center">
-                  <p className="text-sm text-gray-500">Verifying your link…</p>
+                  <p className="text-sm text-muted-foreground">Verifying your link…</p>
                 </div>
               ) : status === 'invalid' ? (
                 <div className="flex flex-col items-center gap-3 py-4 text-center">
@@ -179,18 +179,18 @@ function ResetPasswordPageInner() {
                     />
                   </div>
                   <h2
-                    className="text-2xl font-semibold text-gray-900"
+                    className="text-2xl font-semibold text-foreground"
                     style={{ fontFamily: 'var(--font-bricolage)' }}
                   >
                     Link expired or invalid
                   </h2>
-                  <p className="text-sm text-gray-500 leading-relaxed">
+                  <p className="text-sm text-muted-foreground leading-relaxed">
                     Reset links expire after a short while and can only be
                     used once. Request a fresh one to continue.
                   </p>
                   <Link
                     href="/forgot-password"
-                    className="mt-2 inline-flex items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-black transition-colors"
+                    className="mt-2 inline-flex items-center justify-center rounded-lg bg-foreground px-5 py-2.5 text-sm font-medium text-white hover:bg-black transition-colors"
                   >
                     Send a new link
                   </Link>
@@ -198,16 +198,16 @@ function ResetPasswordPageInner() {
               ) : (
                 <>
                   <div className="mb-5 md:mb-7">
-                    <p className="text-xs font-medium text-orange-500 uppercase tracking-widest mb-2">
+                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
                       Account recovery
                     </p>
                     <h2
-                      className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 leading-[1.1]"
+                      className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground leading-[1.1]"
                       style={{ fontFamily: 'var(--font-bricolage)' }}
                     >
                       Set a new password
                     </h2>
-                    <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+                    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                       You&apos;ve been signed in to recover your account.
                       Set a new password to continue — until you do, the
                       rest of the dashboard is locked. Pick something at
@@ -226,7 +226,7 @@ function ResetPasswordPageInner() {
                       minLength={6}
                       autoComplete="new-password"
                       autoFocus
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                     />
                     <input
                       type="password"
@@ -236,12 +236,12 @@ function ResetPasswordPageInner() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                     />
                     <button
                       type="submit"
                       disabled={loading || !password || !confirmPassword}
-                      className="w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
+                      className="w-full rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
                     >
                       {loading ? 'Saving…' : 'Set password'}
                     </button>

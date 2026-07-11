@@ -35,7 +35,7 @@ export function DragGrip({ className }: DragGripProps) {
       // keyboard activation is handled by dnd-kit's `attributes`
       // (which include `role`, `tabIndex`, `aria-roledescription`).
       aria-label="Reorder this view"
-      className={`shrink-0 flex items-center justify-center w-5 h-5 rounded text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors touch-none ${
+      className={`shrink-0 flex items-center justify-center w-5 h-5 rounded text-subtle hover:text-muted-foreground hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors touch-none ${
         drag.isDragging ? 'cursor-grabbing' : 'cursor-grab'
       } ${className ?? ''}`}
       {...drag.listeners}

@@ -12,7 +12,7 @@
 
 import { ALGORITHM } from '@/lib/api'
 import { useViewResource, type ViewResourceError } from '@/lib/hooks/useViewResource'
-import type { ChartPoint } from '@/app/hub/(components)/view/ViewCardChart'
+import type { ChartPoint } from '@/app/hub/(components)/view/(components)/ViewCardChart'
 import type { View } from '@/types/view'
 import type { PerViewHookOptions } from './types'
 

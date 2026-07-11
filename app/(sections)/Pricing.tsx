@@ -29,14 +29,14 @@ export default function Pricing() {
           as a consistent rhythm. */}
       <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-12">
         <RevealOnScroll delay={0} y={16}>
-          <p className="text-xs font-medium text-orange-500 uppercase tracking-widest">
+          <p className="text-xs font-medium text-primary uppercase tracking-widest">
             Pricing
           </p>
         </RevealOnScroll>
 
         <RevealOnScroll delay={0.05} y={16}>
           <h2
-            className="mt-3 text-4xl md:text-5xl font-semibold tracking-tight text-gray-900"
+            className="mt-3 text-4xl md:text-5xl font-semibold tracking-tight text-foreground"
             style={{ fontFamily: 'var(--font-bricolage)' }}
           >
             Simple pricing, scale when you need it.
@@ -44,7 +44,7 @@ export default function Pricing() {
         </RevealOnScroll>
 
         <RevealOnScroll delay={0.1} y={16}>
-          <p className="mt-5 text-base md:text-lg text-gray-500 leading-relaxed">
+          <p className="mt-5 text-base md:text-lg text-muted-foreground leading-relaxed">
             Start free with the core integrations. Upgrade for every
             integration and more headroom on views + connections.
           </p>

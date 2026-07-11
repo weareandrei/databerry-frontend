@@ -31,9 +31,9 @@ const TONE = {
     separator: 'text-white/40',
   },
   onLight: {
-    link: 'text-grey-dark hover:text-grey-darkest',
-    current: 'text-grey-darkest',
-    separator: 'text-grey-light',
+    link: 'text-muted-foreground hover:text-foreground',
+    current: 'text-foreground',
+    separator: 'text-subtle',
   },
 } as const
 

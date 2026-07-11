@@ -7,7 +7,7 @@
  */
 
 import { ArrowRight, Check } from '@phosphor-icons/react'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import { cn } from '@/lib/utils'
 
 export function PrimaryCta({
@@ -27,7 +27,7 @@ export function PrimaryCta({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'group inline-flex items-center justify-center gap-2 rounded-xl bg-brand text-white text-sm font-semibold px-16 py-3.5 ring-4 ring-brand/20 transition-all hover:ring-brand/30 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed',
+        'group inline-flex items-center justify-center gap-2 rounded-xl bg-primary text-white text-sm font-semibold px-16 py-3.5 ring-4 ring-brand/20 transition-all hover:ring-brand/30 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed',
         className,
       )}
     >
@@ -55,7 +55,7 @@ export function SkipLink({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-grey-light hover:text-grey-darkest transition-colors cursor-pointer disabled:opacity-50"
+      className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-subtle hover:text-foreground transition-colors cursor-pointer disabled:opacity-50"
     >
       {label}
       <ArrowRight size={12} weight="bold" />
@@ -84,25 +84,25 @@ export function SelectableRow({
       className={cn(
         'flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors cursor-pointer',
         selected
-          ? 'border-brand/50 bg-brand/[0.04]'
+          ? 'border-primary/50 bg-primary/[0.04]'
           : 'border-stroke bg-white hover:bg-hover-fill',
       )}
     >
       <span
         className={cn(
           'shrink-0 grid place-items-center w-4 h-4 rounded-full border-2 transition-colors',
-          selected ? 'border-brand bg-brand text-white' : 'border-stroke',
+          selected ? 'border-primary bg-primary text-white' : 'border-stroke',
         )}
       >
         {selected && <Check size={10} weight="bold" />}
       </span>
       <ConnectionIcon type={iconType} size={18} />
       <span className="min-w-0">
-        <span className="block text-sm font-semibold text-grey-darkest leading-tight">
+        <span className="block text-sm font-semibold text-foreground leading-tight">
           {label}
         </span>
         {desc && (
-          <span className="block text-xs text-grey-light truncate leading-tight mt-0.5">
+          <span className="block text-xs text-subtle truncate leading-tight mt-0.5">
             {desc}
           </span>
         )}

@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import {
   HeaderSaveCancel,
   HeaderCloseButton,
-} from './HeaderSaveCancel'
+} from './(components)/HeaderSaveCancel'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { IconBadge } from '@/components/ui/IconBadge'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import type { Connection } from '@/types/connection'
 import type { Project } from '@/types/project'
 
@@ -85,9 +85,9 @@ function HeaderProjectPicker({
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={disabled}
-        className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1.5 text-[12px] font-medium text-grey-darkest shadow-sm transition-colors hover:bg-hover-fill disabled:opacity-60"
+        className="inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1.5 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-hover-fill disabled:opacity-60"
       >
-        <Cube size={11} weight="bold" className="shrink-0 text-grey-dark" />
+        <Cube size={11} weight="bold" className="shrink-0 text-muted-foreground" />
         <span className="max-w-[140px] truncate">{label}</span>
         <CaretDown size={9} weight="bold" className="shrink-0 text-muted-foreground" />
       </DropdownMenuTrigger>
@@ -99,7 +99,7 @@ function HeaderProjectPicker({
           <span className="flex-1">Common (shared)</span>
         </DropdownMenuItem>
         {projects.length === 0 ? (
-          <DropdownMenuItem disabled className="text-xs text-grey-light">
+          <DropdownMenuItem disabled className="text-xs text-subtle">
             No projects yet.
           </DropdownMenuItem>
         ) : (
@@ -112,7 +112,7 @@ function HeaderProjectPicker({
               <span className="w-4 shrink-0">
                 {value === p.id && <Check size={12} weight="bold" />}
               </span>
-              <Cube size={11} weight="bold" className="shrink-0 text-grey-dark" />
+              <Cube size={11} weight="bold" className="shrink-0 text-muted-foreground" />
               <span className="flex-1 truncate">{p.name}</span>
             </DropdownMenuItem>
           ))
@@ -288,7 +288,7 @@ function useStripeDetailUI({
   const body = (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold text-grey-darkest">Selected products</p>
+        <p className="text-sm font-semibold text-foreground">Selected products</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Databerry will filter your revenue and other data only based on
           selected products.
@@ -296,7 +296,7 @@ function useStripeDetailUI({
       </div>
 
       {isImporting && (
-        <div className="flex items-center gap-2 rounded-md border border-stroke bg-main px-3 py-2">
+        <div className="flex items-center gap-2 rounded-md border border-stroke bg-surface px-3 py-2">
           <ArrowsClockwise
             size={14}
             weight="bold"
@@ -310,7 +310,7 @@ function useStripeDetailUI({
       )}
 
       {hasError && (
-        <div className="flex items-start gap-2 rounded-md border border-stroke bg-main px-3 py-2">
+        <div className="flex items-start gap-2 rounded-md border border-stroke bg-surface px-3 py-2">
           <Warning size={14} weight="bold" className="text-destructive shrink-0 mt-0.5" />
           <div className="text-xs text-muted-foreground space-y-1">
             <p className="font-medium text-foreground">Couldn&rsquo;t finish importing.</p>
@@ -331,7 +331,7 @@ function useStripeDetailUI({
           spinner row instead and reserve the empty state for when the
           backend has confirmed there really are zero products. */}
       {loading && !isImporting && !hasError && (
-        <div className="flex items-center gap-2 rounded-md border border-stroke bg-main px-3 py-2.5">
+        <div className="flex items-center gap-2 rounded-md border border-stroke bg-surface px-3 py-2.5">
           <ArrowsClockwise
             size={14}
             weight="bold"
@@ -342,7 +342,7 @@ function useStripeDetailUI({
       )}
 
       {hasNoProducts && !hasError && (
-        <div className="rounded-md border border-stroke bg-main px-3 py-3 space-y-2">
+        <div className="rounded-md border border-stroke bg-surface px-3 py-3 space-y-2">
           <p className="text-sm font-medium">
             No products found on this Stripe account.
           </p>
@@ -372,7 +372,7 @@ function useStripeDetailUI({
             type="button"
             onClick={() => setAllProducts(v => !v)}
             className={`flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors ${
-              allProducts ? 'border-foreground bg-muted' : 'border-stroke hover:bg-main'
+              allProducts ? 'border-foreground bg-muted' : 'border-stroke hover:bg-surface'
             }`}
           >
             <span
@@ -410,7 +410,7 @@ function useStripeDetailUI({
                     disabled={!interactive}
                     className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
                       checked ? 'border-foreground bg-muted' : 'border-stroke'
-                    } ${interactive ? 'hover:bg-main cursor-pointer' : 'cursor-default opacity-70'} ${
+                    } ${interactive ? 'hover:bg-surface cursor-pointer' : 'cursor-default opacity-70'} ${
                       p.active ? '' : 'opacity-60'
                     }`}
                   >
@@ -483,14 +483,14 @@ function useGADetailUI({
   const body = (
     <div className="space-y-3">
       <div>
-        <p className="text-sm font-semibold text-grey-darkest">GA4 property</p>
+        <p className="text-sm font-semibold text-foreground">GA4 property</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Select which GA4 property to track for this connection.
         </p>
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 rounded-md border border-stroke bg-main px-3 py-2.5">
+        <div className="flex items-center gap-2 rounded-md border border-stroke bg-surface px-3 py-2.5">
           <ArrowsClockwise
             size={14}
             weight="bold"
@@ -518,7 +518,7 @@ function useGADetailUI({
                 <p className="text-xs text-muted-foreground">{prop.name}</p>
               </div>
               {prop.id === connection.gaPropertyId && (
-                <span className="text-[10px] text-grey-light border border-stroke rounded-full px-2 py-0.5 shrink-0 ml-2">
+                <span className="text-[10px] text-subtle border border-stroke rounded-full px-2 py-0.5 shrink-0 ml-2">
                   Connected
                 </span>
               )}
@@ -574,7 +574,7 @@ function VercelBody({ connection }: { connection: Connection }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold text-grey-darkest">Log Drain setup</p>
+        <p className="text-sm font-semibold text-foreground">Log Drain setup</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Add the URL below as a{' '}
           <span className="font-medium text-foreground">Log Drain</span> in
@@ -583,8 +583,8 @@ function VercelBody({ connection }: { connection: Connection }) {
         </p>
       </div>
       <CopyField label="Drain URL" value={drainUrl} />
-      <div className="rounded-lg border border-stroke bg-main p-3 space-y-1.5">
-        <p className="text-xs font-medium text-grey-dark">Settings to use in Vercel</p>
+      <div className="rounded-lg border border-stroke bg-surface p-3 space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground">Settings to use in Vercel</p>
         <ul className="space-y-1 text-xs text-muted-foreground">
           <li>
             <span className="font-medium text-foreground">Delivery format</span>
@@ -598,8 +598,8 @@ function VercelBody({ connection }: { connection: Connection }) {
           </li>
         </ul>
       </div>
-      <div className="rounded-lg border border-stroke bg-main p-3 space-y-1.5">
-        <p className="text-xs font-medium text-grey-dark">How it works</p>
+      <div className="rounded-lg border border-stroke bg-surface p-3 space-y-1.5">
+        <p className="text-xs font-medium text-muted-foreground">How it works</p>
         <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside">
           <li>Vercel pushes Web Analytics events to this URL in real time</li>
           <li>Each event is stored and aggregated by day</li>
@@ -616,7 +616,7 @@ function WebhookBody({ connection }: { connection: Connection }) {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold text-grey-darkest">Webhook URL</p>
+        <p className="text-sm font-semibold text-foreground">Webhook URL</p>
         <p className="mt-0.5 text-xs text-muted-foreground">
           Send POST requests with an{' '}
           <code className="bg-muted px-1 rounded">X-API-Key</code> header to
@@ -631,7 +631,7 @@ function WebhookBody({ connection }: { connection: Connection }) {
 function GenericBody({ connection }: { connection: Connection }) {
   return (
     <div className="space-y-3">
-      <div className="rounded-lg border border-stroke bg-main p-3 space-y-2">
+      <div className="rounded-lg border border-stroke bg-surface p-3 space-y-2">
         <Row label="Type" value={CONNECTION_DISPLAY_NAMES[connection.type] ?? connection.type} />
         <Row label="Connected" value={new Date(connection.createdAt).toLocaleDateString()} />
         <Row label="ID" value={connection.id} mono />
@@ -781,7 +781,7 @@ function ConnectionDetailModalInner({
   // Every connection-detail surface uses the white card now. The earlier
   // "card for editable, plain for read-only" split read as a bug across
   // connection types — Stripe / GA showed a card, PostHog / Calendly /
-  // Webhook / Vercel sat directly on bg-main. Forcing `'card'` here gives
+  // Webhook / Vercel sat directly on bg-surface. Forcing `'card'` here gives
   // every detail dialog the same chrome.
   const bodyVariant: 'card' | 'plain' = 'card'
   // 42rem (~672px) keeps the body readable on ultrawide screens without

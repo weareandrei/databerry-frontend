@@ -13,8 +13,8 @@ import {
   BottomDialog,
   type BottomDialogPageSlotContext,
 } from '@/components/ui/Dialog'
-import { HeaderSaveCancel } from './HeaderSaveCancel'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { HeaderSaveCancel } from './(components)/HeaderSaveCancel'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import { IntegrationGrid, type IntegrationCard } from '@/components/ui/IntegrationGrid'
 import {
   DropdownMenu,
@@ -262,9 +262,9 @@ function ProjectPicker({
           // Compact, content-sized trigger — full-width felt like a form
           // field; this is just a project switcher and should sit small in
           // the corner.
-          className="inline-flex w-auto max-w-[280px] items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-left text-[12px] font-medium text-grey-darkest transition-colors hover:bg-muted disabled:opacity-60"
+          className="inline-flex w-auto max-w-[280px] items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-left text-[12px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
         >
-          <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
+          <Cube size={12} weight="bold" className="shrink-0 text-muted-foreground" />
           <span className="flex-1 truncate">{label}</span>
           <CaretDown size={9} weight="bold" className="shrink-0 text-muted-foreground" />
         </DropdownMenuTrigger>
@@ -279,7 +279,7 @@ function ProjectPicker({
             <span className="flex-1">Common (shared across projects)</span>
           </DropdownMenuItem>
           {projects.length === 0 ? (
-            <DropdownMenuItem disabled className="text-xs text-grey-light">
+            <DropdownMenuItem disabled className="text-xs text-subtle">
               No projects yet.
             </DropdownMenuItem>
           ) : (
@@ -292,7 +292,7 @@ function ProjectPicker({
                 <span className="w-4 shrink-0">
                   {value === p.id && <Check size={12} weight="bold" />}
                 </span>
-                <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
+                <Cube size={12} weight="bold" className="shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{p.name}</span>
               </DropdownMenuItem>
             ))
@@ -575,7 +575,7 @@ export function CreateConnectionModal() {
   }
 
   // Step 1 → Step 2: validate the API key by hitting PostHog's
-  // `/api/projects/` endpoint. On success, populate the picker; on
+  // `/api/project/` endpoint. On success, populate the picker; on
   // failure, surface a clean toast and stay on the form. This is the
   // mirror of `handleVercelFetchProjects`.
   const handlePostHogFetchProjects = async () => {

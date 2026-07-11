@@ -9,7 +9,7 @@
  *
  * Used by:
  *   - `/hub/agent-chat/page.tsx` — the workspace-wide chat
- *   - `/hub/projects/[id]/agent-chat/page.tsx` — the project-scoped
+ *   - `/hub/project/[id]/agent-chat/page.tsx` — the project-scoped
  *     chat (separate history, project id sent with every message)
  *
  * The `?q=` initial-prompt hand-off is a prop (not a
@@ -21,7 +21,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash, Warning } from '@phosphor-icons/react'
-import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
 import {
   ChatEmpty,
   ConfigMcpChip,
@@ -98,7 +98,7 @@ export function AgentChatBody({
                 type="button"
                 onClick={clear}
                 aria-label="Clear chat"
-                className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-grey-darkest hover:bg-hover-fill transition-colors shrink-0"
+                className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-foreground hover:bg-hover-fill transition-colors shrink-0"
               >
                 <Trash size={14} weight="bold" />
               </button>
@@ -162,7 +162,7 @@ export function AgentChatBody({
                 short copy reads as one balanced unit rather than
                 pinning to the left. */}
             <div className="shrink-0 px-4 pt-4 pb-2">
-              <div className="flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs text-grey-darkest">
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs text-foreground">
                 <Warning
                   size={14}
                   weight="fill"
@@ -231,14 +231,14 @@ export function AgentChatBody({
                       onClick={clear}
                       className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
                     >
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-main">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface">
                         <Plus
                           size={14}
                           weight="bold"
-                          className="text-grey-darkest"
+                          className="text-foreground"
                         />
                       </span>
-                      <span className="text-sm font-semibold text-grey-darkest">
+                      <span className="text-sm font-semibold text-foreground">
                         New chat
                       </span>
                     </button>
@@ -254,7 +254,7 @@ export function AgentChatBody({
                       className="md:hidden inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
                       aria-label="Configure MCP connections"
                     >
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-brand">
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary">
                         <Image
                           src="/icons/mcp.svg"
                           alt=""
@@ -263,7 +263,7 @@ export function AgentChatBody({
                           style={{ filter: 'brightness(0) invert(1)' }}
                         />
                       </span>
-                      <span className="text-sm font-semibold text-grey-darkest">
+                      <span className="text-sm font-semibold text-foreground">
                         Config MCP&rsquo;s
                       </span>
                     </button>
@@ -280,7 +280,7 @@ export function AgentChatBody({
                 {/* Same disclaimer copy as the empty state — keeps
                     the AI-inaccuracy warning visible regardless of
                     which surface the user is on. */}
-                <p className="mt-3 text-[11px] text-grey-light text-center">
+                <p className="mt-3 text-[11px] text-subtle text-center">
                   Databerry AI copilot can be inaccurate. Please double-check
                   responses.
                 </p>

@@ -16,7 +16,7 @@ import type { ReactNode } from 'react'
 export function LegalTitle({ children }: { children: ReactNode }) {
   return (
     <h1
-      className="text-3xl font-semibold tracking-tight text-grey-darkest md:text-4xl"
+      className="text-3xl font-semibold tracking-tight text-foreground md:text-4xl"
       style={{ fontFamily: 'var(--font-bricolage)' }}
     >
       {children}
@@ -29,13 +29,13 @@ export function LegalTitle({ children }: { children: ReactNode }) {
  * non-interactive — same affordance every reputable legal page uses.
  */
 export function LastUpdated({ date }: { date: string }) {
-  return <p className="mt-3 text-sm text-grey-light">Last updated: {date}</p>
+  return <p className="mt-3 text-sm text-subtle">Last updated: {date}</p>
 }
 
 /** Lead paragraph that sits between the title cluster and the first §. */
 export function LegalLead({ children }: { children: ReactNode }) {
   return (
-    <p className="mt-8 text-base leading-7 text-grey-dark">{children}</p>
+    <p className="mt-8 text-base leading-7 text-muted-foreground">{children}</p>
   )
 }
 
@@ -55,10 +55,10 @@ export function LegalSection({
 }) {
   return (
     <section id={id} className="mt-10">
-      <h2 className="text-xl font-semibold tracking-tight text-grey-darkest">
+      <h2 className="text-xl font-semibold tracking-tight text-foreground">
         {title}
       </h2>
-      <div className="mt-3 space-y-3 text-sm leading-6 text-grey-dark">
+      <div className="mt-3 space-y-3 text-sm leading-6 text-muted-foreground">
         {children}
       </div>
     </section>
@@ -68,7 +68,7 @@ export function LegalSection({
 /** Sub-heading inside a section. Used sparingly. */
 export function LegalSubheading({ children }: { children: ReactNode }) {
   return (
-    <h3 className="mt-4 text-sm font-semibold text-grey-darkest">
+    <h3 className="mt-4 text-sm font-semibold text-foreground">
       {children}
     </h3>
   )
@@ -77,7 +77,7 @@ export function LegalSubheading({ children }: { children: ReactNode }) {
 /** Bulleted list with the same line-height + colour as the prose. */
 export function LegalList({ children }: { children: ReactNode }) {
   return (
-    <ul className="ml-5 list-disc space-y-1.5 text-sm leading-6 text-grey-dark marker:text-grey-light">
+    <ul className="ml-5 list-disc space-y-1.5 text-sm leading-6 text-muted-foreground marker:text-subtle">
       {children}
     </ul>
   )

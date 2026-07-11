@@ -48,7 +48,7 @@ export function GoogleButton({ label = 'Continue with Google' }: GoogleButtonPro
       type="button"
       disabled={loading}
       onClick={handleGoogle}
-      className="w-full rounded-lg border border-gray-200 bg-white px-6 py-3 text-sm font-medium text-gray-900 hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+      className="w-full rounded-lg border border-border bg-white px-6 py-3 text-sm font-medium text-foreground hover:bg-surface transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
     >
       <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
         <path

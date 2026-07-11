@@ -184,7 +184,7 @@ function showLimitToast(
   toast.error(
     <div className="text-sm leading-snug">
       <p>{message}</p>
-      <p className="mt-1 text-grey-light">
+      <p className="mt-1 text-subtle">
         {suggestion === 'remove-or-upgrade'
           ? 'Remove some that you no longer need, or '
           : ''}
@@ -196,7 +196,7 @@ function showLimitToast(
             // dismiss explicitly. Done via the global dismiss.
             toast.dismiss()
           }}
-          className="underline underline-offset-2 font-medium text-grey-darkest hover:text-brand transition-colors"
+          className="underline underline-offset-2 font-medium text-foreground hover:text-primary transition-colors"
         >
           upgrade your plan
         </button>

@@ -14,17 +14,18 @@
      8xl=88rem continues that pattern. */
   --container-8xl: 88rem; /* 1408px — landing demo card max-width on ultra-wide displays */
 
-  /* ── Dashboard palette (active only inside .dashboard) ── */
-  --color-main: var(--c-main);           /* bg F4F1F1 — dashboard surface      */
-  --color-stroke: var(--c-stroke);       /* border E1E1E1 — default borders     */
-  --color-brand: var(--c-brand);         /* F46719 — orange primary / FAB       */
-  --color-content: var(--c-content);     /* 2E2F30 — values inside views        */
-  --color-grey-darkest: var(--c-grey-darkest); /* 1B1B1B — active sidebar / section headers */
-  --color-grey-dark: var(--c-grey-dark);       /* 5A5A5C — inactive sidebar / view titles   */
-  --color-grey-light: var(--c-grey-light);     /* 838385 — subheaders / placeholders        */
-  --color-hover-fill: var(--c-hover-fill);     /* E6E3E3 — sidebar hover / active fill      */
+  /* ── App palette ── */
+  --color-surface: var(--c-surface);                 /* F7F6F9 — dashboard / muted surfaces */
+  --color-layer: var(--c-layer);                     /* F9F7F8 — 3D card tray below tiles     */
+  --color-stroke: var(--c-stroke);                   /* ECECF0 — default borders             */
+  --color-primary: var(--c-primary);                 /* FF5D78 — primary accent              */
+  --color-subtle: var(--c-subtle);                   /* A8A2AF — placeholders, icons, hints   */
+  --color-hover-fill: var(--c-hover-fill);           /* hover / active fills on surfaces     */
+  --color-chart-bar-top: var(--c-primary);           /* overview chart bar gradient (top)    */
+  --color-chart-bar-bottom: var(--c-chart-bar-bottom); /* overview chart bar gradient (bottom) — FF7B5D only */
   --shadow-card: 2px 2px 20px 2px rgba(0, 0, 0, 0.05); /* shared card shadow                */
   --shadow-pill: 2px 2px 5px rgba(0, 0, 0, 0.05);      /* round-icon pill drop shadow       */
+  --shadow-control: 0px 1px 2px 0px rgba(0, 0, 0, 0.08); /* compact control / icon shadow   */
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -55,7 +56,6 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -80,38 +80,47 @@ html {
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* ── Shared palette primitives ── */
+  --c-surface: #F7F6F9;
+  --c-layer: #F9F7F8;
+  --c-stroke: #ECECF0;
+  --c-primary: #FF5D78;
+  --c-chart-bar-bottom: #FF7B5D;
+  --c-subtle: #A8A2AF;
+  --c-hover-fill: #EFEDF2;
+
+  --background: #ffffff;
+  --foreground: #1B1B1B;
+  --card: #ffffff;
+  --card-foreground: #1B1B1B;
+  --popover: #ffffff;
+  --popover-foreground: #1B1B1B;
+  --primary: #FF5D78;
+  --primary-foreground: #ffffff;
+  --secondary: #FC5327;
+  --secondary-foreground: #ffffff;
+  --muted: #F7F6F9;
+  --muted-foreground: #838385;
+  --accent: #F7F6F9;
+  --accent-foreground: #1B1B1B;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #ECECF0;
+  --input: #ECECF0;
+  --ring: #FF5D78;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #F7F6F9;
+  --sidebar-foreground: #1B1B1B;
+  --sidebar-primary: #FF5D78;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #EFEDF2;
+  --sidebar-accent-foreground: #1B1B1B;
+  --sidebar-border: #ECECF0;
+  --sidebar-ring: #FF5D78;
 }
 
 .dark {
@@ -146,25 +155,6 @@ html {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
-}
-
-/* ── Dashboard palette ──────────────────────────────────────
-   Defined on :root so portaled content (Radix Dialog, Popover,
-   Tooltip — all mount to document.body, OUTSIDE the .dashboard
-   wrapper) can still resolve `bg-brand`, `text-content`, etc.
-   The landing page doesn't use these tokens, so leaking them
-   to :root is harmless. The `.dashboard` selector is kept as a
-   no-op anchor in case future styles need to scope to it.
-──────────────────────────────────────────────────────────── */
-:root {
-  --c-main: #F4F1F1;
-  --c-stroke: #E1E1E1;
-  --c-hover-fill: #E6E3E3;
-  --c-brand: #F46719;
-  --c-content: #2E2F30;
-  --c-grey-darkest: #1B1B1B;
-  --c-grey-dark: #5A5A5C;
-  --c-grey-light: #838385;
 }
 
 @layer base {

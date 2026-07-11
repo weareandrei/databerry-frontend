@@ -96,34 +96,34 @@ export default function SignupPage() {
             <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
               {needsConfirmation ? (
                 <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <span className="text-2xl">📩</span>
                   </div>
                   <h2
-                    className="text-2xl font-semibold text-gray-900"
+                    className="text-2xl font-semibold text-foreground"
                     style={{ fontFamily: 'var(--font-bricolage)' }}
                   >
                     Check your email
                   </h2>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-muted-foreground">
                     We sent a confirmation link to{' '}
-                    <span className="font-medium text-gray-700">{email}</span>.
+                    <span className="font-medium text-muted-foreground">{email}</span>.
                     Click it to finish creating your account.
                   </p>
                 </div>
               ) : (
                 <>
                   <div className="mb-5 md:mb-7">
-                    <p className="text-xs font-medium text-orange-500 uppercase tracking-widest mb-2">
+                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
                       Get started
                     </p>
                     <h2
-                      className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 leading-[1.1]"
+                      className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground leading-[1.1]"
                       style={{ fontFamily: 'var(--font-bricolage)' }}
                     >
                       Create your account
                     </h2>
-                    <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+                    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                       Connect Stripe, Google Analytics, PostHog, Calendly —
                       everything in one dashboard.
                     </p>
@@ -137,7 +137,7 @@ export default function SignupPage() {
                       onChange={e => setEmail(e.target.value)}
                       required
                       autoComplete="email"
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                     />
                     <input
                       type="password"
@@ -147,30 +147,30 @@ export default function SignupPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                     />
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
+                      className="w-full rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
                     >
                       {loading ? 'Creating account…' : 'Create account'}
                     </button>
                   </form>
 
                   <div className="my-5 flex items-center gap-3">
-                    <div className="h-px flex-1 bg-gray-200" />
-                    <span className="text-xs text-gray-400">or</span>
-                    <div className="h-px flex-1 bg-gray-200" />
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-xs text-subtle">or</span>
+                    <div className="h-px flex-1 bg-border" />
                   </div>
 
                   <GoogleButton label="Sign up with Google" />
 
-                  <p className="mt-6 text-center text-sm text-gray-500">
+                  <p className="mt-6 text-center text-sm text-muted-foreground">
                     Already have an account?{' '}
                     <Link
                       href="/login"
-                      className="font-medium text-gray-900 hover:underline"
+                      className="font-medium text-foreground hover:underline"
                     >
                       Log in
                     </Link>
@@ -248,33 +248,33 @@ export default function WishlistPage() {
             <div className="bg-white rounded-xl px-8 py-10">
               {done ? (
                 <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                     <span className="text-2xl">🎉</span>
                   </div>
                   <h2
-                    className="text-2xl font-semibold text-gray-900"
+                    className="text-2xl font-semibold text-foreground"
                     style={{ fontFamily: 'var(--font-bricolage)' }}
                   >
                     You're on the list!
                   </h2>
-                  <p className="text-sm text-gray-500">
-                    We'll reach out to <span className="font-medium text-gray-700">{email}</span> when
+                  <p className="text-sm text-muted-foreground">
+                    We'll reach out to <span className="font-medium text-muted-foreground">{email}</span> when
                     Databerry is ready for you.
                   </p>
                 </div>
               ) : (
                 <>
                   <div className="mb-7">
-                    <p className="text-xs font-medium text-orange-500 uppercase tracking-widest mb-2">
+                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
                       Early access
                     </p>
                     <h2
-                      className="text-3xl font-semibold tracking-tight text-gray-900 leading-[1.1]"
+                      className="text-3xl font-semibold tracking-tight text-foreground leading-[1.1]"
                       style={{ fontFamily: 'var(--font-bricolage)' }}
                     >
                       Join the wishlist
                     </h2>
-                    <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+                    <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                       Databerry is in private beta. Leave your email and we'll let you know when
                       your spot is ready.
                     </p>
@@ -287,12 +287,12 @@ export default function WishlistPage() {
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       required
-                      className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                     />
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
+                      className="w-full rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
                     >
                       {loading ? 'Adding you…' : 'Add me to the wishlist'}
                     </button>

@@ -91,15 +91,15 @@ export default function CompareHub() {
                   className="group flex flex-col rounded-3xl bg-white p-7 shadow-[0_24px_70px_-20px_rgba(0,0,0,0.45)] transition-transform hover:-translate-y-1"
                 >
                   <h2
-                    className="text-2xl font-semibold tracking-tight text-grey-darkest"
+                    className="text-2xl font-semibold tracking-tight text-foreground"
                     style={{ fontFamily: 'var(--font-bricolage)' }}
                   >
                     Databerry vs {c.competitor}
                   </h2>
-                  <p className="mt-3 flex-1 text-sm leading-relaxed text-grey-dark">
+                  <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
                     {c.tagline}
                   </p>
-                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-brand">
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
                     Read comparison
                     <ArrowRight
                       size={15}

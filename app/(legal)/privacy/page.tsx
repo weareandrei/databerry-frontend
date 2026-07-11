@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         registered in Wyoming, USA. Contact:{' '}
         <a
           href="mailto:team@heavenmade.org"
-          className="font-medium text-brand hover:underline"
+          className="font-medium text-primary hover:underline"
         >
           team@heavenmade.org
         </a>
@@ -335,7 +335,7 @@ export default function PrivacyPage() {
             account and every associated record, email{' '}
             <a
               href="mailto:team@heavenmade.org"
-              className="font-medium text-brand hover:underline"
+              className="font-medium text-primary hover:underline"
             >
               team@heavenmade.org
             </a>
@@ -355,7 +355,7 @@ export default function PrivacyPage() {
             href="https://myaccount.google.com/permissions"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-brand hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             myaccount.google.com/permissions
           </a>
@@ -379,7 +379,7 @@ export default function PrivacyPage() {
             href="https://developers.google.com/terms/api-services-user-data-policy"
             target="_blank"
             rel="noopener noreferrer"
-            className="font-medium text-brand hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             Google API Services User Data Policy
           </a>
@@ -431,19 +431,19 @@ export default function PrivacyPage() {
           under its standard customer terms.
         </p>
         <div className="overflow-x-auto">
-          <table className="mt-4 min-w-full border-collapse text-xs leading-5 text-grey-dark">
+          <table className="mt-4 min-w-full border-collapse text-xs leading-5 text-muted-foreground">
             <thead>
               <tr className="border-b border-stroke text-left">
-                <th className="py-2 pr-4 font-semibold text-grey-darkest">
+                <th className="py-2 pr-4 font-semibold text-foreground">
                   Sub&#8209;processor
                 </th>
-                <th className="py-2 pr-4 font-semibold text-grey-darkest">
+                <th className="py-2 pr-4 font-semibold text-foreground">
                   Purpose
                 </th>
-                <th className="py-2 pr-4 font-semibold text-grey-darkest">
+                <th className="py-2 pr-4 font-semibold text-foreground">
                   Receives Google user data?
                 </th>
-                <th className="py-2 font-semibold text-grey-darkest">
+                <th className="py-2 font-semibold text-foreground">
                   Privacy policy
                 </th>
               </tr>
@@ -461,7 +461,7 @@ export default function PrivacyPage() {
                     href="https://supabase.com/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand hover:underline"
+                    className="text-primary hover:underline"
                   >
                     supabase.com/privacy
                   </a>
@@ -479,7 +479,7 @@ export default function PrivacyPage() {
                     href="https://railway.com/legal/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand hover:underline"
+                    className="text-primary hover:underline"
                   >
                     railway.com/legal/privacy
                   </a>
@@ -499,7 +499,7 @@ export default function PrivacyPage() {
                     href="https://posthog.com/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand hover:underline"
+                    className="text-primary hover:underline"
                   >
                     posthog.com/privacy
                   </a>
@@ -618,7 +618,7 @@ export default function PrivacyPage() {
           To exercise any of these, email{' '}
           <a
             href="mailto:team@heavenmade.org"
-            className="font-medium text-brand hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             team@heavenmade.org
           </a>
@@ -676,7 +676,7 @@ export default function PrivacyPage() {
           Questions about privacy or this policy? Email{' '}
           <a
             href="mailto:team@heavenmade.org"
-            className="font-medium text-brand hover:underline"
+            className="font-medium text-primary hover:underline"
           >
             team@heavenmade.org
           </a>

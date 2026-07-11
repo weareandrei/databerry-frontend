@@ -104,31 +104,26 @@ export function ChatEmpty({
       }
     >
       <div className="w-full max-w-2xl flex flex-col items-center">
-        {/* Title — Bricolage Grotesque, the same display face as
-            the landing hero. Bigger on desktop, scales down a bit
-            on mobile so it doesn't dwarf a phone viewport. */}
+        {/* Title — Inter, inherited from the hub shell. */}
         {!hideTitle && (
-          <h1
-            className="text-2xl md:text-3xl font-semibold text-grey-darkest mb-6 text-center tracking-tight"
-            style={{ fontFamily: 'var(--font-bricolage)' }}
-          >
+          <h1 className="text-2xl md:text-3xl font-semibold text-foreground mb-6 text-center tracking-tight">
             What do you want to know ?
           </h1>
         )}
 
         {/* ── Chat input ──────────────────────────────────────────
-            Soft grey background (`bg-main`, our existing page-bg
+            Soft grey background (`bg-surface`, our existing page-bg
             token — same colour the page sits on, so the input reads
             as inset rather than as a separate floating card on a
             white background). Sparkle icon top-left is purely
             decorative (the AI affordance), the send button sits at
             bottom-right as a small brand-orange square. */}
-        <div className="w-full relative rounded-2xl bg-main border border-stroke px-4 pt-4 pb-3 min-h-[120px]">
+        <div className="w-full relative rounded-2xl bg-surface border border-stroke px-4 pt-4 pb-3 min-h-[120px]">
           <div className="flex items-start gap-2.5">
             <Sparkle
               size={18}
               weight="fill"
-              className="text-brand shrink-0 mt-0.5"
+              className="text-primary shrink-0 mt-0.5"
             />
             <textarea
               ref={textareaRef}
@@ -138,7 +133,7 @@ export function ChatEmpty({
               placeholder="Ask anything"
               rows={2}
               disabled={sending}
-              className="flex-1 bg-transparent outline-none resize-none text-sm text-grey-darkest placeholder:text-grey-light disabled:opacity-60"
+              className="flex-1 bg-transparent outline-none resize-none text-sm text-foreground placeholder:text-subtle disabled:opacity-60"
             />
           </div>
           <button
@@ -148,14 +143,14 @@ export function ChatEmpty({
             }}
             disabled={!value.trim() || sending}
             aria-label="Send message"
-            className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-brand text-white hover:bg-brand/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
+            className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
           >
             <ArrowUp size={14} weight="bold" />
           </button>
         </div>
 
         {/* AI disclaimer — small, muted, under the input. */}
-        <p className="mt-3 text-[11px] text-grey-light text-center">
+        <p className="mt-3 text-[11px] text-subtle text-center">
           Databerry AI copilot can be inaccurate. Please double-check responses.
         </p>
 
@@ -191,12 +186,12 @@ const CHIP_OUTER =
   'inline-flex items-center gap-2.5 rounded-xl bg-white border border-stroke shadow-sm px-3 py-2'
 const CHIP_ICON_TILE =
   'inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0'
-const CHIP_LABEL = 'text-sm font-semibold text-grey-darkest'
+const CHIP_LABEL = 'text-sm font-semibold text-foreground'
 
 /**
  * One of the user's existing MCP connections. White outer pill
  * matching the trailing Config chip — only the icon tile differs
- * (light-grey `bg-main` here vs. brand-orange there). Single line of
+ * (light-grey `bg-surface` here vs. brand-orange there). Single line of
  * content (name) so the chip's height matches the Config chip
  * exactly; previously the User chip was shorter (`w-7 h-7` icon, no
  * shadow) and the row read as a height-jitter mess.
@@ -214,7 +209,7 @@ const CHIP_LABEL = 'text-sm font-semibold text-grey-darkest'
 export function UserMcpChip({ name }: { name: string }) {
   return (
     <div className={CHIP_OUTER}>
-      <span className={`${CHIP_ICON_TILE} bg-main`}>
+      <span className={`${CHIP_ICON_TILE} bg-surface`}>
         <Image
           src="/icons/mcp.svg"
           alt=""
@@ -258,7 +253,7 @@ export function ConfigMcpChip({
       onClick={onClick}
       className={`group ${CHIP_OUTER} transition-colors hover:bg-hover-fill cursor-pointer`}
     >
-      <span className={`${CHIP_ICON_TILE} bg-brand`}>
+      <span className={`${CHIP_ICON_TILE} bg-primary`}>
         {/* The svg ships as black; `brightness(0) invert(1)` flips
             it to pure white so it reads cleanly on the brand-orange
             tile. Cheaper than maintaining a second white variant. */}
@@ -274,7 +269,7 @@ export function ConfigMcpChip({
       <CaretRight
         size={14}
         weight="bold"
-        className="text-grey-darkest shrink-0 ml-1 transition-transform duration-150 group-hover:translate-x-0.5"
+        className="text-foreground shrink-0 ml-1 transition-transform duration-150 group-hover:translate-x-0.5"
       />
     </button>
   )

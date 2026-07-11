@@ -54,7 +54,7 @@ export function LoadingScreen() {
               className="rounded-xl"
             />
             <span
-              className="text-[1.6rem] font-bold text-[#E96021]"
+              className="text-[1.6rem] font-bold text-primary"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '0.05em' }}
             >
               DataBerry
@@ -66,7 +66,7 @@ export function LoadingScreen() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.15, duration: 0.4 }}
-            className="mt-5 text-sm text-gray-400 select-none tracking-wide"
+            className="mt-5 text-sm text-subtle select-none tracking-wide"
           >
             All business data. In one place.
           </motion.p>

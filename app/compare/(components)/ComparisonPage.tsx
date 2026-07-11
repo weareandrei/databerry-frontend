@@ -116,22 +116,22 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
           <section className="bg-white">
             <article className="mx-auto max-w-3xl px-6 py-14 md:py-20">
               {/* Lead — the core difference, no filler. */}
-              <p className="text-lg md:text-xl leading-relaxed text-grey-darkest">{lead}</p>
+              <p className="text-lg md:text-xl leading-relaxed text-foreground">{lead}</p>
 
               {/* Stat strip — the headline numbers. */}
               <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {stats.map(s => (
                   <div
                     key={s.label}
-                    className="rounded-2xl border border-stroke bg-main/40 p-4 text-center"
+                    className="rounded-2xl border border-stroke bg-surface/40 p-4 text-center"
                   >
                     <div
-                      className="text-2xl md:text-3xl font-bold text-brand"
+                      className="text-2xl md:text-3xl font-bold text-primary"
                       style={{ fontFamily: 'var(--font-bricolage)' }}
                     >
                       {s.value}
                     </div>
-                    <div className="mt-1 text-xs leading-snug text-grey-dark">{s.label}</div>
+                    <div className="mt-1 text-xs leading-snug text-muted-foreground">{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -140,25 +140,25 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
               <div className="mt-10 space-y-3">
                 {keyPoints.map(kp => (
                   <div key={kp.heading} className="rounded-2xl border border-stroke p-5">
-                    <h3 className="text-base font-semibold text-grey-darkest">{kp.heading}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-grey-dark">{kp.body}</p>
+                    <h3 className="text-base font-semibold text-foreground">{kp.heading}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{kp.body}</p>
                   </div>
                 ))}
               </div>
 
               {/* At a glance — Databerry column tinted so it pops. */}
-              <h2 className="mt-12 mb-4 text-xl md:text-2xl font-semibold tracking-tight text-grey-darkest">
+              <h2 className="mt-12 mb-4 text-xl md:text-2xl font-semibold tracking-tight text-foreground">
                 At a glance
               </h2>
               <div className="overflow-x-auto rounded-xl border border-stroke">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-stroke bg-main/60">
-                      <th className="py-2.5 px-4 text-left font-medium text-grey-light" />
-                      <th className="py-2.5 px-4 text-left font-semibold text-brand whitespace-nowrap bg-brand/5">
+                    <tr className="border-b border-stroke bg-surface/60">
+                      <th className="py-2.5 px-4 text-left font-medium text-subtle" />
+                      <th className="py-2.5 px-4 text-left font-semibold text-primary whitespace-nowrap bg-primary/5">
                         Databerry
                       </th>
-                      <th className="py-2.5 px-4 text-left font-semibold text-grey-darkest whitespace-nowrap">
+                      <th className="py-2.5 px-4 text-left font-semibold text-foreground whitespace-nowrap">
                         {competitor}
                       </th>
                     </tr>
@@ -166,11 +166,11 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
                   <tbody>
                     {atAGlance.map(row => (
                       <tr key={row.label} className="border-b border-stroke/60 last:border-0 align-top">
-                        <td className="py-3 px-4 font-medium text-grey-dark">{row.label}</td>
-                        <td className="py-3 px-4 font-medium text-grey-darkest bg-brand/5">
+                        <td className="py-3 px-4 font-medium text-muted-foreground">{row.label}</td>
+                        <td className="py-3 px-4 font-medium text-foreground bg-primary/5">
                           {row.databerry}
                         </td>
-                        <td className="py-3 px-4 text-grey-dark">{row.competitor}</td>
+                        <td className="py-3 px-4 text-muted-foreground">{row.competitor}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -208,18 +208,18 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
               </div>
 
               {/* Verdict */}
-              <h2 className="mt-12 mb-3 text-xl md:text-2xl font-semibold tracking-tight text-grey-darkest">
+              <h2 className="mt-12 mb-3 text-xl md:text-2xl font-semibold tracking-tight text-foreground">
                 The bottom line
               </h2>
-              <p className="text-base leading-relaxed text-grey-dark">{verdict}</p>
+              <p className="text-base leading-relaxed text-muted-foreground">{verdict}</p>
 
               {/* CTA */}
-              <div className="mt-10 flex flex-col items-start gap-4 rounded-2xl bg-main p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-10 flex flex-col items-start gap-4 rounded-2xl bg-surface p-6 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-base font-semibold text-grey-darkest">
+                  <p className="text-base font-semibold text-foreground">
                     See your whole business on one screen
                   </p>
-                  <p className="text-sm text-grey-dark">
+                  <p className="text-sm text-muted-foreground">
                     Connect your stack in minutes. 30-day free trial, no card required.
                   </p>
                 </div>
@@ -235,7 +235,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
               {/* Internal links — other comparisons + home. */}
               {otherComparisons.length > 0 && (
                 <div className="mt-10 border-t border-stroke pt-6">
-                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-grey-light">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wider text-subtle">
                     More comparisons
                   </p>
                   <div className="flex flex-wrap gap-x-5 gap-y-2">
@@ -243,7 +243,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
                       <Link
                         key={c.slug}
                         href={`/compare/${c.slug}`}
-                        className="text-sm font-medium text-brand hover:underline"
+                        className="text-sm font-medium text-primary hover:underline"
                       >
                         Databerry vs {c.competitor}
                       </Link>

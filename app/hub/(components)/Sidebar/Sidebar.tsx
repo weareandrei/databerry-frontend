@@ -4,52 +4,18 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { House, SquaresFour, CaretDown, Plus, Gear } from '@phosphor-icons/react'
-import { ProjectIcon } from '@/app/hub/(components)/ProjectIcon'
-import { SidebarNavItem } from './SidebarNavItem'
-import { SidebarUserProfile } from './SidebarUserProfile'
-import { SidebarFolderItem } from './SidebarFolderItem'
-import { SidebarTimezone } from './SidebarTimezone'
+import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
+import { SidebarNavItem } from './(components)/SidebarNavItem'
+import { SidebarUserProfile } from './(components)/SidebarUserProfile'
+import { SidebarFolderItem } from './(components)/SidebarFolderItem'
+import { SidebarTimezone } from './(components)/SidebarTimezone'
+import { CollapsibleSectionHeader } from './(components)/CollapsibleSectionHeader'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { usePlanLimits } from '@/hooks/usePlanLimits'
 
-function SectionHeader({
-  label,
-  collapsed,
-  onToggle,
-  action,
-}: {
-  label: string
-  collapsed: boolean
-  onToggle: () => void
-  action?: React.ReactNode
-}) {
-  return (
-    <div className="w-full flex items-center justify-between pl-5 pr-5 mb-1 text-sm text-grey-dark">
-      <span
-        onClick={onToggle}
-        className="flex-1 text-left cursor-pointer hover:text-grey-darkest transition-colors"
-      >
-        {label}
-      </span>
-      <div className="flex items-center gap-1.5">
-        {action}
-        <motion.span
-          onClick={onToggle}
-          animate={{ rotate: collapsed ? -90 : 0 }}
-          transition={{ duration: 0.15 }}
-          className="cursor-pointer hover:text-grey-darkest transition-colors"
-        >
-          <CaretDown size={11} weight="bold" />
-        </motion.span>
-      </div>
-    </div>
-  )
-}
-
 // MOBILE-ONLY surface: the burger in `<MobileTopBar>` opens
 // `<MobileBurgerSheet>` (a `BottomDialog`) wrapping this component.
-// The desktop equivalent is gone — desktop navigation lives in the
-// `<IconRail>` + per-project `<ProjectSidebar>` now.
+// Desktop navigation lives in `<DashboardSidebar>`.
 //
 // Pass `onNavigate` to dismiss the sheet on link click — the function
 // is called as a parent-level `onClick`, so any navigation that
@@ -85,7 +51,7 @@ export function SidebarContents({
     if (folderId) {
       router.push(`/hub/folder/${folderId}`)
     } else {
-      router.push(`/hub/projects/${projectId}/overview`)
+      router.push(`/hub/project/${projectId}`)
     }
   }
 
@@ -111,10 +77,11 @@ export function SidebarContents({
 
       {/* Workspace section */}
       <div className="mb-9">
-        <SectionHeader
+        <CollapsibleSectionHeader
           label="Workspace"
           collapsed={workspaceCollapsed}
           onToggle={() => setWorkspaceCollapsed(v => !v)}
+          variant="mobile"
         />
         <AnimatePresence initial={false}>
           {!workspaceCollapsed && (
@@ -145,10 +112,11 @@ export function SidebarContents({
           list lays out at its natural height; the sheet's own body
           handles scroll. */}
       <div className={bounded ? 'flex-1 overflow-hidden flex flex-col' : 'flex flex-col'}>
-        <SectionHeader
+        <CollapsibleSectionHeader
           label="Projects"
           collapsed={projectsCollapsed}
           onToggle={() => setProjectsCollapsed(v => !v)}
+          variant="mobile"
           action={
             <button
               onClick={e => {
@@ -159,7 +127,7 @@ export function SidebarContents({
                 if (!enforceProjectLimit()) return
                 projectsCtx.openModal()
               }}
-              className="flex items-center justify-center w-5 h-5 rounded-full bg-white border border-stroke text-grey-dark hover:text-grey-darkest transition-colors"
+              className="flex items-center justify-center w-5 h-5 rounded-full bg-white border border-stroke text-muted-foreground hover:text-foreground transition-colors"
               // Intentionally a smaller shadow than the shared `shadow-pill` —
               // this is a tight inline action (sidebar `+`), not a section
               // icon, so a lighter drop shadow is more proportionate.
@@ -179,7 +147,7 @@ export function SidebarContents({
               className="overflow-y-auto px-2 space-y-0.5"
             >
               {projectsCtx.projects.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-grey-light">No projects yet</p>
+                <p className="px-3 py-2 text-xs text-subtle">No projects yet</p>
               ) : (
                 projectsCtx.projects.map(project => {
                   const projectFolders = foldersCtx.folders.filter(
@@ -199,7 +167,7 @@ export function SidebarContents({
                         view-tile 3-dots (`ViewHeader.tsx`) so it reads
                         as a real interactive control.
                       */}
-                      <div className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-grey-dark hover:bg-hover-fill hover:text-grey-darkest">
+                      <div className="w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors text-muted-foreground hover:bg-hover-fill hover:text-foreground">
                         <button
                           onClick={() => goToProject(project.id)}
                           className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
@@ -218,7 +186,7 @@ export function SidebarContents({
                               toggleProject(project.id)
                             }}
                             aria-label={isExpanded ? 'Collapse folders' : 'Expand folders'}
-                            className="flex items-center justify-center w-6 h-6 rounded cursor-pointer text-grey-light hover:text-grey-dark hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors -mr-1"
+                            className="flex items-center justify-center w-6 h-6 rounded cursor-pointer text-subtle hover:text-muted-foreground hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors -mr-1"
                           >
                             <motion.span
                               animate={{ rotate: isExpanded ? 0 : -90 }}
@@ -252,7 +220,7 @@ export function SidebarContents({
                               ))}
                               <button
                                 onClick={() => foldersCtx.openModal(null, project.id)}
-                                className="flex w-full items-center gap-1 rounded-md pr-3 transition-colors cursor-pointer hover:bg-hover-fill text-grey-light"
+                                className="flex w-full items-center gap-1 rounded-md pr-3 transition-colors cursor-pointer hover:bg-hover-fill text-subtle"
                                 style={{ paddingLeft: '26px' }}
                               >
                                 <span className="shrink-0">

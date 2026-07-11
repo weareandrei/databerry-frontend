@@ -13,15 +13,15 @@ import {
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 import { ConnectionsList } from '@/app/hub/(components)/connections/ConnectionsList'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
-import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
+import { SectionHeader } from '@/app/hub/(components)/layout/SectionHeader'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
 import { useOAuthCallback } from '@/hooks/useOAuthCallback'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { ConnectionDetailModal } from '@/app/hub/(components)/modals/ConnectionDetailModal'
-import { StripeProductPicker } from '@/app/hub/connections/(modals)/StripeProductPicker'
-import { AddMcpConnectionModal } from '@/app/hub/connections/(modals)/AddMcpConnectionModal'
+import { StripeProductPicker } from '@/app/hub/connections/(components)/StripeProductPicker'
+import { AddMcpConnectionModal } from '@/app/hub/connections/(components)/AddMcpConnectionModal'
 import { ProjectScopePill } from '@/app/hub/connections/(components)/ProjectScopePill'
 import { Cpu } from '@phosphor-icons/react'
 import { ALGORITHM, type GAProperty } from '@/lib/api'
@@ -149,7 +149,7 @@ function GoogleAnalyticsPropertyPicker() {
               size="sm"
               onClick={handleSave}
               disabled={saving || !selectedPropertyId}
-              className="bg-brand hover:bg-brand/90 text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
             >
               {saving ? 'Saving…' : 'Save'}
             </Button>
@@ -174,7 +174,7 @@ function GoogleAnalyticsPropertyPicker() {
                   onClick={() => setSelectedPropertyId(prop.id)}
                   disabled={saving}
                   className={`flex w-full items-center gap-3 rounded-md border px-3 py-2 text-left transition-colors ${
-                    checked ? 'border-foreground bg-muted' : 'border-stroke hover:bg-main cursor-pointer'
+                    checked ? 'border-foreground bg-muted' : 'border-stroke hover:bg-surface cursor-pointer'
                   }`}
                 >
                   <span
@@ -235,7 +235,7 @@ export default function ConnectionsPage() {
             type="button"
             onClick={() => connections.openModal(null)}
             aria-label="Add connection"
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-brand text-white shadow-pill hover:bg-brand/90 transition-colors shrink-0"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white shadow-pill hover:bg-primary/90 transition-colors shrink-0"
           >
             <Plus size={14} weight="bold" />
           </button>
@@ -271,14 +271,14 @@ export default function ConnectionsPage() {
         onClick={() => router.push('/hub/connections/mcp')}
         className="md:hidden flex items-center gap-3 mb-3 rounded-xl border border-stroke bg-white shadow-card px-4 py-3 cursor-pointer hover:bg-hover-fill transition-colors text-left"
       >
-        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-main border border-stroke shrink-0">
-          <Cpu size={16} weight="bold" className="text-grey-darkest" />
+        <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-surface border border-stroke shrink-0">
+          <Cpu size={16} weight="bold" className="text-foreground" />
         </span>
         <span className="flex-1 min-w-0">
-          <span className="block text-sm font-semibold text-grey-darkest leading-tight">
+          <span className="block text-sm font-semibold text-foreground leading-tight">
             MCP Connections
           </span>
-          <span className="block text-[11px] text-grey-light leading-tight mt-0.5">
+          <span className="block text-[11px] text-subtle leading-tight mt-0.5">
             {mcpConnections.length === 0
               ? 'Connect any MCP server to Databerry.'
               : `${mcpConnections.length} connected — manage or add more.`}
@@ -287,7 +287,7 @@ export default function ConnectionsPage() {
         <CaretRight
           size={14}
           weight="bold"
-          className="text-grey-light shrink-0"
+          className="text-subtle shrink-0"
         />
       </button>
 
@@ -296,23 +296,23 @@ export default function ConnectionsPage() {
           <SectionHeader
             icon={
               <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                <SquaresFour size={14} weight="bold" className="text-grey-darkest" />
+                <SquaresFour size={14} weight="bold" className="text-foreground" />
               </span>
             }
-            title={<span className="text-base font-bold text-grey-darkest">Connections</span>}
+            title={<span className="text-base font-bold text-foreground">Connections</span>}
             rightSlot={
               <Button
-                className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
+                className="rounded-full gap-1.5 px-4 bg-primary hover:bg-primary/90 text-white"
                 onClick={() => connections.openModal(null)}
               >
                 <Plus size={14} weight="bold" />
                 Add connection
               </Button>
             }
-            // `bg-main` was previously the SectionHeader default; pass
+            // `bg-surface` was previously the SectionHeader default; pass
             // it explicitly now that the component no longer hardcodes
             // a bg.
-            className="bg-main"
+            className="bg-surface"
           />
         </div>
 
@@ -353,24 +353,24 @@ export default function ConnectionsPage() {
           <SectionHeader
             icon={
               <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                <Cpu size={14} weight="bold" className="text-grey-darkest" />
+                <Cpu size={14} weight="bold" className="text-foreground" />
               </span>
             }
             title={
-              <span className="text-base font-bold text-grey-darkest">
+              <span className="text-base font-bold text-foreground">
                 MCP Connections
               </span>
             }
             rightSlot={
               <Button
-                className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
+                className="rounded-full gap-1.5 px-4 bg-primary hover:bg-primary/90 text-white"
                 onClick={() => setMcpModalOpen(true)}
               >
                 <Plus size={14} weight="bold" />
                 Add MCP connection
               </Button>
             }
-            className="bg-main"
+            className="bg-surface"
           />
         </div>
         {/* (Mobile sub-header used to live here. Removed when the
@@ -387,7 +387,7 @@ export default function ConnectionsPage() {
             />
           </div>
         ) : mcpConnections.length === 0 ? (
-          <p className="text-sm text-grey-light px-4 py-5">
+          <p className="text-sm text-subtle px-4 py-5">
             No MCP connections yet.
           </p>
         ) : (
@@ -400,17 +400,17 @@ export default function ConnectionsPage() {
                 <div
                   key={connection.id}
                   onClick={() => setSelectedConnection(connection)}
-                  className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-main"
+                  className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-surface"
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <ConnectionIcon
                       type={connection.type}
                       size={20}
-                      className="text-grey-dark shrink-0"
+                      className="text-muted-foreground shrink-0"
                     />
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-grey-dark truncate">
+                        <p className="text-sm font-medium text-muted-foreground truncate">
                           {connection.name}
                         </p>
                         <ProjectScopePill
@@ -427,7 +427,7 @@ export default function ConnectionsPage() {
                           line) — the URL is the identifying piece of
                           info for an MCP connection, much more useful
                           than the creation date. */}
-                      <p className="text-xs text-grey-light truncate">
+                      <p className="text-xs text-subtle truncate">
                         {connection.mcpServerUrl ?? 'MCP'}
                       </p>
                     </div>
@@ -442,7 +442,7 @@ export default function ConnectionsPage() {
                         }
                       }}
                       aria-label="Delete connection"
-                      className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-grey-light hover:text-grey-darkest hover:bg-black/[0.06] transition-colors"
+                      className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-7 h-7 rounded text-subtle hover:text-foreground hover:bg-black/[0.06] transition-colors"
                     >
                       <Trash size={14} weight="bold" />
                     </button>

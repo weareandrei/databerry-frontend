@@ -4,7 +4,7 @@
 
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { SelectableRow, PrimaryCta, SkipLink } from './OnboardingControls'
-import type { ViewSection } from './constants'
+import type { ViewSection } from '../constants'
 
 export function ViewsStep({
   loading,
@@ -31,12 +31,12 @@ export function ViewsStep({
   return (
     <div className="flex flex-col items-center text-center w-full">
       <h1
-        className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900"
+        className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground"
         style={{ fontFamily: 'var(--font-bricolage)' }}
       >
         Add data views
       </h1>
-      <p className="mt-3 text-sm text-gray-500 leading-relaxed max-w-md">
+      <p className="mt-3 text-sm text-muted-foreground leading-relaxed max-w-md">
         Make it simple to view your data. You can always delete
         and edit this later. Your project already includes a
         Project Overview by default.
@@ -45,7 +45,7 @@ export function ViewsStep({
       {/* Checking which tools ACTUALLY connected — gate
           the sections on server truth, not selections. */}
       {loading && (
-        <div className="mt-8 flex items-center gap-2 text-sm text-grey-dark">
+        <div className="mt-8 flex items-center gap-2 text-sm text-muted-foreground">
           <ArrowsClockwise
             size={14}
             weight="bold"
@@ -59,7 +59,7 @@ export function ViewsStep({
           The Overview still gets created with the project,
           so Finish isn't a dead end. */}
       {!loading && sections.length === 0 && (
-        <p className="mt-8 max-w-sm rounded-xl border border-dashed border-stroke bg-white px-4 py-6 text-xs text-grey-light">
+        <p className="mt-8 max-w-sm rounded-xl border border-dashed border-stroke bg-white px-4 py-6 text-xs text-subtle">
           Nothing extra to add — these options unlock when you
           connect tools. Your dashboard starts with the Project
           Overview.
@@ -70,7 +70,7 @@ export function ViewsStep({
       <div className="mt-8 w-full max-w-xl rounded-2xl border border-stroke bg-white shadow-card p-3">
         {sections.map(section => (
           <div key={section.section} className="text-left">
-            <p className="px-1 pt-2 pb-1.5 text-xs font-medium text-grey-light">
+            <p className="px-1 pt-2 pb-1.5 text-xs font-medium text-subtle">
               {section.section}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

@@ -43,8 +43,8 @@ import { cn } from '@/lib/utils'
 import { formatPrice, type Plan, type PlanId } from '@/constants/plans'
 import { usePlans } from '@/hooks/usePlans'
 import { EVENT, trackEvent } from '@/lib/posthog'
-import { RollingNumber } from './RollingNumber'
-import { EventVolumeSlider, EVENT_TIERS } from './EventVolumeSlider'
+import { RollingNumber } from './(components)/RollingNumber'
+import { EventVolumeSlider, EVENT_TIERS } from './(components)/EventVolumeSlider'
 
 /**
  * Resolve the monthly price (in cents) for a base plan at a given
@@ -97,7 +97,7 @@ export function PricingTable({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-sm text-grey-light">
+      <div className="flex items-center justify-center gap-2 py-16 text-sm text-subtle">
         <ArrowsClockwise size={14} weight="bold" className="animate-spin" />
         <span>Loading plans…</span>
       </div>
@@ -107,10 +107,10 @@ export function PricingTable({
   if (error || plans.length === 0) {
     return (
       <div className="mx-auto max-w-md rounded-xl border border-dashed border-stroke bg-white p-6 text-center">
-        <p className="text-sm text-grey-darkest mb-1">
+        <p className="text-sm text-foreground mb-1">
           Couldn&apos;t load plans.
         </p>
-        <p className="text-xs text-grey-light">
+        <p className="text-xs text-subtle">
           Try again in a moment, or email{' '}
           <span className="font-medium">{CONTACT_EMAIL}</span> for help.
         </p>
@@ -142,10 +142,10 @@ export function PricingTable({
     // explanation.
     return (
       <div className="mx-auto max-w-md rounded-xl border border-dashed border-stroke bg-white p-6 text-center">
-        <p className="text-sm text-grey-darkest mb-1">
+        <p className="text-sm text-foreground mb-1">
           No paid plans configured.
         </p>
-        <p className="text-xs text-grey-light">
+        <p className="text-xs text-subtle">
           Email <span className="font-medium">{CONTACT_EMAIL}</span> and we&apos;ll
           sort this out.
         </p>
@@ -207,7 +207,7 @@ export function PricingTable({
           sheet, the same href routes to `/#contact` on landing.
           We use a root-relative `/` prefix so both contexts land on
           the actual contact form regardless of the current path. */}
-      <div className="mt-8 md:mt-10 text-center text-sm text-grey-dark">
+      <div className="mt-8 md:mt-10 text-center text-sm text-muted-foreground">
         Need a custom solution?{' '}
         <Link
           href="/#contact"
@@ -218,7 +218,7 @@ export function PricingTable({
               location: variant === 'signup' ? 'landing_pricing' : 'dashboard_picker',
             })
           }
-          className="text-brand font-medium hover:underline cursor-pointer"
+          className="text-primary font-medium hover:underline cursor-pointer"
         >
           Contact us
         </Link>
@@ -274,7 +274,7 @@ function PlanCard({
     // very pale, but enough contrast against the white inner card
     // that the layering is obvious even on bright monitors. Same
     // colour on both cards now.
-    <div className="relative rounded-[32px] w-full md:w-[400px] 2xl:w-[430px] p-2.5 md:p-3 flex flex-col bg-gray-100">
+    <div className="relative rounded-[32px] w-full md:w-[400px] 2xl:w-[430px] p-2.5 md:p-3 flex flex-col bg-muted">
       {/* Intro-pricing badge — tilted pill that pokes out of the
           top-right corner of the card. Anchored to the OUTER
           wrapper (not the white inner card) so it sits above the
@@ -286,7 +286,7 @@ function PlanCard({
       {hasIntro && (
         <span
           aria-label={`First month ${formatPrice(plan.introPriceMonthlyCents!)}`}
-          className="absolute -top-3 right-4 md:-top-4 md:right-6 z-10 inline-flex items-center rounded-xl border border-brand/50 bg-brand/[0.08] px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold text-brand -rotate-6 shadow-sm whitespace-nowrap"
+          className="absolute -top-3 right-4 md:-top-4 md:right-6 z-10 inline-flex items-center rounded-xl border border-primary/50 bg-primary/[0.08] px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold text-primary -rotate-6 shadow-sm whitespace-nowrap"
         >
           First month {formatPrice(plan.introPriceMonthlyCents!)}
         </span>
@@ -298,7 +298,7 @@ function PlanCard({
           diffuse drop than `shadow-md` (which is sharper and too
           near to the card's edges) — reads as a proper "lifted
           card" against the grey tray rather than a hard outline. */}
-      <div className="bg-white rounded-[32px] border border-stroke/40 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] p-3 md:p-6">
+      <div className="bg-white rounded-[32px] border border-stroke shadow-[0_8px_24px_-8px_rgba(0,0,0,0.12)] p-3 md:p-6">
         {/* Plan name + badge */}
         <div className="flex items-center gap-2 mt-2">
           {/* "Plan" suffix appended in the view rather than baked
@@ -308,11 +308,11 @@ function PlanCard({
               would read awkwardly). Card headers are the only place
               where the longer "Pro Plan" / "Starter Plan" framing
               fits, so the suffix lives here. */}
-          <h3 className="text-2xl md:text-3xl font-semibold text-grey-darkest leading-none">
+          <h3 className="text-2xl md:text-3xl font-semibold text-foreground leading-none">
             {plan.name} Plan
           </h3>
           {highlight && (
-            <span className="rounded-full bg-brand/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-brand">
+            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
               Popular
             </span>
           )}
@@ -323,7 +323,7 @@ function PlanCard({
             tagline reads as a one-line subtitle for the plan name,
             so it sits with the name cluster. */}
         {plan.tagline && (
-          <p className="text-sm text-grey-light leading-relaxed mt-1 mb-4 md:mb-5">
+          <p className="text-sm text-subtle leading-relaxed mt-1 mb-4 md:mb-5">
             {plan.tagline}
           </p>
         )}
@@ -340,11 +340,11 @@ function PlanCard({
               the "/ month" all sit on one baseline as the digits
               roll. `priceCents` is the tier-resolved price from the
               slider — changing tiers animates the figures. */}
-          <p className="text-3xl md:text-4xl font-bold text-grey-darkest leading-none tabular-nums flex items-end">
+          <p className="text-3xl md:text-4xl font-bold text-foreground leading-none tabular-nums flex items-end">
             <span>$</span>
             <RollingNumber value={priceCents / 100} />
           </p>
-          <p className="text-sm md:text-base text-grey-light font-medium">
+          <p className="text-sm md:text-base text-subtle font-medium">
             / month
           </p>
         </div>
@@ -370,7 +370,7 @@ function PlanCard({
             of a noun ("What's included") — reads as "here's what
             you can DO" rather than a feature checklist, which fits
             the trial-first framing better. */}
-        <p className="text-[10px] md:text-[11px] uppercase tracking-wider text-grey-light font-semibold mb-3 md:mb-4">
+        <p className="text-[10px] md:text-[11px] uppercase tracking-wider text-subtle font-semibold mb-3 md:mb-4">
           Get started with
         </p>
         <ul className="space-y-2.5">
@@ -408,11 +408,11 @@ function FeatureItem({ children }: { children: React.ReactNode }) {
   // `Check` icon because it doubles as a visual bullet on the
   // grey surface — has to be readable against a softer background.
   return (
-    <li className="flex items-start gap-2.5 text-sm text-grey-darkest leading-snug">
+    <li className="flex items-start gap-2.5 text-sm text-foreground leading-snug">
       <CheckCircle
         size={18}
         weight="fill"
-        className="text-brand shrink-0 mt-0.5"
+        className="text-primary shrink-0 mt-0.5"
       />
       <span>{children}</span>
     </li>
@@ -512,7 +512,7 @@ function PlanCta({
           // nudge (handled via `group-hover` on the icon below),
           // which is enough to signal interactivity without the
           // button visibly "twitching" on cursor entry.
-          className="group flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 gap-1.5 cursor-pointer bg-brand text-white shadow-[0_14px_32px_-8px_rgba(0,0,0,0.25)]"
+          className="group flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 gap-1.5 cursor-pointer bg-primary text-white shadow-[0_14px_32px_-8px_rgba(0,0,0,0.25)]"
         >
           <span className="text-sm md:text-base font-semibold">
             Start 7-day free trial
@@ -528,7 +528,7 @@ function PlanCta({
             before they click. Outside the button so it doesn't
             compete with the CTA's emphasis; centred to mirror
             the button's centred label. */}
-        <p className="text-[11px] md:text-xs text-grey-light text-center mt-2">
+        <p className="text-[11px] md:text-xs text-subtle text-center mt-2">
           No card required
         </p>
       </div>
@@ -537,7 +537,7 @@ function PlanCta({
 
   if (isCurrent) {
     return (
-      <span className="inline-flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium border border-dashed border-brand/50 text-brand bg-brand/[0.04]">
+      <span className="inline-flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium border border-dashed border-primary/50 text-primary bg-primary/[0.04]">
         Current plan
       </span>
     )
@@ -555,8 +555,8 @@ function PlanCta({
       className={cn(
         'w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium cursor-pointer',
         isDowngrade
-          ? 'border border-stroke bg-white text-grey-darkest hover:bg-hover-fill shadow-none'
-          : 'bg-brand hover:bg-brand/90 text-white shadow-none',
+          ? 'border border-stroke bg-white text-foreground hover:bg-hover-fill shadow-none'
+          : 'bg-primary hover:bg-primary/90 text-white shadow-none',
       )}
     >
       {label}

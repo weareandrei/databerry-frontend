@@ -43,6 +43,13 @@ export interface OverviewSourcesTabState<T> {
   fetched: boolean
 }
 
+export interface OverviewSourcesListTabState extends OverviewSourcesTabState<OverviewSource[]> {
+  /** `null` = no traffic provider connected; a connected provider with
+   *  no traffic reports its type here so the panel can show a "no
+   *  traffic yet" state instead of the "connect a tool" CTA. */
+  provider?: 'google_analytics' | 'posthog' | null
+}
+
 export interface OverviewCountriesTabState extends OverviewSourcesTabState<OverviewCountry[]> {
   /** Backend tells us why the list is empty (GA unsupported, etc.). */
   provider?: 'google_analytics' | 'posthog' | null
@@ -54,7 +61,7 @@ export interface OverviewPagesTabState extends OverviewSourcesTabState<OverviewP
 }
 
 export interface OverviewSourcesDataResource {
-  sources: OverviewSourcesTabState<OverviewSource[]>
+  sources: OverviewSourcesListTabState
   countries: OverviewCountriesTabState
   pages: OverviewPagesTabState
   refreshSources: () => void
@@ -77,7 +84,7 @@ export function useOverviewSourcesData(
   opts: UseOverviewSourcesDataOpts,
 ): OverviewSourcesDataResource {
   const { tab, dateFrom, dateTo } = opts
-  const [sources, setSources] = useState<OverviewSourcesTabState<OverviewSource[]>>(initialState)
+  const [sources, setSources] = useState<OverviewSourcesListTabState>(initialState)
   const [countries, setCountries] = useState<OverviewCountriesTabState>(initialState)
   const [pages, setPages] = useState<OverviewPagesTabState>(initialState)
   const [sourcesTick, setSourcesTick] = useState(0)
@@ -94,7 +101,13 @@ export function useOverviewSourcesData(
     PROJECT_OVERVIEW.getSources(projectId, dateFrom, dateTo)
       .then(res => {
         if (cancelled) return
-        setSources({ data: res.sources, loading: false, error: null, fetched: true })
+        setSources({
+          data: res.sources,
+          loading: false,
+          error: null,
+          provider: res.provider,
+          fetched: true,
+        })
       })
       .catch(err => {
         if (cancelled) return

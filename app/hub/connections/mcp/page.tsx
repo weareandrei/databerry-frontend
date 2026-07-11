@@ -27,11 +27,11 @@ import { useRouter } from 'next/navigation'
 import { ArrowsClockwise, Cpu, Plus, Trash } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
-import { SectionHeader } from '@/app/hub/(components)/SectionHeader'
-import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
+import { SectionHeader } from '@/app/hub/(components)/layout/SectionHeader'
+import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
 import { ConnectionDetailModal } from '@/app/hub/(components)/modals/ConnectionDetailModal'
-import { AddMcpConnectionModal } from '@/app/hub/connections/(modals)/AddMcpConnectionModal'
+import { AddMcpConnectionModal } from '@/app/hub/connections/(components)/AddMcpConnectionModal'
 import { ProjectScopePill } from '@/app/hub/connections/(components)/ProjectScopePill'
 import type { Connection } from '@/types/connection'
 
@@ -58,7 +58,7 @@ export default function McpConnectionsPage() {
             type="button"
             onClick={() => setMcpModalOpen(true)}
             aria-label="Add MCP connection"
-            className="flex items-center justify-center w-9 h-9 rounded-full bg-brand text-white shadow-pill hover:bg-brand/90 transition-colors shrink-0"
+            className="flex items-center justify-center w-9 h-9 rounded-full bg-primary text-white shadow-pill hover:bg-primary/90 transition-colors shrink-0"
           >
             <Plus size={14} weight="bold" />
           </button>
@@ -84,24 +84,24 @@ export default function McpConnectionsPage() {
             <SectionHeader
               icon={
                 <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                  <Cpu size={14} weight="bold" className="text-grey-darkest" />
+                  <Cpu size={14} weight="bold" className="text-foreground" />
                 </span>
               }
               title={
-                <span className="text-base font-bold text-grey-darkest">
+                <span className="text-base font-bold text-foreground">
                   MCP Connections
                 </span>
               }
               rightSlot={
                 <Button
-                  className="rounded-full gap-1.5 px-4 bg-brand hover:bg-brand/90 text-white"
+                  className="rounded-full gap-1.5 px-4 bg-primary hover:bg-primary/90 text-white"
                   onClick={() => setMcpModalOpen(true)}
                 >
                   <Plus size={14} weight="bold" />
                   Add MCP connection
                 </Button>
               }
-              className="bg-main"
+              className="bg-surface"
             />
           </div>
 
@@ -114,7 +114,7 @@ export default function McpConnectionsPage() {
               />
             </div>
           ) : mcpConnections.length === 0 ? (
-            <p className="text-sm text-grey-light px-4 py-5">
+            <p className="text-sm text-subtle px-4 py-5">
               No MCP connections yet.
             </p>
           ) : (
@@ -127,17 +127,17 @@ export default function McpConnectionsPage() {
                   <div
                     key={connection.id}
                     onClick={() => setSelectedConnection(connection)}
-                    className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-main"
+                    className="group flex items-center justify-between gap-3 px-4 py-3 transition-colors cursor-pointer hover:bg-surface"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <ConnectionIcon
                         type={connection.type}
                         size={20}
-                        className="text-grey-dark shrink-0"
+                        className="text-muted-foreground shrink-0"
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-grey-dark truncate">
+                          <p className="text-sm font-medium text-muted-foreground truncate">
                             {connection.name}
                           </p>
                           <ProjectScopePill
@@ -154,7 +154,7 @@ export default function McpConnectionsPage() {
                             line) — the URL is the identifying piece of
                             info for an MCP connection, much more useful
                             than the creation date. */}
-                        <p className="text-xs text-grey-light truncate">
+                        <p className="text-xs text-subtle truncate">
                           {connection.mcpServerUrl ?? 'MCP'}
                         </p>
                       </div>
@@ -169,7 +169,7 @@ export default function McpConnectionsPage() {
                           }
                         }}
                         aria-label="Delete connection"
-                        className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-grey-light hover:text-grey-darkest hover:bg-black/[0.06] transition-colors"
+                        className="md:opacity-0 md:group-hover:opacity-100 flex items-center justify-center w-9 h-9 md:w-7 md:h-7 rounded text-subtle hover:text-foreground hover:bg-black/[0.06] transition-colors"
                       >
                         <Trash size={14} weight="bold" />
                       </button>

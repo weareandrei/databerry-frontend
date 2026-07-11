@@ -2,7 +2,7 @@
 
 // ── Step 2: Connect your tools ──────────────────────────────────────────────
 
-import { TOOLS } from './constants'
+import { TOOLS } from '../constants'
 import { PrimaryCta, SkipLink, SelectableRow } from './OnboardingControls'
 
 export function ToolsStep({
@@ -23,12 +23,12 @@ export function ToolsStep({
   return (
     <div className="flex flex-col items-center text-center w-full">
       <h1
-        className="text-3xl md:text-4xl font-semibold tracking-tight text-gray-900"
+        className="text-3xl md:text-4xl font-semibold tracking-tight text-foreground"
         style={{ fontFamily: 'var(--font-bricolage)' }}
       >
         Connect the tools you already use
       </h1>
-      <p className="mt-3 text-sm text-gray-500 leading-relaxed max-w-md">
+      <p className="mt-3 text-sm text-muted-foreground leading-relaxed max-w-md">
         Select the tools you track your projects with. We&apos;ll
         wire them into Databerry so everything lives in one
         dashboard.

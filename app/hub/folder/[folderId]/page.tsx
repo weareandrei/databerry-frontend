@@ -29,12 +29,12 @@ import { usePlanLimits } from '@/hooks/usePlanLimits'
 import type { RootState } from '@/store'
 import { ALGORITHM } from '@/lib/api'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
-import { ViewCard } from '@/app/hub/(components)/view/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/ViewCardChart'
-import { ViewCardList } from '@/app/hub/(components)/view/ViewCardList'
-import { ViewCardCustomerList } from '@/app/hub/(components)/view/ViewCardCustomerList'
-import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/ViewCardOverviewChartConnected'
-import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/ViewCardOverviewSourcesConnected'
+import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
+import { ViewCardChart } from '@/app/hub/(components)/view/(components)/ViewCardChart'
+import { ViewCardList } from '@/app/hub/(components)/view/(components)/ViewCardList'
+import { ViewCardCustomerList } from '@/app/hub/(components)/view/(components)/ViewCardCustomerList'
+import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/(components)/ViewCardOverviewChartConnected'
+import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/(components)/ViewCardOverviewSourcesConnected'
 import {
   WidePosthogViewRenderer,
   isWidePosthogView,

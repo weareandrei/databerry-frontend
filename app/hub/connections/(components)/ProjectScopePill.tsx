@@ -44,7 +44,7 @@ export function ProjectScopePill({
     <DropdownMenu>
       <DropdownMenuTrigger
         onClick={e => e.stopPropagation()}
-        className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-grey-light leading-tight shrink-0 hover:bg-main hover:text-grey-darkest transition-colors cursor-pointer aria-expanded:bg-main aria-expanded:text-grey-darkest"
+        className="flex items-center gap-1 text-[10px] border border-stroke rounded-full px-2 py-0.5 text-subtle leading-tight shrink-0 hover:bg-surface hover:text-foreground transition-colors cursor-pointer aria-expanded:bg-surface aria-expanded:text-foreground"
         title="Click to reassign to a different project"
       >
         <Cube size={9} weight="bold" />
@@ -80,7 +80,7 @@ export function ProjectScopePill({
             <span className="w-4 shrink-0">
               {connection.projectId === p.id && <Check size={12} weight="bold" />}
             </span>
-            <Cube size={12} weight="bold" className="shrink-0 text-grey-dark" />
+            <Cube size={12} weight="bold" className="shrink-0 text-muted-foreground" />
             <span className="flex-1 truncate">{p.name}</span>
           </DropdownMenuItem>
         ))}

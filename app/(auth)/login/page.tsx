@@ -100,16 +100,16 @@ export default function LoginPage() {
           <div className="bg-white/35 backdrop-blur-sm p-3 md:p-4">
             <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
               <div className="mb-5 md:mb-7">
-                <p className="text-xs font-medium text-orange-500 uppercase tracking-widest mb-2">
+                <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
                   Welcome back
                 </p>
                 <h2
-                  className="text-2xl md:text-3xl font-semibold tracking-tight text-gray-900 leading-[1.1]"
+                  className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground leading-[1.1]"
                   style={{ fontFamily: 'var(--font-bricolage)' }}
                 >
                   Log in to Databerry
                 </h2>
-                <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+                <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
                   Pick up where you left off.
                 </p>
               </div>
@@ -122,7 +122,7 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   autoComplete="email"
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                 />
                 <input
                   type="password"
@@ -131,12 +131,12 @@ export default function LoginPage() {
                   onChange={e => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all placeholder:text-gray-400"
+                  className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
                 />
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-lg bg-gray-900 px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
+                  className="w-full rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-white hover:bg-black transition-colors disabled:opacity-60"
                 >
                   {loading ? 'Logging in…' : 'Log in'}
                 </button>
@@ -156,27 +156,27 @@ export default function LoginPage() {
               )}
 
               <div className="my-5 flex items-center gap-3">
-                <div className="h-px flex-1 bg-gray-200" />
-                <span className="text-xs text-gray-400">or</span>
-                <div className="h-px flex-1 bg-gray-200" />
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-subtle">or</span>
+                <div className="h-px flex-1 bg-border" />
               </div>
 
               <GoogleButton label="Log in with Google" />
 
-              <p className="mt-6 text-center text-sm text-gray-500">
+              <p className="mt-6 text-center text-sm text-muted-foreground">
                 Don&apos;t have an account?{' '}
                 <Link
                   href="/signup"
-                  className="font-medium text-gray-900 hover:underline"
+                  className="font-medium text-foreground hover:underline"
                 >
                   Sign up
                 </Link>
               </p>
-              <p className="mt-2 text-center text-xs text-gray-400">
+              <p className="mt-2 text-center text-xs text-subtle">
                 Trouble signing in?{' '}
                 <Link
                   href="/forgot-password"
-                  className="font-medium text-gray-700 hover:text-gray-900 hover:underline"
+                  className="font-medium text-muted-foreground hover:text-foreground hover:underline"
                 >
                   Reset your password
                 </Link>

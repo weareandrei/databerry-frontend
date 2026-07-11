@@ -25,7 +25,7 @@
 import * as React from 'react'
 
 import { cn } from '@/lib/utils'
-import { ConnectionIcon } from '@/app/hub/(components)/connections/ConnectionIcon'
+import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
 
 export interface IntegrationCard {
   /** Stable id passed back to `onSelect`. */

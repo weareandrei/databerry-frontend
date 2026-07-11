@@ -184,7 +184,7 @@ export function TimezonePicker() {
         size="sm"
         onClick={() => void handleDetect()}
         disabled={loading || saving}
-        className="h-auto justify-start p-0 text-xs text-grey-light hover:text-grey-darkest"
+        className="h-auto justify-start p-0 text-xs text-subtle hover:text-foreground"
       >
         Detect automatically
       </Button>

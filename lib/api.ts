@@ -899,9 +899,9 @@ export const ALGORITHM = {
    * "General → Users" view. `limit` caps the page (backend clamps to
    * 500). `search` does a cheap email/name match.
    *
-   * Returns `{ people, isResyncing }`: the people we have RIGHT NOW plus
+   * Returns `{ people, isResyncing, lastSyncedAt }`: the people we have RIGHT NOW plus
    * whether the backend kicked off a background resync because the data
-   * was stale. When `isResyncing` is true the frontend keeps the list
+   * was stale, and the latest connection sync timestamp for the project.
    * visible (with a loading hint) and polls again until it flips false —
    * see `ProjectPeople`. Pass `autoResync: false` to read without ever
    * triggering a resync (the flag then just reflects an already-running one).
@@ -967,6 +967,8 @@ export const ALGORITHM = {
 export interface PeopleListResult {
   people: PersonRow[]
   isResyncing: boolean
+  /** Max `connection_sync_state.last_synced_at` for the project; null if never synced. */
+  lastSyncedAt: string | null
 }
 
 export interface PersonRow {
@@ -1093,6 +1095,15 @@ export interface OverviewSource {
   share: number
 }
 
+export interface OverviewSourcesResponse {
+  sources: OverviewSource[]
+  /** `null` = no traffic provider connected (as opposed to a connected
+   *  provider that simply recorded no traffic for the range). Mirrors
+   *  the provider field on the countries/pages responses so the panel
+   *  can pick the right empty state. */
+  provider: 'google_analytics' | 'posthog' | null
+}
+
 export interface OverviewUser {
   pseudoId: string
   source: string
@@ -1177,7 +1188,7 @@ export const PROJECT_OVERVIEW = {
   // which made "today's" totals disagree between the two surfaces.
   getSources: (projectId: string, dateFrom: string, dateTo: string, limit = 100) => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    return apiFetch<{ sources: OverviewSource[] }>(
+    return apiFetch<OverviewSourcesResponse>(
       `/project-overview/sources?projectId=${projectId}&dateFrom=${dateFrom}&dateTo=${dateTo}&limit=${limit}&tz=${encodeURIComponent(tz)}`,
     )
   },

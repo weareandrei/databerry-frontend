@@ -66,19 +66,14 @@ function RenderableCard({ item }: { item: Renderable }) {
 function StatCard({ r }: { r: StatRenderable }) {
   return (
     <div className="rounded-xl border border-stroke bg-white px-4 py-3 shadow-sm">
-      <p className="text-[11px] uppercase tracking-wider text-grey-light font-medium">
+      <p className="text-[11px] uppercase tracking-wider text-subtle font-medium">
         {r.label}
       </p>
-      <p
-        // Large display number — `font-bricolage` mirrors the empty
-        // state's title for visual consistency across the surface.
-        className="mt-1 text-2xl font-semibold text-grey-darkest leading-none"
-        style={{ fontFamily: 'var(--font-bricolage)' }}
-      >
+      <p className="mt-1 text-2xl font-semibold text-foreground leading-none">
         {r.value}
       </p>
       {r.sublabel && (
-        <p className="mt-1.5 text-[11px] text-grey-light">{r.sublabel}</p>
+        <p className="mt-1.5 text-[11px] text-subtle">{r.sublabel}</p>
       )}
     </div>
   )
@@ -95,17 +90,14 @@ function ChartCard({ r }: { r: ChartRenderable }) {
     const only = r.series[0]
     return (
       <div className="rounded-xl border border-stroke bg-white px-4 py-3 shadow-sm">
-        <p className="text-[11px] uppercase tracking-wider text-grey-light font-medium">
+        <p className="text-[11px] uppercase tracking-wider text-subtle font-medium">
           {r.title}
         </p>
-        <p
-          className="mt-1 text-2xl font-semibold text-grey-darkest leading-none"
-          style={{ fontFamily: 'var(--font-bricolage)' }}
-        >
+        <p className="mt-1 text-2xl font-semibold text-foreground leading-none">
           {only ? formatChartValue(only.value, r.unit) : '—'}
         </p>
         {r.sublabel && (
-          <p className="mt-1.5 text-[11px] text-grey-light">{r.sublabel}</p>
+          <p className="mt-1.5 text-[11px] text-subtle">{r.sublabel}</p>
         )}
       </div>
     )
@@ -114,11 +106,11 @@ function ChartCard({ r }: { r: ChartRenderable }) {
   return (
     <div className="rounded-xl border border-stroke bg-white px-4 pt-3 pb-2 shadow-sm">
       <div className="flex items-baseline justify-between gap-3 mb-2">
-        <p className="text-[11px] uppercase tracking-wider text-grey-light font-medium">
+        <p className="text-[11px] uppercase tracking-wider text-subtle font-medium">
           {r.title}
         </p>
         {r.sublabel && (
-          <p className="text-[10px] text-grey-light shrink-0">{r.sublabel}</p>
+          <p className="text-[10px] text-subtle shrink-0">{r.sublabel}</p>
         )}
       </div>
       {/* Fixed height — keeps the layout calm regardless of how many
@@ -132,8 +124,8 @@ function ChartCard({ r }: { r: ChartRenderable }) {
           >
             <defs>
               <linearGradient id="chatRenderableFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#F46719" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#F46719" stopOpacity={0} />
+                <stop offset="0%" stopColor="#FF5D78" stopOpacity={0.25} />
+                <stop offset="100%" stopColor="#FF5D78" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid
@@ -164,8 +156,8 @@ function ChartCard({ r }: { r: ChartRenderable }) {
                 if (!active || !payload?.length) return null
                 return (
                   <div className="rounded-md border border-stroke bg-white px-2 py-1 text-[11px] shadow-sm">
-                    <div className="text-grey-light">{label}</div>
-                    <div className="font-semibold text-grey-darkest">
+                    <div className="text-subtle">{label}</div>
+                    <div className="font-semibold text-foreground">
                       {formatChartValue(Number(payload[0]!.value), r.unit)}
                     </div>
                   </div>
@@ -175,11 +167,11 @@ function ChartCard({ r }: { r: ChartRenderable }) {
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#F46719"
+              stroke="#FF5D78"
               strokeWidth={2}
               fill="url(#chatRenderableFill)"
               dot={false}
-              activeDot={{ r: 3, stroke: '#F46719', fill: 'white' }}
+              activeDot={{ r: 3, stroke: '#FF5D78', fill: 'white' }}
             />
           </AreaChart>
         </ResponsiveContainer>
@@ -194,11 +186,11 @@ function TopListCard({ r }: { r: TopListRenderable }) {
   return (
     <div className="rounded-xl border border-stroke bg-white shadow-sm overflow-hidden">
       <div className="flex items-baseline justify-between gap-3 px-4 pt-3 pb-2">
-        <p className="text-[11px] uppercase tracking-wider text-grey-light font-medium">
+        <p className="text-[11px] uppercase tracking-wider text-subtle font-medium">
           {r.title}
         </p>
         {r.sublabel && (
-          <p className="text-[10px] text-grey-light shrink-0">{r.sublabel}</p>
+          <p className="text-[10px] text-subtle shrink-0">{r.sublabel}</p>
         )}
       </div>
       <ol className="divide-y divide-stroke">
@@ -208,14 +200,14 @@ function TopListCard({ r }: { r: TopListRenderable }) {
             className="flex items-center justify-between gap-3 px-4 py-2"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-main text-[10px] font-semibold text-grey-dark shrink-0 tabular-nums">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-surface text-[10px] font-semibold text-muted-foreground shrink-0 tabular-nums">
                 {i + 1}
               </span>
-              <span className="text-sm text-grey-darkest truncate">
+              <span className="text-sm text-foreground truncate">
                 {row.label}
               </span>
             </div>
-            <span className="text-sm font-semibold text-grey-darkest tabular-nums shrink-0">
+            <span className="text-sm font-semibold text-foreground tabular-nums shrink-0">
               {row.value}
             </span>
           </li>
