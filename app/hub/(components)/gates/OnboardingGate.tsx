@@ -36,6 +36,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAccount } from '@/hooks/useAccount'
@@ -101,7 +102,7 @@ export function OnboardingGate() {
       aria-live="polite"
     >
       <Image
-        src="/databerry_logo_v2.svg"
+        src={DATABERRY_LOGO_PATH}
         alt="Databerry"
         width={44}
         height={44}

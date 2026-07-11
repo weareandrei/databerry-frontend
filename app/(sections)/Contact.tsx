@@ -170,7 +170,7 @@ export default function Contact() {
               onChange={e => setEmail(e.target.value)}
               placeholder="you@company.com"
               disabled={status.kind === 'submitting'}
-              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow disabled:opacity-60"
+              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-subtle focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20 transition-shadow disabled:opacity-60"
             />
           </div>
 
@@ -189,7 +189,7 @@ export default function Contact() {
               onChange={e => setMessage(e.target.value)}
               placeholder="What would you like to ask or tell us?"
               disabled={status.kind === 'submitting'}
-              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-subtle focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-shadow resize-none disabled:opacity-60"
+              className="w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground placeholder:text-subtle focus:border-secondary focus:outline-none focus:ring-2 focus:ring-secondary/20 transition-shadow resize-none disabled:opacity-60"
             />
           </div>
 
@@ -226,7 +226,7 @@ export default function Contact() {
           <button
             type="submit"
             disabled={status.kind === 'submitting'}
-            className="inline-flex items-center justify-center gap-2 mt-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-primary/90 transition-colors disabled:opacity-60 disabled:hover:bg-primary"
+            className="inline-flex items-center justify-center gap-2 mt-2 rounded-full bg-secondary px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-secondary/90 transition-colors disabled:opacity-60 disabled:hover:bg-secondary"
           >
             {status.kind === 'submitting' ? 'Sending…' : 'Send message'}
             {status.kind !== 'submitting' && (

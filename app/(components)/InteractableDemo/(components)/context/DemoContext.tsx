@@ -50,6 +50,7 @@ import {
   sumColumn,
   type DemoTimeSeriesRow,
 } from './demoTimeSeries'
+import { shiftPeriod } from '@/utils/dateHelpers'
 import { SOURCE_STYLE } from '@/constants/trafficSources'
 import type { OverviewChartResponse, PosthogEventDefinition } from '@/lib/api'
 import type {
@@ -80,9 +81,8 @@ type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : n
  *   - `agent`       → a project's Ask-agent chat
  *   - `connections` → connections list (global when `currentProjectId`
  *                     is null, the project's when it's set)
- * `overview` / `agent` (and project-scoped `connections`)
- * keep the `<DemoProjectSidebar>` chrome; `home` + global `connections`
- * drop it.
+ *   - `overview` / `agent` (and project-scoped `connections`)
+ *     use the unified demo sidebar + page headers.
  */
 export type DemoPage = 'home' | 'overview' | 'agent' | 'connections'
 
@@ -544,6 +544,7 @@ interface DemoContextValue {
   globalDate: DemoGlobalDate
   setGlobalDateMode: (mode: DateMode) => void
   setGlobalDateRange: (from: string, to: string) => void
+  shiftGlobalPeriod: (direction: 1 | -1) => void
 
   // Entities
   projects: DemoProject[]
@@ -639,13 +640,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   // <BottomDialog container={…}> re-render once the ref resolves.
   const [dialogContainer, setDialogContainer] = useState<HTMLElement | null>(null)
 
-  // Navigation — the demo opens straight onto the first project's
-  // Overview (not the home page), the way a returning user lands inside
-  // their main project.
-  const [pageOpen, setPageOpen] = useState<DemoPage>('overview')
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(
-    INITIAL_PROJECTS[0]?.id ?? null,
-  )
+  // Navigation — opens on home, matching `/hub/home`.
+  const [pageOpen, setPageOpen] = useState<DemoPage>('home')
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
 
   // Date pill
   const [globalDate, setGlobalDate] = useState<DemoGlobalDate>(INITIAL_DATE)
@@ -735,6 +732,18 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       const mode: DateMode =
         g === 'day' ? 'daily' : g === 'week' ? 'weekly' : 'monthly'
       return { mode, from, to }
+    })
+  }, [])
+
+  const shiftGlobalPeriod = useCallback((direction: 1 | -1) => {
+    setGlobalDate(prev => {
+      const { from, to } = shiftPeriod(prev.mode, prev.from, prev.to, direction)
+      if (from > TODAY_ISO) return prev
+      return {
+        ...prev,
+        from,
+        to: to > TODAY_ISO ? TODAY_ISO : to,
+      }
     })
   }, [])
 
@@ -895,6 +904,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     globalDate,
     setGlobalDateMode,
     setGlobalDateRange,
+    shiftGlobalPeriod,
     projects,
     folders,
     views,

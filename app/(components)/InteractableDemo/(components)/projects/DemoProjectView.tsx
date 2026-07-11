@@ -29,17 +29,15 @@
  */
 
 import { useMemo, useState } from 'react'
-import { CaretLeft, Plus } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
+import { CaretLeft } from '@phosphor-icons/react'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
-import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 import { ViewCardOverviewChart } from '@/app/hub/(components)/view/(components)/ViewCardOverviewChart'
 import { ViewCardOverviewSources } from '@/app/hub/(components)/view/(components)/ViewCardOverviewSources'
 import { ViewCardFunnel } from '@/app/hub/(components)/view/(components)/ViewCardFunnel'
 import { buildOverviewChart, DEMO_POSTHOG_EVENTS, useDemoContext } from '../context/DemoContext'
 import type { DemoProject, DemoView } from '../context/DemoContext'
 import { DemoViewCard } from '../DemoViewCard'
-import { DemoCreateViewModal } from '../DemoCreateViewModal'
 import { DemoPeople } from './DemoPeople'
 import {
   // `MOCK_OVERVIEW_CHARTS` is the static (non-date-aware) snapshot
@@ -60,14 +58,20 @@ import type {
   OverviewSecondaryMetric,
   ProjectOverviewChartConfig,
 } from '@/types/view'
+import { ProjectScrollBody } from '@/app/hub/(components)/project/(components)/ProjectScrollBody'
+import {
+  PROJECT_OVERVIEW_CHART_PANE,
+  PROJECT_OVERVIEW_LAYOUT_GRID,
+  PROJECT_OVERVIEW_SOURCES_PANE,
+  PROJECT_VIEW_SURFACE_WRAP,
+} from '@/app/hub/(components)/project/(components)/projectViewUtils'
 
-/** Shared card chrome — matches the real `<ProjectView>`'s `CARD`. */
+/** Shared card chrome — matches the real `<ProjectView>`'s `PROJECT_VIEW_CARD`. */
 const CARD = 'bg-white rounded-2xl border border-stroke shadow-card'
-const SURFACE_WRAP = 'rounded-xl bg-surface p-4'
-const OVERVIEW_PANE = `${CARD} flex flex-col min-h-[420px] overflow-hidden`
 
 interface DemoProjectViewProps {
   project: DemoProject
+  onCreateView: () => void
 }
 
 // Project the demo's project / folder shapes into what the shared
@@ -103,7 +107,7 @@ function toRealOverviewView(v: DemoView): RealView {
   }
 }
 
-export function DemoProjectView({ project }: DemoProjectViewProps) {
+export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps) {
   const {
     folders,
     views,
@@ -121,7 +125,6 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
   // returns one level up. Mirrors the real project view's
   // `currentFolderId` state.
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
-  const [createViewOpen, setCreateViewOpen] = useState(false)
 
   const currentFolder = currentFolderId
     ? folders.find(f => f.id === currentFolderId)
@@ -318,227 +321,80 @@ export function DemoProjectView({ project }: DemoProjectViewProps) {
     ) : null
 
   return (
-    <>
-      {/* ============================================================
-          MOBILE LAYOUT — mirrors `<MobileProjectBody>`. Section cards
-          (Folders / Views) with `chromeless` tiles stacked single-
-          column under hairline `divide-y` dividers.
-          ============================================================ */}
-      <div className="flex flex-col gap-4 md:hidden">
-        {/* Project header row — Cube icon + name + icon-only create. */}
-        <div className="flex items-center justify-between gap-2 px-1">
-          <div className="flex items-center gap-2 min-w-0">
-            <ProjectIcon websiteUrl={null} size={22} pill />
-            <h1 className="truncate text-sm font-semibold text-foreground">
-              {project.name}
-            </h1>
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setCreateViewOpen(true)}
-            aria-label="Create view"
-            className="rounded-full px-0 h-8 w-8 bg-primary hover:bg-primary/90 text-white shrink-0"
-          >
-            <Plus size={12} weight="bold" />
-          </Button>
+    <ProjectScrollBody onCreateView={onCreateView}>
+      <div className={PROJECT_VIEW_SURFACE_WRAP}>
+        <div className="flex flex-col gap-3">
+          {currentFolder && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCurrentFolderId(currentFolder.parentId ?? null)}
+              className="-ml-2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <CaretLeft size={11} weight="bold" />
+              Back
+            </Button>
+          )}
+          <FolderGrid
+            folders={subFolders.map(toRealFolder)}
+            onDeleteFolder={deleteFolder}
+            onRenameFolder={renameFolder}
+            onCreateSubfolder={handleCreateSubfolder}
+            onCreateFolder={handleCreateRootFolder}
+            onFolderClick={id => setCurrentFolderId(id)}
+          />
         </div>
+      </div>
 
-        {/* Folder back-link — above the Folders section when drilled in. */}
-        {currentFolder && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setCurrentFolderId(currentFolder.parentId ?? null)}
-            className="-mb-2 -ml-2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground self-start"
-          >
-            <CaretLeft size={11} weight="bold" />
-            Back to {project.name}
-          </Button>
-        )}
-
-        {/* ── Folders section ───────────────────────────────────── */}
-        <section>
-          <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-subtle">
-            Folders
-          </h2>
-          <div className="rounded-xl border border-stroke bg-white shadow-card p-3">
-            <FolderGrid
-              folders={subFolders.map(toRealFolder)}
-              onDeleteFolder={deleteFolder}
-              onRenameFolder={renameFolder}
-              onCreateSubfolder={handleCreateSubfolder}
-              onCreateFolder={handleCreateRootFolder}
-              onFolderClick={id => setCurrentFolderId(id)}
-            />
+      {compositeChart && (
+        <div className={PROJECT_VIEW_SURFACE_WRAP}>
+          <div className={PROJECT_OVERVIEW_LAYOUT_GRID}>
+            <div className={PROJECT_OVERVIEW_CHART_PANE}>
+              <div className="flex min-h-0 flex-1 flex-col">{compositeChart}</div>
+            </div>
+            {compositeSources && (
+              <div className={PROJECT_OVERVIEW_SOURCES_PANE}>
+                <div className="flex min-h-0 flex-1 flex-col">{compositeSources}</div>
+              </div>
+            )}
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* ── Overview composite (root only) ────────────────────── */}
-        {compositeChart && (
-          <section>
-            <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-subtle">
-              Overview
-            </h2>
-            <div className="rounded-xl border border-stroke bg-white shadow-card flex flex-col divide-y divide-stroke">
-              {compositeChart}
-              {compositeSources}
-            </div>
+      {!currentFolderId && (
+        <div id="project-timeline" className={PROJECT_VIEW_SURFACE_WRAP}>
+          <section className={`${CARD} p-5`}>
+            <DemoPeople />
           </section>
-        )}
+        </div>
+      )}
 
-        {/* ── People (root only) ────────────────────────────────── */}
-        {!currentFolderId && (
-          <section>
-            <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-subtle">
-              People
-            </h2>
-            <div className="rounded-xl border border-stroke bg-white shadow-card p-3">
-              <DemoPeople />
-            </div>
-          </section>
-        )}
-
-        {/* ── Other views ───────────────────────────────────────── */}
-        <section>
-          <h2 className="px-1 mb-2 text-[10px] font-medium uppercase tracking-wider text-subtle">
-            Views
-          </h2>
+      <div className={PROJECT_VIEW_SURFACE_WRAP}>
+        <section className={`${CARD} p-5`}>
           {regularViews.length > 0 || funnelTile ? (
-            <div className="rounded-xl border border-stroke bg-white shadow-card flex flex-col divide-y divide-stroke">
-              {funnelTile && (
-                <ViewCardFunnel
-                  view={{
-                    id: funnel!.id,
-                    name: funnel!.name,
-                    projectId: funnel!.projectId,
-                    folderId: funnel!.folderId,
-                    connectionId: funnel!.connectionId,
-                    connectionType: funnel!.connectionType,
-                    type: 'posthog_funnel',
-                    config: { displayMode: funnel!.displayMode ?? 'chart' },
-                    value: null,
-                    isPinned: funnel!.pinned,
-                    userId: 'demo',
-                    createdAt: '',
-                  }}
-                  steps={funnel!.steps}
-                  loading={false}
-                  error={null}
-                  onUntrack={() => deleteView(funnel!.id)}
-                  onPin={() => togglePin(funnel!.id)}
-                  isPinned={funnel!.pinned}
-                  chromeless
-                  dense
-                />
-              )}
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+              style={{ gridAutoRows: '110px' }}
+            >
+              {funnelTile}
               {regularViews.map(v => (
                 <DemoViewCard
                   key={v.id}
                   view={v}
                   onUntrack={() => deleteView(v.id)}
                   onPin={() => togglePin(v.id)}
-                  chromeless
                 />
               ))}
             </div>
           ) : (
-            <p className="text-xs text-muted-foreground py-3 px-1">
-              No views yet. Tap <span className="font-medium">+</span> above to add one.
+            <p className="text-xs text-muted-foreground py-6">
+              {currentFolderId
+                ? 'No views in this folder yet.'
+                : 'No other views yet. Use “Create view” in the header to add one.'}
             </p>
           )}
         </section>
       </div>
-
-      {/* ============================================================
-          DESKTOP LAYOUT — three stacked cards on the surface bg:
-          Project overview (folders + chart) / People / Views.
-          ============================================================ */}
-      <div className="hidden md:flex md:flex-col gap-4 bg-white min-h-full p-6">
-        <div className={SURFACE_WRAP}>
-          <div className="flex flex-col gap-3">
-            {currentFolder && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setCurrentFolderId(currentFolder.parentId ?? null)}
-                className="-ml-2 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <CaretLeft size={11} weight="bold" />
-                Back
-              </Button>
-            )}
-            <FolderGrid
-              folders={subFolders.map(toRealFolder)}
-              onDeleteFolder={deleteFolder}
-              onRenameFolder={renameFolder}
-              onCreateSubfolder={handleCreateSubfolder}
-              onCreateFolder={handleCreateRootFolder}
-              onFolderClick={id => setCurrentFolderId(id)}
-            />
-          </div>
-        </div>
-
-        {compositeChart && (
-          <div className={SURFACE_WRAP}>
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(240px,320px)] gap-4">
-              <div className={OVERVIEW_PANE}>
-                <div className="flex min-h-0 flex-1 flex-col">{compositeChart}</div>
-              </div>
-              {compositeSources && (
-                <div className={OVERVIEW_PANE}>
-                  <div className="flex min-h-0 flex-1 flex-col">{compositeSources}</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {!currentFolderId && (
-          <div className={SURFACE_WRAP}>
-            <section className={`${CARD} p-5`}>
-              <DemoPeople />
-            </section>
-          </div>
-        )}
-
-        <div className={SURFACE_WRAP}>
-          <section className={`${CARD} p-5`}>
-            {regularViews.length > 0 || funnelTile ? (
-              <div
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
-                style={{ gridAutoRows: '110px' }}
-              >
-                {funnelTile}
-                {regularViews.map(v => (
-                  <DemoViewCard
-                    key={v.id}
-                    view={v}
-                    onUntrack={() => deleteView(v.id)}
-                    onPin={() => togglePin(v.id)}
-                  />
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground py-6">
-                {currentFolderId
-                  ? 'No views in this folder yet.'
-                  : 'No other views yet. Use “Create view” in the sidebar to add one.'}
-              </p>
-            )}
-          </section>
-        </div>
-      </div>
-
-      {/* Shared modal — one instance, driven by the `createViewOpen`
-          state the mobile layout's create-view button sets. (Desktop's
-          create-view lives in `<DemoProjectSidebar>`, which owns its
-          own modal instance.) */}
-      <DemoCreateViewModal
-        open={createViewOpen}
-        onOpenChange={setCreateViewOpen}
-        projectId={project.id}
-        folderId={currentFolder?.id ?? subFolders[0]?.id ?? `${project.id}-root`}
-      />
-    </>
+    </ProjectScrollBody>
   )
 }

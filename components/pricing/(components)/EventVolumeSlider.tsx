@@ -72,7 +72,7 @@ export function EventVolumeSlider({
         <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 h-1.5 rounded-full bg-stroke" />
         {/* Filled portion up to the thumb */}
         <div
-          className="absolute top-1/2 left-0 -translate-y-1/2 h-1.5 rounded-full bg-primary transition-[width] duration-300 ease-out"
+          className="absolute top-1/2 left-0 -translate-y-1/2 h-1.5 rounded-full bg-secondary transition-[width] duration-300 ease-out"
           style={{ width: `${pct}%` }}
         />
         {/* Stop dots */}
@@ -85,7 +85,7 @@ export function EventVolumeSlider({
               className={cn(
                 'absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full border-2 transition-colors',
                 passed
-                  ? 'bg-primary border-primary'
+                  ? 'bg-secondary border-secondary'
                   : 'bg-white border-stroke',
               )}
               style={{ left: `${dotPct}%` }}
@@ -94,7 +94,7 @@ export function EventVolumeSlider({
         })}
         {/* Thumb */}
         <span
-          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white border-2 border-primary shadow-card transition-[left] duration-300 ease-out pointer-events-none"
+          className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-white border-2 border-secondary shadow-card transition-[left] duration-300 ease-out pointer-events-none"
           style={{ left: `${pct}%` }}
         />
         {/* Invisible native range on top — owns all interaction. */}

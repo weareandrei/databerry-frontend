@@ -21,6 +21,7 @@
 
 import { useEffect, useRef } from 'react'
 import Image from 'next/image'
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import { ArrowsClockwise, Plugs } from '@phosphor-icons/react'
 import { useServerReachable } from '@/lib/serverHealth'
 import { ALGORITHM } from '@/lib/api'
@@ -73,7 +74,7 @@ export const ServerStatusGate = () => {
       aria-live="assertive"
     >
       <Image
-        src="/databerry_logo_v2.svg"
+        src={DATABERRY_LOGO_PATH}
         alt="Databerry"
         width={44}
         height={44}

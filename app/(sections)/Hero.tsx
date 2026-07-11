@@ -158,7 +158,7 @@ const DesktopLogos = () => {
       <div className="flex justify-center mt-4 relative z-20">
         <div
           id="hub-dot"
-          className="h-4 w-4 rounded-full bg-primary border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
+          className="h-4 w-4 rounded-full bg-secondary border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
         />
       </div>
 
@@ -222,7 +222,7 @@ const MobileLogos = () => {
       <div className="flex justify-center my-5">
         <div
           id="m-hub-dot"
-          className="h-4 w-4 rounded-full bg-primary border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
+          className="h-4 w-4 rounded-full bg-secondary border-2 border-white shadow-[0_0_0_4px_rgba(255,255,255,0.25)]"
         />
       </div>
 

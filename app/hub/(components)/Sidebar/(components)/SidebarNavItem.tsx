@@ -19,13 +19,13 @@ export function SidebarNavItem({ href, label, icon: IconComponent }: SidebarNavI
     <Link
       href={href}
       className={cn(
-        'flex items-center gap-2.5 px-3 py-1.5 rounded-md text-sm transition-colors',
+        'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
         isActive
           ? 'bg-hover-fill text-foreground'
-          : 'text-muted-foreground hover:bg-hover-fill hover:text-foreground',
+          : 'text-foreground hover:bg-hover-fill/70',
       )}
     >
-      <IconComponent size={16} weight="bold" />
+      <IconComponent size={16} weight="regular" />
       <span>{label}</span>
     </Link>
   )

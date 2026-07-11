@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import { CaretUpDown, CreditCard, SignOut } from '@phosphor-icons/react'
 import { useAuth } from '@/contexts/AuthContext'
 import { openTierPicker } from '@/hooks/useTierPicker'
@@ -36,7 +37,7 @@ export function SidebarUserProfile() {
       <DropdownMenu>
         <DropdownMenuTrigger className="flex items-center gap-1.5 w-full px-3 py-1 rounded-md hover:bg-hover-fill transition-colors text-left">
           <div className="h-7 w-7 rounded-md overflow-hidden shrink-0 border border-stroke">
-            <Image src="/databerry_logo_v2.svg" alt="Logo" width={28} height={28} className="h-full w-full object-cover" />
+            <Image src={DATABERRY_LOGO_PATH} alt="Databerry" width={28} height={28} className="h-full w-full object-contain" />
           </div>
           {/* `min-w-0` is the flex truncation trick — without it, a
               long email would push the caret off the right edge. */}

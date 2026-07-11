@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import {
-  SquaresFour,
+  CardsThree,
   Trash,
   Plus,
   ArrowsClockwise,
@@ -296,7 +296,7 @@ export default function ConnectionsPage() {
           <SectionHeader
             icon={
               <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                <SquaresFour size={14} weight="bold" className="text-foreground" />
+                <CardsThree size={14} weight="bold" className="text-foreground" />
               </span>
             }
             title={<span className="text-base font-bold text-foreground">Connections</span>}

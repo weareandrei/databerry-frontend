@@ -16,18 +16,21 @@ import { useRouter, usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CaretLeft,
-  ChatCircleDots,
+  CardsThree,
   CreditCard,
-  Gauge,
   Gear,
   Plus,
-  PlugsConnected,
   SignOut,
-  SquaresFour,
 } from '@phosphor-icons/react'
 import { ProjectSelect } from '@/app/hub/(components)/Sidebar/(components)/ProjectSelect'
 import { SidebarFolderItem } from '@/app/hub/(components)/Sidebar/(components)/SidebarFolderItem'
 import { SidebarNavItem } from '@/app/hub/(components)/Sidebar/(components)/SidebarNavItem'
+import {
+  AskAgentNavIcon,
+  ConnectionsNavIcon,
+  OverviewNavIcon,
+  TimelineNavIcon,
+} from '@/app/hub/(components)/Sidebar/(components)/SidebarWorkspaceIcons'
 import { TierPickerSheet } from '@/app/hub/(components)/Sidebar/(components)/TierPickerSheet'
 import { CollapsibleSectionHeader } from '@/app/hub/(components)/Sidebar/(components)/CollapsibleSectionHeader'
 import { useDashboard } from '@/contexts/DashboardContext'
@@ -66,7 +69,7 @@ function CollapsibleSection({
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.15 }}
-            className="space-y-0.5 overflow-hidden"
+            className="space-y-1.5 overflow-hidden"
           >
             {children}
           </motion.div>
@@ -92,10 +95,10 @@ function NavRow({
       type="button"
       onClick={onClick}
       className={cn(
-        'group flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors text-left cursor-pointer',
+        'group flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold transition-colors',
         active
-          ? 'bg-hover-fill font-medium text-foreground'
-          : 'text-muted-foreground hover:bg-hover-fill/70 hover:text-foreground',
+          ? 'bg-hover-fill text-foreground'
+          : 'text-foreground hover:bg-hover-fill/70',
       )}
     >
       <span className="flex shrink-0 items-center">{icon}</span>
@@ -148,27 +151,36 @@ export function DashboardSidebar() {
     ? foldersCtx.folders.filter(f => f.projectId === project.id && f.parentId === null)
     : []
 
+  const scrollToTimeline = () => {
+    if (!base) return
+    if (isProjectRoot) {
+      document.getElementById('project-timeline')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+    router.push(`${base}#timeline`)
+  }
+
   return (
     <aside
       className={cn(
         'hidden md:flex flex-col shrink-0 h-screen',
         DASHBOARD_SIDEBAR_WIDTH_CLASS,
-        'bg-gradient-to-bl from-surface to-layer',
+        'bg-gradient-to-bl from-surface to-[#F9F9FA]',
       )}
     >
-      <div className="shrink-0 px-2 pt-5 pb-4">
+      <div className="shrink-0 px-3 pt-5 pb-4">
         <ProjectSelect />
       </div>
 
-      <nav className="flex-1 min-h-0 overflow-y-auto px-2 pb-4">
+      <nav className="flex-1 min-h-0 overflow-y-auto px-3 pb-4">
         <Link
           href="/hub/home"
           className={cn(
-            'flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-subtle transition-colors hover:bg-hover-fill/70 hover:text-muted-foreground',
+            'flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-subtle transition-colors hover:bg-hover-fill/70 hover:text-muted-foreground',
             pathname === '/hub/home' && 'bg-hover-fill/50',
           )}
         >
-          <CaretLeft size={13} weight="bold" className="shrink-0" />
+          <CaretLeft size={14} weight="regular" className="shrink-0" />
           <span>All projects</span>
         </Link>
 
@@ -178,19 +190,25 @@ export function DashboardSidebar() {
               <NavRow
                 active={isProjectRoot}
                 onClick={() => router.push(base)}
-                icon={<Gauge size={16} weight="bold" />}
+                icon={<OverviewNavIcon />}
                 label="Overview"
               />
               <NavRow
                 active={isActive('/connections')}
                 onClick={() => router.push(`${base}/connections`)}
-                icon={<PlugsConnected size={16} weight="bold" />}
+                icon={<ConnectionsNavIcon />}
                 label="Connections"
+              />
+              <NavRow
+                active={false}
+                onClick={scrollToTimeline}
+                icon={<TimelineNavIcon />}
+                label="Timeline"
               />
               <NavRow
                 active={isActive('/agent-chat')}
                 onClick={() => router.push(`${base}/agent-chat`)}
-                icon={<ChatCircleDots size={16} weight="bold" />}
+                icon={<AskAgentNavIcon />}
                 label="Ask agent"
               />
             </CollapsibleSection>
@@ -230,13 +248,13 @@ export function DashboardSidebar() {
           </div>
         ) : (
           <div className="mt-0.5">
-            <SidebarNavItem href="/hub/connections" label="Connections" icon={SquaresFour} />
+            <SidebarNavItem href="/hub/connections" label="Connections" icon={CardsThree} />
           </div>
         )}
       </nav>
 
       <div className="shrink-0 space-y-2 px-3 pb-5">
-        <div className="space-y-0.5 pt-1">
+        <div className="space-y-1.5 pt-1">
           <SidebarNavItem href="/hub/settings" label="Settings" icon={Gear} />
           <button
             type="button"
@@ -244,17 +262,17 @@ export function DashboardSidebar() {
               trackEvent(EVENT.TIER_PICKER_OPENED, { source: 'sidebar_button' })
               setTierOpen(true)
             }}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-hover-fill/70 hover:text-foreground cursor-pointer"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-hover-fill/70"
           >
-            <CreditCard size={16} weight="bold" />
+            <CreditCard size={16} weight="regular" />
             <span>Subscription</span>
           </button>
           <button
             type="button"
             onClick={() => void signOut()}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-hover-fill/70 hover:text-destructive cursor-pointer"
+            className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-hover-fill/70 hover:text-destructive"
           >
-            <SignOut size={16} weight="bold" />
+            <SignOut size={16} weight="regular" />
             <span>Sign out</span>
           </button>
         </div>

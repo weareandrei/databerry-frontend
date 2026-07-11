@@ -9,7 +9,7 @@ interface ProjectPeopleSectionProps {
 
 export function ProjectPeopleSection({ projectId }: ProjectPeopleSectionProps) {
   return (
-    <div className={PROJECT_VIEW_SURFACE_WRAP}>
+    <div id="project-timeline" className={PROJECT_VIEW_SURFACE_WRAP}>
       <section className={`${PROJECT_VIEW_CARD} p-5`}>
         <ProjectPeople projectId={projectId} />
       </section>

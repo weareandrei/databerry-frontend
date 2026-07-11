@@ -15,7 +15,7 @@
 import { ALGORITHM } from '@/lib/api'
 import { useViewResource, type ViewResourceError } from '@/lib/hooks/useViewResource'
 import { useStripeRefreshListener } from '@/lib/hooks/useStripeSyncOnMount'
-import type { ChartPoint } from '@/app/hub/(components)/view/(components)/ViewCardChart'
+import type { ChartPoint } from '@/components/charts/types'
 import type { View } from '@/types/view'
 import type { PerViewHookOptions } from './types'
 

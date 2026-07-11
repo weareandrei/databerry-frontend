@@ -123,6 +123,8 @@ interface ViewCardOverviewSourcesProps {
    * (mobile project body, pinned tile) don't have to plumb a no-op.
    */
   onSourceHover?: (sourceKey: string | null) => void
+  hiddenSourceKeys?: ReadonlySet<string>
+  onSourceToggle?: (sourceKey: string) => void
   /**
    * Composite mode — when true the panel drops its OWN 3-dots menu
    * (Pin / Refresh / Untrack). In the unified project_overview block
@@ -149,6 +151,8 @@ export function ViewCardOverviewSources({
   onPin,
   chromeless = false,
   onSourceHover,
+  hiddenSourceKeys,
+  onSourceToggle,
   hideMenu = false,
 }: ViewCardOverviewSourcesProps) {
   // Suppress unused-prop lint — `chromeless` is accepted for API
@@ -190,7 +194,7 @@ export function ViewCardOverviewSources({
           buttons own the left side; the actions dropdown sits on the right.
           Mirrors ViewCardOverviewChart's custom header layout so both
           composite-overview cards feel consistent. */}
-      <div className="flex items-center justify-between gap-1 px-4 pt-3 pb-0 shrink-0">
+      <div className="flex shrink-0 items-center justify-between gap-2 px-4 pb-3 pt-4">
         <div className="flex items-center gap-4 min-w-0">
           <TabButton active={tab === 'sources'} onClick={() => onTabChange('sources')}>
             Sources
@@ -256,9 +260,16 @@ export function ViewCardOverviewSources({
         )}
       </div>
 
-      <div data-no-dnd="true" className="p-4 min-w-0">
+      <div data-no-dnd="true" className="min-w-0 px-4 pb-4 pt-1">
         {tab === 'sources' &&
-          renderSources(sources, config.sourcesLimit ?? 10, handleConnectClick, onSourceHover)}
+          renderSources(
+            sources,
+            config.sourcesLimit ?? 10,
+            handleConnectClick,
+            onSourceHover,
+            hiddenSourceKeys,
+            onSourceToggle,
+          )}
         {tab === 'countries' && renderCountries(countries, handleConnectClick)}
         {tab === 'pages' && renderPages(pages, handleConnectClick)}
       </div>
@@ -292,6 +303,8 @@ function renderSources(
   pageSize: number,
   onConnectClick: () => void,
   onSourceHover?: (sourceKey: string | null) => void,
+  hiddenSourceKeys?: ReadonlySet<string>,
+  onSourceToggle?: (sourceKey: string) => void,
 ): React.ReactElement {
   if (state.error) return <ErrorState message={state.error} />
   if (state.loading || !state.fetched) return <LoadingState />
@@ -312,6 +325,8 @@ function renderSources(
       sources={state.data ?? []}
       pageSize={pageSize}
       onSourceHover={onSourceHover}
+      hiddenSourceKeys={hiddenSourceKeys}
+      onSourceToggle={onSourceToggle}
     />
   )
 }

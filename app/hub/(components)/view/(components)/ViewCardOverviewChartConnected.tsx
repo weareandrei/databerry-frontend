@@ -75,6 +75,7 @@ interface ViewCardOverviewChartConnectedProps {
    * straight through to the underlying `<ViewCardOverviewChart>`.
    */
   externalHoveredSourceKey?: string | null
+  hiddenSourceKeys?: ReadonlySet<string>
   /**
    * Wrap the tile in the standard view chrome (border + shadow).
    * `<ProjectView>` passes `true` for `custom_chart` views so they
@@ -115,6 +116,7 @@ export function ViewCardOverviewChartConnected({
   onPin,
   chromeless,
   externalHoveredSourceKey = null,
+  hiddenSourceKeys,
   withChrome = false,
   sourcesSlot,
   onMenuRefresh,
@@ -324,6 +326,7 @@ export function ViewCardOverviewChartConnected({
            this wrapper, so they keep the fixed-height behavior. */
         fillHeight
         externalHoveredSourceKey={externalHoveredSourceKey}
+        hiddenSourceKeys={hiddenSourceKeys}
         withChrome={withChrome}
         sourcesSlot={sourcesSlot}
       />

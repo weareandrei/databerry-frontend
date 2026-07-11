@@ -2,6 +2,7 @@
 
 // ── Step 1: Welcome ─────────────────────────────────────────────────────────
 
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import Image from 'next/image'
 import { PrimaryCta, SkipLink } from './OnboardingControls'
 
@@ -22,7 +23,7 @@ export function WelcomeStep({
       >
         Welcome to{' '}
         <Image
-          src="/databerry_logo_v2.svg"
+          src={DATABERRY_LOGO_PATH}
           alt=""
           width={44}
           height={44}

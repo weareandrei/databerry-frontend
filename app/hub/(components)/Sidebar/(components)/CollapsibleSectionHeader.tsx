@@ -26,7 +26,7 @@ export function CollapsibleSectionHeader({
       className={cn(
         'mb-1 flex w-full items-center justify-between',
         isDesktop
-          ? 'px-3 text-xs font-medium uppercase tracking-wider text-subtle'
+          ? 'px-3 text-sm font-medium text-subtle'
           : 'pl-5 pr-5 text-sm text-muted-foreground',
       )}
     >
@@ -50,7 +50,7 @@ export function CollapsibleSectionHeader({
             isDesktop ? 'hover:text-muted-foreground' : 'hover:text-foreground',
           )}
         >
-          <CaretDown size={11} weight="bold" />
+          <CaretDown size={12} weight="regular" />
         </motion.span>
       </div>
     </div>

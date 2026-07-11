@@ -337,22 +337,15 @@ function MetricDropdown<T extends string | null>({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="flex items-center gap-1.5 rounded-md border border-stroke bg-white px-2.5 py-1 text-xs font-medium text-foreground hover:bg-surface transition-colors cursor-pointer">
-        <Image src={iconSrc} alt={iconAlt} width={14} height={14} className="shrink-0" />
-        {/* Connection logo — only rendered when the active metric
-            comes from a connection. Sits between the chart-type
-            icon and the label so the pill reads as
-            "[chart icon] [provider logo] [metric name]". For
-            predefined picks (Visitors, Revenue, …) we don't have a
-            provider to attribute the metric to, so the logo slot is
-            simply omitted and the layout collapses cleanly. */}
+      <DropdownMenuTrigger className="inline-flex h-9 max-w-[200px] items-center gap-2 rounded-lg border border-stroke bg-white pl-3 pr-2.5 text-sm font-medium text-foreground shadow-none transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/10 cursor-pointer">
+        <Image src={iconSrc} alt={iconAlt} width={16} height={16} className="shrink-0" />
         {connectionMetric && (
-          <ConnectionIcon type={connectionMetric.connectionType} size={12} />
+          <ConnectionIcon type={connectionMetric.connectionType} size={14} className="shrink-0" />
         )}
-        <span>{triggerLabel}</span>
-        <CaretDown size={9} weight="bold" className="text-muted-foreground" />
+        <span className="min-w-0 truncate">{triggerLabel}</span>
+        <CaretDown size={12} weight="bold" className="shrink-0 text-subtle" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-[180px]">
+      <DropdownMenuContent align="start" sideOffset={6} className="min-w-[200px]">
         {/* Predefined options — the existing top group. Selecting one
             clears any active connection-metric ref so the predefined
             value takes effect. */}
@@ -550,6 +543,8 @@ interface ViewCardOverviewChartProps {
    * to `<OverviewChart>`.
    */
   externalHoveredSourceKey?: string | null
+  /** Panel source keys toggled off — passed through to `<OverviewChart>`. */
+  hiddenSourceKeys?: ReadonlySet<string>
   /**
    * Wrap the tile in the standard view chrome (border + drop
    * shadow). Used by the standalone "Chart" view-type
@@ -612,6 +607,7 @@ export function ViewCardOverviewChart({
   compact = false,
   fillHeight = false,
   externalHoveredSourceKey = null,
+  hiddenSourceKeys,
   withChrome = false,
   sourcesSlot,
   connectionsOverride,
@@ -738,7 +734,7 @@ export function ViewCardOverviewChart({
           `chromeless` — this composite tile has its own bespoke layout that
           doesn't use the standard view-card border + shadow chrome. The prop
           is accepted for API uniformity with the rest of the tile components. */}
-      <div className="px-4 pt-3.5 pb-3 flex items-center gap-2 flex-wrap shrink-0">
+      <div className="flex shrink-0 flex-wrap items-center gap-2.5 px-4 pb-4 pt-4">
         {/* Drag grip — only renders when this tile is inside a
             `<SortableTile>`. The composite project_overview pair
             renders OUTSIDE `<SortableContext>` (it's the immovable
@@ -774,9 +770,9 @@ export function ViewCardOverviewChart({
           type="button"
           onClick={() => setSwapped(s => !s)}
           aria-label="Swap bar and line charts"
-          className="flex items-center justify-center w-6 h-6 rounded text-subtle hover:text-muted-foreground hover:bg-black/[0.06] active:bg-black/[0.1] transition-colors cursor-pointer"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg text-subtle transition-colors hover:bg-black/[0.04] hover:text-muted-foreground active:bg-black/[0.08]"
         >
-          <ArrowsLeftRight size={13} weight="bold" />
+          <ArrowsLeftRight size={14} weight="bold" />
         </button>
         <MetricDropdown
           iconSrc={swapped ? '/icons/bar_chart.svg' : '/icons/line_chart.svg'}
@@ -895,13 +891,9 @@ export function ViewCardOverviewChart({
           Recharts' `ResponsiveContainer` handles bar widths as the
           height shrinks, so we don't need to touch `OverviewChart`'s
           internal `maxBarSize` / segment sizing. */}
-      {/* `pr-4 pt-4` — NO left or bottom padding. The Y-axis gutter
-          (its `width={36}`) IS the left inset, so adding `pl-4` on top
-          pushed the plot ~52 px in and the chart read as more padded
-          than the other view bodies (16 px). Dropping the left padding
-          lets the axis labels sit at the card edge, lining the plot up
-          with everything else. The X-axis labels are the natural
-          bottom edge, so no `pb` either. */}
+      {/* Chart body — `px-4` matches the header row so dropdowns and
+          Y-axis labels share the same left inset; `pb-4` gives the
+          X-axis labels and footer note room above the card edge. */}
       {/* Composite layout: when a `sourcesSlot` is supplied (the unified
           project_overview block) the chart body + sources panel share
           this grid, sitting UNDER the single header above. The
@@ -915,8 +907,8 @@ export function ViewCardOverviewChart({
         data-no-dnd="true"
         className={
           fillHeight
-            ? 'relative pr-4 pt-4 flex-1 min-h-0 flex flex-col'
-            : 'relative pr-4 pt-4'
+            ? 'relative flex min-h-0 flex-1 flex-col px-4 pt-2 pb-4'
+            : 'relative px-4 pt-2 pb-4'
         }
       >
         {/* fillHeight: `flex-1 min-h-0` — the chart adapts to
@@ -980,12 +972,8 @@ export function ViewCardOverviewChart({
                 padding — so the responsive container fills the card
                 cleanly with no stray scrollbar.
               */}
-              <div className="absolute inset-0 overflow-x-auto md:overflow-x-visible -mr-4 md:mr-0 pr-4 md:pr-0">
+              <div className="absolute inset-0 overflow-x-auto md:overflow-x-visible">
                 <div className="h-full min-w-[560px] md:min-w-0">
-                  {/* The `?? 'visitors'` fallback is for the type
-                      system only — a null primary always lands in
-                      the `primaryUnavailable` empty state above, so
-                      this branch never renders with null. */}
                   <OverviewChart
                     data={chart}
                     primaryMetric={primaryMetric ?? 'visitors'}
@@ -993,26 +981,27 @@ export function ViewCardOverviewChart({
                     nowLabel={nowLabel}
                     swapped={swapped}
                     externalHoveredSourceKey={externalHoveredSourceKey}
+                    hiddenSourceKeys={hiddenSourceKeys}
                     primaryDisplay={primaryDisplay}
                     secondaryDisplay={secondaryDisplay}
                   />
                 </div>
               </div>
-              {secondaryUnavailable && secondaryMetric && (
-                <p className="absolute left-2 bottom-0 text-[11px] text-subtle">
-                  {secondaryMetric === 'bounce_rate' ||
-                  secondaryMetric === 'avg_session_sec'
-                    ? `${
-                        secondaryMetric === 'bounce_rate' ? 'Bounce rate' : 'Avg. session'
-                      } requires Google Analytics.`
-                    : secondaryMetric === 'conversion_rate'
-                      ? 'Configure conversions from the menu to see the rate line.'
-                      : 'This overlay is unavailable for the current setup.'}
-                </p>
-              )}
             </>
           ) : null}
         </div>
+        {secondaryUnavailable && secondaryMetric && chart && !loading && !error && (
+          <p className="mt-2 shrink-0 text-[11px] text-subtle">
+            {secondaryMetric === 'bounce_rate' ||
+            secondaryMetric === 'avg_session_sec'
+              ? `${
+                  secondaryMetric === 'bounce_rate' ? 'Bounce rate' : 'Avg. session'
+                } requires Google Analytics.`
+              : secondaryMetric === 'conversion_rate'
+                ? 'Configure conversions from the menu to see the rate line.'
+                : 'This overlay is unavailable for the current setup.'}
+          </p>
+        )}
       </div>
       </div>
       {/* Sources panel — the right grid cell in composite mode; null for

@@ -97,7 +97,7 @@ const DemoCard = ({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
                   <span className="inline-flex items-center rounded-full bg-white/25 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
                     <Link
                       href="/demo"
-                      className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+                      className="inline-flex items-center gap-2 rounded-full bg-secondary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
                     >
                       <Play size={16} weight="fill" />
                       See demo

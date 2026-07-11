@@ -277,8 +277,8 @@ function FeatureItem({
           <span
             className={`inline-block text-xs font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full transition-colors duration-300 ${
               active
-                ? 'bg-primary text-white'
-                : 'bg-muted text-subtle group-hover:bg-primary group-hover:text-white'
+                ? 'bg-secondary text-white'
+                : 'bg-muted text-subtle group-hover:bg-secondary group-hover:text-white'
             }`}
           >
             {badge}
@@ -303,7 +303,7 @@ function FeatureItem({
                 <CheckCircle
                   size={16}
                   weight="fill"
-                  className={`shrink-0 mt-0.5 transition-colors duration-300 ${active ? 'text-primary' : 'text-gray-200 group-hover:text-primary/60'}`}
+                  className={`shrink-0 mt-0.5 transition-colors duration-300 ${active ? 'text-secondary' : 'text-gray-200 group-hover:text-secondary/60'}`}
                 />
                 {b.text}
               </li>
@@ -319,7 +319,7 @@ function FeatureItem({
 
       <Link
         href="/signup"
-        className="inline-flex items-center gap-1.5 mt-1 mb-8 text-sm font-medium text-primary hover:text-primary/90 transition-colors group/cta"
+        className="inline-flex items-center gap-1.5 mt-1 mb-8 text-sm font-medium text-secondary hover:text-secondary/90 transition-colors group/cta"
         onClick={e => e.stopPropagation()}
       >
         {cta}
@@ -379,7 +379,7 @@ const FeaturesSection = () => {
         {/* Sticky header */}
         <div className="sticky top-0 z-30 bg-white pt-24 md:pt-20 pb-8 overflow-visible">
           <RevealOnScroll delay={0} y={16}>
-            <p className="text-xs font-medium text-primary uppercase tracking-widest">Features</p>
+            <p className="text-xs font-medium text-secondary uppercase tracking-widest">Features</p>
             <h2
               className="mt-2 text-4xl font-semibold tracking-tight text-foreground"
               style={{ fontFamily: 'var(--font-bricolage)' }}

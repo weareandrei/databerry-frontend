@@ -218,7 +218,7 @@ export function PricingTable({
               location: variant === 'signup' ? 'landing_pricing' : 'dashboard_picker',
             })
           }
-          className="text-primary font-medium hover:underline cursor-pointer"
+          className="text-secondary font-medium hover:underline cursor-pointer"
         >
           Contact us
         </Link>
@@ -286,7 +286,7 @@ function PlanCard({
       {hasIntro && (
         <span
           aria-label={`First month ${formatPrice(plan.introPriceMonthlyCents!)}`}
-          className="absolute -top-3 right-4 md:-top-4 md:right-6 z-10 inline-flex items-center rounded-xl border border-primary/50 bg-primary/[0.08] px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold text-primary -rotate-6 shadow-sm whitespace-nowrap"
+          className="absolute -top-3 right-4 md:-top-4 md:right-6 z-10 inline-flex items-center rounded-xl border border-secondary/50 bg-secondary/[0.08] px-3 py-1.5 md:px-4 md:py-2 text-xs md:text-sm font-bold text-secondary -rotate-6 shadow-sm whitespace-nowrap"
         >
           First month {formatPrice(plan.introPriceMonthlyCents!)}
         </span>
@@ -312,7 +312,7 @@ function PlanCard({
             {plan.name} Plan
           </h3>
           {highlight && (
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+            <span className="rounded-full bg-secondary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-secondary">
               Popular
             </span>
           )}
@@ -412,7 +412,7 @@ function FeatureItem({ children }: { children: React.ReactNode }) {
       <CheckCircle
         size={18}
         weight="fill"
-        className="text-primary shrink-0 mt-0.5"
+        className="text-secondary shrink-0 mt-0.5"
       />
       <span>{children}</span>
     </li>
@@ -512,7 +512,7 @@ function PlanCta({
           // nudge (handled via `group-hover` on the icon below),
           // which is enough to signal interactivity without the
           // button visibly "twitching" on cursor entry.
-          className="group flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 gap-1.5 cursor-pointer bg-primary text-white shadow-[0_14px_32px_-8px_rgba(0,0,0,0.25)]"
+          className="group flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 gap-1.5 cursor-pointer bg-secondary text-white shadow-[0_14px_32px_-8px_rgba(0,0,0,0.25)]"
         >
           <span className="text-sm md:text-base font-semibold">
             Start 7-day free trial
@@ -537,7 +537,7 @@ function PlanCta({
 
   if (isCurrent) {
     return (
-      <span className="inline-flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium border border-dashed border-primary/50 text-primary bg-primary/[0.04]">
+      <span className="inline-flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium border border-dashed border-secondary/50 text-secondary bg-secondary/[0.04]">
         Current plan
       </span>
     )
@@ -556,7 +556,7 @@ function PlanCta({
         'w-full rounded-full h-11 md:h-12 px-5 text-sm font-medium cursor-pointer',
         isDowngrade
           ? 'border border-stroke bg-white text-foreground hover:bg-hover-fill shadow-none'
-          : 'bg-primary hover:bg-primary/90 text-white shadow-none',
+          : 'bg-secondary hover:bg-secondary/90 text-white shadow-none',
       )}
     >
       {label}

@@ -2,9 +2,10 @@
 
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CaretLeft, CaretRight, Question } from '@phosphor-icons/react'
+import { CaretLeft, CaretRight, Funnel, FunnelX, Question } from '@phosphor-icons/react'
 import type { OverviewSource } from '@/lib/api'
 import { assignChartColors, sourceStyle } from '@/constants/trafficSources'
+import { cn } from '@/lib/utils'
 import { SourceIcon } from './SourceIcon'
 import {
   Tooltip,
@@ -44,6 +45,13 @@ interface OverviewSourcesPanelProps {
    * just a local visual state on the row.
    */
   onSourceHover?: (sourceKey: string | null) => void
+  /**
+   * Source keys the user has toggled off in the chart. Rows render
+   * dimmed; click toggles membership via `onSourceToggle`.
+   */
+  hiddenSourceKeys?: ReadonlySet<string>
+  /** Click a source row to show/hide its bar segment in the chart. */
+  onSourceToggle?: (sourceKey: string) => void
 }
 
 // ---- Bar-geometry constants (kept in one place so math stays in sync) ---------
@@ -125,13 +133,32 @@ interface SourceRowProps {
    * `externalHoveredSourceKey` prop). Null on leave.
    */
   onHoverChange?: (sourceKey: string | null) => void
+  isHidden?: boolean
+  onToggle?: (sourceKey: string) => void
 }
 
-function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, onHoverChange }: SourceRowProps) {
+function SourceRow({
+  source,
+  barCount,
+  color,
+  outlined,
+  logo,
+  label,
+  tooltip,
+  onHoverChange,
+  isHidden = false,
+  onToggle,
+}: SourceRowProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const showFilterIcon = isHovered && onToggle != null
+  const FilterIcon = isHidden ? FunnelX : Funnel
+
   return (
     <li
-      className="group flex items-center gap-3 rounded-md bg-surface px-3 py-2 overflow-hidden"
+      className={cn(
+        'group flex cursor-pointer items-center gap-3 rounded-md bg-surface px-3 py-2 overflow-hidden transition-opacity',
+        isHidden && 'opacity-40',
+      )}
       onMouseEnter={() => {
         setIsHovered(true)
         onHoverChange?.(source.source)
@@ -140,18 +167,48 @@ function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, on
         setIsHovered(false)
         onHoverChange?.(null)
       }}
+      onClick={() => onToggle?.(source.source)}
+      role="button"
+      tabIndex={0}
+      aria-pressed={isHidden}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onToggle?.(source.source)
+        }
+      }}
     >
       {/* Left: icon + label — can shrink so long labels truncate gracefully.
           The optional `?` help icon sits flush next to the label so the
           tooltip target is visually anchored to "Other" rather than
           floating elsewhere on the row. */}
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        <SourceIcon sourceKey={source.source} label={label} logo={logo} />
-        <span className="truncate text-sm text-foreground min-w-0">{label}</span>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="inline-flex size-5 shrink-0 items-center justify-center">
+          {showFilterIcon ? (
+            <FilterIcon
+              size={20}
+              weight="regular"
+              className="text-foreground"
+              aria-hidden
+            />
+          ) : (
+            <SourceIcon sourceKey={source.source} label={label} logo={logo} />
+          )}
+        </span>
+        <span
+          className={cn(
+            'truncate text-sm text-foreground min-w-0',
+            isHidden && 'line-through decoration-muted-foreground/60',
+          )}
+        >
+          {label}
+        </span>
         {tooltip && (
           <TooltipProvider delay={150}>
             <Tooltip>
               <TooltipTrigger
+                onClick={e => e.stopPropagation()}
+                onKeyDown={e => e.stopPropagation()}
                 // `cursor-default` so the cursor doesn't suggest the icon
                 // is clickable — it's a passive hover affordance.
                 className="shrink-0 cursor-default rounded-full p-0.5 text-subtle hover:text-muted-foreground transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-foreground/30"
@@ -181,8 +238,9 @@ function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, on
             <motion.span
               key={i}
               animate={{
-                scaleY: isHovered ? 1.1 : 1,
-                filter: isHovered ? 'brightness(0.9)' : 'brightness(1)',
+                scaleY: isHovered && !isHidden ? 1.1 : 1,
+                filter: isHovered && !isHidden ? 'brightness(0.9)' : 'brightness(1)',
+                opacity: isHidden ? 0.35 : 1,
               }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
               className="block rounded-[2px]"
@@ -191,7 +249,6 @@ function SourceRow({ source, barCount, color, outlined, logo, label, tooltip, on
                 height: BAR_HEIGHT,
                 backgroundColor: color,
                 transformOrigin: 'bottom',
-                border: outlined ? '1px solid #d1d5db' : undefined,
               }}
             />
           ))}
@@ -210,6 +267,8 @@ export function OverviewSourcesPanel({
   unavailable,
   pageSize = 10,
   onSourceHover,
+  hiddenSourceKeys,
+  onSourceToggle,
 }: OverviewSourcesPanelProps) {
   // The ref lives on the <ul>; every row shares the same available bars width,
   // so one observer is enough. Rows are laid out as `[label] [bars] [count]`
@@ -340,6 +399,8 @@ export function OverviewSourcesPanel({
               label={style.label}
               tooltip={tooltip}
               onHoverChange={onSourceHover}
+              isHidden={hiddenSourceKeys?.has(s.source) ?? false}
+              onToggle={onSourceToggle}
             />
           )
         })}

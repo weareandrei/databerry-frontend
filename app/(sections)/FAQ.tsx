@@ -35,7 +35,7 @@
  *
  * Visual conventions match the rest of the landing page:
  *   - `px-[10vw] py-24 bg-white` section frame
- *   - `text-xs font-medium text-primary uppercase tracking-widest` eyebrow
+ *   - `text-xs font-medium text-secondary uppercase tracking-widest` eyebrow
  *   - `text-4xl/5xl font-semibold tracking-tight` heading w/ Bricolage
  *   - `RevealOnScroll` for entrance animations
  */
@@ -57,7 +57,7 @@ function FAQInlineLink({ href, children }: { href: string; children: ReactNode }
   return (
     <a
       href={href}
-      className="font-semibold underline underline-offset-2 text-primary group-hover:text-white transition-colors"
+      className="font-semibold underline underline-offset-2 text-secondary group-hover:text-white transition-colors"
     >
       {children}
     </a>
@@ -178,10 +178,10 @@ function FAQCard({ q, a }: { q: string; a: ReactNode }) {
   // the entry supplied an `aJsx` enrichment). Both render here without
   // branching — `<p>{a}</p>` works for either.
   return (
-    <div className="group h-full rounded-2xl border border-border bg-white p-6 transition-colors duration-200 hover:border-transparent hover:bg-primary cursor-default">
+    <div className="group h-full rounded-2xl border border-border bg-white p-6 transition-colors duration-200 hover:border-transparent hover:bg-secondary cursor-default">
       {/*
         Ring-in-ring icon — same shape as the "Ask a question" CTA.
-        The outer `bg-primary/10` ring stays peach throughout (visible
+        The outer `bg-secondary/10` ring stays peach throughout (visible
         against the white default card AND the orange hover card),
         which keeps the icon recognisable as the same element across
         states.
@@ -196,12 +196,12 @@ function FAQCard({ q, a }: { q: string; a: ReactNode }) {
         bubble with a `?`) — the design calls for the bare mark so
         the inner circle reads as a clean dot.
       */}
-      <div className="w-12 h-12 rounded-full bg-primary/25 group-hover:bg-white/25 flex items-center justify-center mb-5 p-1.5">
-        <div className="w-full h-full rounded-full bg-primary group-hover:bg-white flex items-center justify-center transition-colors duration-200">
+      <div className="w-12 h-12 rounded-full bg-secondary/25 group-hover:bg-white/25 flex items-center justify-center mb-5 p-1.5">
+        <div className="w-full h-full rounded-full bg-secondary group-hover:bg-white flex items-center justify-center transition-colors duration-200">
           <QuestionMark
             size={18}
             weight="bold"
-            className="text-white group-hover:text-primary transition-colors duration-200"
+            className="text-white group-hover:text-secondary transition-colors duration-200"
           />
         </div>
       </div>
@@ -258,7 +258,7 @@ export default function FAQ() {
             */}
             <a
               href="#contact"
-              className="font-medium text-muted-foreground underline underline-offset-2 hover:text-primary transition-colors"
+              className="font-medium text-muted-foreground underline underline-offset-2 hover:text-secondary transition-colors"
             >
               chat to our friendly team
             </a>
@@ -267,7 +267,7 @@ export default function FAQ() {
         </RevealOnScroll>
         <RevealOnScroll delay={0.15} y={16}>
           {/*
-            Ring-in-ring CTA. The pale `bg-primary/10` outer span acts
+            Ring-in-ring CTA. The pale `bg-secondary/10` outer span acts
             as a visible halo around the saturated orange button, same
             pattern as the demo badge in `DemoSection` (light wrapper
             + saturated inner pill, both `rounded-full`). The ring is
@@ -276,10 +276,10 @@ export default function FAQ() {
             instead of `text-sm`, `px-7 py-3` — so the cluster reads
             as a primary CTA, not a chip.
           */}
-          <span className="mt-7 inline-flex rounded-full bg-primary/25 p-1.5 shadow-sm">
+          <span className="mt-7 inline-flex rounded-full bg-secondary/25 p-1.5 shadow-sm">
             <a
               href="#contact"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-7 py-3 text-base font-semibold text-white hover:bg-primary/90 transition-colors"
+              className="inline-flex items-center gap-2 rounded-full bg-secondary px-7 py-3 text-base font-semibold text-white hover:bg-secondary/90 transition-colors"
             >
               Ask a question
               <ArrowRight

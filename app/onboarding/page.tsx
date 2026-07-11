@@ -47,6 +47,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
@@ -617,7 +618,7 @@ export default function OnboardingPage() {
             indicators. Content: logo · steps · sign out. ───────── */}
       <NotchBar widthClassName="w-[95%] md:w-[780px]">
         <Image
-          src="/databerry_logo_v2.svg"
+          src={DATABERRY_LOGO_PATH}
           alt="Databerry"
           width={24}
           height={24}

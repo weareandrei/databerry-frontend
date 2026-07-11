@@ -16,6 +16,7 @@
 
 import Link from 'next/link'
 import { ArrowRight, Check, X } from '@phosphor-icons/react/dist/ssr'
+import { DATABERRY_LOGO_URL } from '@/constants/brand'
 import Navbar from '@/app/(components)/navbar'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
@@ -44,7 +45,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
         '@type': 'Organization',
         name: 'Databerry',
         url: SITE,
-        logo: `${SITE}/databerry_logo_v2.png`,
+        logo: DATABERRY_LOGO_URL,
       },
     },
     {
@@ -126,7 +127,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
                     className="rounded-2xl border border-stroke bg-surface/40 p-4 text-center"
                   >
                     <div
-                      className="text-2xl md:text-3xl font-bold text-primary"
+                      className="text-2xl md:text-3xl font-bold text-secondary"
                       style={{ fontFamily: 'var(--font-bricolage)' }}
                     >
                       {s.value}
@@ -155,7 +156,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
                   <thead>
                     <tr className="border-b border-stroke bg-surface/60">
                       <th className="py-2.5 px-4 text-left font-medium text-subtle" />
-                      <th className="py-2.5 px-4 text-left font-semibold text-primary whitespace-nowrap bg-primary/5">
+                      <th className="py-2.5 px-4 text-left font-semibold text-secondary whitespace-nowrap bg-secondary/5">
                         Databerry
                       </th>
                       <th className="py-2.5 px-4 text-left font-semibold text-foreground whitespace-nowrap">
@@ -167,7 +168,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
                     {atAGlance.map(row => (
                       <tr key={row.label} className="border-b border-stroke/60 last:border-0 align-top">
                         <td className="py-3 px-4 font-medium text-muted-foreground">{row.label}</td>
-                        <td className="py-3 px-4 font-medium text-foreground bg-primary/5">
+                        <td className="py-3 px-4 font-medium text-foreground bg-secondary/5">
                           {row.databerry}
                         </td>
                         <td className="py-3 px-4 text-muted-foreground">{row.competitor}</td>
@@ -243,7 +244,7 @@ export const ComparisonPage = ({ data }: { data: Comparison }) => {
                       <Link
                         key={c.slug}
                         href={`/compare/${c.slug}`}
-                        className="text-sm font-medium text-primary hover:underline"
+                        className="text-sm font-medium text-secondary hover:underline"
                       >
                         Databerry vs {c.competitor}
                       </Link>

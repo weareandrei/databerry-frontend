@@ -167,9 +167,7 @@ export const DemoAgentBody = () => {
           auto-scroll effect set `scrollTop` directly on THIS
           element — no DOM bubbling, no page hijack. */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 px-3">
-        {/* `pt-12` on mobile clears the floating burger (`<DemoMobileNav>`,
-            top-left); desktop has no burger so it collapses to `pt-3`. */}
-        <div className="max-w-2xl mx-auto pt-12 pb-3 md:pt-3 space-y-3">
+        <div className="max-w-2xl mx-auto pt-3 pb-3 space-y-3">
           {isEmpty ? (
             <DemoAgentEmpty
               inputValue={inputValue}
@@ -295,7 +293,7 @@ const DemoConfigMcpChip = ({ onClick }: { onClick: () => void }) => {
       onClick={onClick}
       className="group inline-flex items-center gap-1.5 rounded-lg bg-white border border-stroke shadow-sm px-2 py-1 hover:bg-surface transition-colors cursor-pointer"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-primary">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-secondary">
         <Image
           src="/icons/mcp.svg"
           alt=""
@@ -367,7 +365,7 @@ const DemoInput = ({
         <Sparkle
           size={14}
           weight="fill"
-          className="text-primary shrink-0 mt-0.5"
+          className="text-secondary shrink-0 mt-0.5"
         />
         {locked ? (
           // Auto-play display: static text + blinking caret. `min-h`
@@ -405,7 +403,7 @@ const DemoInput = ({
         }}
         disabled={!canSend}
         aria-label="Send message"
-        className="absolute bottom-2 right-2 flex items-center justify-center w-6 h-6 rounded-md bg-primary text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
+        className="absolute bottom-2 right-2 flex items-center justify-center w-6 h-6 rounded-md bg-secondary text-white hover:bg-secondary/90 disabled:opacity-40 disabled:cursor-default cursor-pointer transition-colors"
       >
         <ArrowUp size={11} weight="bold" />
       </button>

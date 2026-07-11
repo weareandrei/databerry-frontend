@@ -1,4 +1,6 @@
 'use client'
+
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -169,9 +171,9 @@ const Navbar = () => {
       <NotchBar>
         {/* Logo */}
           <Link href="/" className="flex items-center gap-2 md:gap-1.5 mx-auto md:mx-0">
-            <Image src="/databerry_logo_v2.svg" alt="DataBerry" width={24} height={24} className="md:w-[28px] md:h-[28px] rounded-md" />
+            <Image src={DATABERRY_LOGO_PATH} alt="Databerry" width={24} height={24} className="md:w-[28px] md:h-[28px] rounded-md" />
             <span
-              className="text-lg md:text-[28px] font-bold text-primary"
+              className="text-lg md:text-[28px] font-bold text-secondary"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '-0.01em' }}
             >
               DataBerry
@@ -234,7 +236,7 @@ const Navbar = () => {
               <Link
                 href="/signup"
                 onClick={() => setMenuOpen(false)}
-                className="text-3xl font-semibold text-foreground hover:text-primary transition-colors"
+                className="text-3xl font-semibold text-foreground hover:text-secondary transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
                 Start
@@ -242,7 +244,7 @@ const Navbar = () => {
               <Link
                 href="/login"
                 onClick={() => setMenuOpen(false)}
-                className="text-2xl font-medium text-muted-foreground hover:text-primary transition-colors"
+                className="text-2xl font-medium text-muted-foreground hover:text-secondary transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
                 Log in

@@ -23,21 +23,13 @@
  * use, so they don't blow past the active-state input width.
  */
 
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import type {
   ChartRenderable,
   Renderable,
   StatRenderable,
   TopListRenderable,
 } from './types'
+import { SimpleChart } from '@/components/charts'
 
 export function Renderables({ items }: { items: Renderable[] }) {
   if (!items.length) return null
@@ -117,64 +109,14 @@ function ChartCard({ r }: { r: ChartRenderable }) {
           points are in the series. `ResponsiveContainer` widthhandles
           the horizontal scaling. */}
       <div className="h-[140px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={r.series}
-            margin={{ top: 4, right: 8, bottom: 0, left: 0 }}
-          >
-            <defs>
-              <linearGradient id="chatRenderableFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#FF5D78" stopOpacity={0.25} />
-                <stop offset="100%" stopColor="#FF5D78" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              stroke="#E5E7EB"
-              strokeDasharray="3 3"
-              vertical={false}
-            />
-            <XAxis
-              dataKey="label"
-              tick={{ fontSize: 10, fill: '#9CA3AF' }}
-              tickLine={false}
-              axisLine={false}
-              // Show first + last + a couple in between so dense
-              // series (30+ points) don't crowd the axis.
-              interval="preserveStartEnd"
-              minTickGap={20}
-            />
-            <YAxis
-              tick={{ fontSize: 10, fill: '#9CA3AF' }}
-              tickLine={false}
-              axisLine={false}
-              width={40}
-              tickFormatter={v => formatAxisTick(Number(v), r.unit)}
-            />
-            <Tooltip
-              cursor={{ stroke: '#E5E7EB', strokeWidth: 1 }}
-              content={({ active, payload, label }) => {
-                if (!active || !payload?.length) return null
-                return (
-                  <div className="rounded-md border border-stroke bg-white px-2 py-1 text-[11px] shadow-sm">
-                    <div className="text-subtle">{label}</div>
-                    <div className="font-semibold text-foreground">
-                      {formatChartValue(Number(payload[0]!.value), r.unit)}
-                    </div>
-                  </div>
-                )
-              }}
-            />
-            <Area
-              type="monotone"
-              dataKey="value"
-              stroke="#FF5D78"
-              strokeWidth={2}
-              fill="url(#chatRenderableFill)"
-              dot={false}
-              activeDot={{ r: 3, stroke: '#FF5D78', fill: 'white' }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        <SimpleChart
+          type="line"
+          categories={r.series.map(p => p.label)}
+          data={r.series.map(p => p.value)}
+          color="#FF5D78"
+          fillArea
+          yAxisTickFormatter={v => formatAxisTick(Number(v), r.unit)}
+        />
       </div>
     </div>
   )

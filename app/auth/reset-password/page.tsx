@@ -198,7 +198,7 @@ function ResetPasswordPageInner() {
               ) : (
                 <>
                   <div className="mb-5 md:mb-7">
-                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
+                    <p className="text-xs font-medium text-secondary uppercase tracking-widest mb-2">
                       Account recovery
                     </p>
                     <h2
@@ -226,7 +226,7 @@ function ResetPasswordPageInner() {
                       minLength={6}
                       autoComplete="new-password"
                       autoFocus
-                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-subtle"
                     />
                     <input
                       type="password"
@@ -236,7 +236,7 @@ function ResetPasswordPageInner() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-subtle"
                     />
                     <button
                       type="submit"

@@ -13,7 +13,7 @@
  *     (`<ProjectBodyViews>`, `sortable` ON — the only drag surface)
  */
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import {
   DndContext,
   KeyboardSensor,
@@ -38,7 +38,11 @@ import {
   isWidePosthogView,
 } from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
 import { ViewCardRenderer } from '@/app/hub/(components)/view/renderers/ViewCardRenderer'
-import { PROJECT_OVERVIEW_PANE } from './projectViewUtils'
+import {
+  PROJECT_OVERVIEW_CHART_PANE,
+  PROJECT_OVERVIEW_LAYOUT_GRID,
+  PROJECT_OVERVIEW_SOURCES_PANE,
+} from './projectViewUtils'
 import {
   cellSpanClasses,
   getViewSizing,
@@ -260,7 +264,7 @@ export interface OverviewCompositeProps {
 
 /**
  * The project's headline overview: chart and sources as two separate
- * white panes side-by-side (stacked on narrow widths), each with its
+ * white panes side-by-side from 1200px up (stacked below that), each with its
  * own border and ⋮ menu. The grey `bg-surface` tray wraps both at the
  * section level (`ProjectOverviewSection`).
  */
@@ -274,10 +278,22 @@ export function OverviewComposite({
   handlePin,
 }: OverviewCompositeProps) {
   const [hoveredSourceKey, setHoveredSourceKey] = useState<string | null>(null)
+  const [hiddenSourceKeys, setHiddenSourceKeys] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  )
+
+  const handleSourceToggle = useCallback((key: string) => {
+    setHiddenSourceKeys(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[1fr_minmax(240px,320px)] gap-4">
-      <div className={PROJECT_OVERVIEW_PANE}>
+    <div className={PROJECT_OVERVIEW_LAYOUT_GRID}>
+      <div className={PROJECT_OVERVIEW_CHART_PANE}>
         <div className="flex min-h-0 flex-1 flex-col">
           <ViewCardOverviewChartConnected
             view={chartView}
@@ -287,10 +303,11 @@ export function OverviewComposite({
             onUntrack={() => handleUntrack(chartView.id)}
             onPin={() => handlePin(chartView.id)}
             externalHoveredSourceKey={hoveredSourceKey}
+            hiddenSourceKeys={hiddenSourceKeys}
           />
         </div>
       </div>
-      <div className={PROJECT_OVERVIEW_PANE}>
+      <div className={PROJECT_OVERVIEW_SOURCES_PANE}>
         <div className="flex min-h-0 flex-1 flex-col">
           <ViewCardOverviewSourcesConnected
             view={sourcesView}
@@ -299,6 +316,8 @@ export function OverviewComposite({
             onUntrack={() => handleUntrack(sourcesView.id)}
             onPin={() => handlePin(sourcesView.id)}
             onSourceHover={setHoveredSourceKey}
+            hiddenSourceKeys={hiddenSourceKeys}
+            onSourceToggle={handleSourceToggle}
           />
         </div>
       </div>

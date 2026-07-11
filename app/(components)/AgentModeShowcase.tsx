@@ -242,7 +242,7 @@ function ShowcaseInput({ typingText }: { typingText: string }) {
         <Sparkle
           size={18}
           weight="fill"
-          className="text-primary shrink-0 mt-0.5"
+          className="text-secondary shrink-0 mt-0.5"
         />
         {/* Live-typed text + animated caret. Placeholder shows when
             nothing is being typed yet (or right after a "send"
@@ -266,7 +266,7 @@ function ShowcaseInput({ typingText }: { typingText: string }) {
           pill reads as the same shape as the real product. */}
       <div
         aria-hidden
-        className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-primary text-white opacity-40"
+        className="absolute bottom-2.5 right-2.5 flex items-center justify-center w-8 h-8 rounded-md bg-secondary text-white opacity-40"
       >
         <ArrowUp size={14} weight="bold" />
       </div>

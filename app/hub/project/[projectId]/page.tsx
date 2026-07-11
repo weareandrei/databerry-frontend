@@ -5,7 +5,7 @@
  * people, and view tiles.
  */
 
-import { Gauge } from '@phosphor-icons/react'
+import { SquaresFour } from '@phosphor-icons/react'
 import { useParams } from 'next/navigation'
 import { ProjectPageBody } from '@/app/hub/(components)/project/ProjectPageBody'
 import { ProjectPageShell } from '@/app/hub/(components)/project/ProjectPageShell'
@@ -18,7 +18,7 @@ export default function ProjectOverviewPage() {
   if (!project) return null
 
   return (
-    <ProjectPageShell project={project} pageLabel="Overview" pageIcon={Gauge} folderId={null}>
+    <ProjectPageShell project={project} pageLabel="Overview" pageIcon={SquaresFour} folderId={null}>
       <ProjectPageBody project={project} folderId={null} />
     </ProjectPageShell>
   )

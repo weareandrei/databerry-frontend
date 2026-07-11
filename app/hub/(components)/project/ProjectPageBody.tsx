@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect } from 'react'
 import { FolderGridSection } from './(components)/FolderGridSection'
 import { ProjectOverviewSection } from './(components)/ProjectOverviewSection'
 import { ProjectPeopleSection } from './(components)/ProjectPeopleSection'
@@ -36,6 +37,16 @@ export function ProjectPageBody({ project, folderId }: ProjectPageBodyProps) {
     openFolder,
     foldersCtx,
   } = useProjectView(project, folderId)
+
+  useEffect(() => {
+    if (folderId != null || typeof window === 'undefined') return
+    if (window.location.hash !== '#timeline') return
+    const el = document.getElementById('project-timeline')
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [folderId, project.id])
 
   return (
     <ProjectScrollBody onCreateView={openCreateViewModal}>

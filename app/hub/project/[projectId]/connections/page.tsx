@@ -15,7 +15,7 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Plus, SquaresFour } from '@phosphor-icons/react'
+import { Plus, CardsThree } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { useDashboard } from '@/contexts/DashboardContext'
 import { ConnectionsList } from '@/app/hub/(components)/connections/ConnectionsList'
@@ -60,7 +60,7 @@ export default function ProjectConnectionsPage() {
             <SectionHeader
               icon={
                 <span className="flex items-center justify-center rounded-full bg-white border border-stroke p-2 shadow-pill">
-                  <SquaresFour size={14} weight="bold" className="text-foreground" />
+                  <CardsThree size={14} weight="bold" className="text-foreground" />
                 </span>
               }
               title={

@@ -38,6 +38,8 @@ interface ViewCardOverviewSourcesConnectedProps {
    * callers (mobile body, pinned tile) don't have to plumb it.
    */
   onSourceHover?: (sourceKey: string | null) => void
+  hiddenSourceKeys?: ReadonlySet<string>
+  onSourceToggle?: (sourceKey: string) => void
   /**
    * Composite mode — hides this panel's own 3-dots menu; the unified
    * project_overview header owns the single menu (see `hideMenu` on
@@ -62,6 +64,8 @@ export function ViewCardOverviewSourcesConnected({
   onPin,
   chromeless,
   onSourceHover,
+  hiddenSourceKeys,
+  onSourceToggle,
   hideMenu,
   refreshTick,
 }: ViewCardOverviewSourcesConnectedProps) {
@@ -100,6 +104,8 @@ export function ViewCardOverviewSourcesConnected({
       onPin={onPin}
       chromeless={chromeless}
       onSourceHover={onSourceHover}
+      hiddenSourceKeys={hiddenSourceKeys}
+      onSourceToggle={onSourceToggle}
       hideMenu={hideMenu}
     />
   )

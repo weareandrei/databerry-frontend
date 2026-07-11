@@ -66,7 +66,7 @@ export function ProjectSelect() {
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'flex w-full items-center gap-3 rounded-xl px-2 py-2',
+          'flex w-full items-center gap-3 rounded-xl px-1 py-1',
           'text-left transition-colors cursor-pointer',
           'hover:bg-hover-fill',
         )}
@@ -75,8 +75,8 @@ export function ProjectSelect() {
           <span
             style={{ width: LOGO_WRAPPER_SIZE, height: LOGO_WRAPPER_SIZE }}
             className={cn(
-              'inline-flex shrink-0 items-center justify-center rounded-xl',
-              'bg-gradient-to-br from-[#FBEFF7] to-[#EED5FF] shadow-control',
+              'inline-flex shrink-0 items-center justify-center rounded-lg',
+              'bg-white shadow-control',
             )}
           >
             <ProjectIcon
@@ -89,8 +89,8 @@ export function ProjectSelect() {
           <span
             style={{ width: LOGO_WRAPPER_SIZE, height: LOGO_WRAPPER_SIZE }}
             className={cn(
-              'inline-flex shrink-0 items-center justify-center rounded-xl',
-              'bg-gradient-to-br from-[#FBEFF7] to-[#EED5FF] shadow-control',
+              'inline-flex shrink-0 items-center justify-center rounded-lg',
+              'bg-white shadow-control',
               'text-subtle text-xs font-bold',
             )}
           >
@@ -115,7 +115,7 @@ export function ProjectSelect() {
             'bg-white shadow-control',
           )}
         >
-          <CaretUpDown size={14} weight="bold" className="text-subtle" />
+          <CaretUpDown size={14} weight="regular" className="text-subtle" />
         </span>
       </DropdownMenuTrigger>
 

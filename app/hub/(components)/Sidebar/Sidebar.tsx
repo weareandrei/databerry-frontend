@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { House, SquaresFour, CaretDown, Plus, Gear } from '@phosphor-icons/react'
+import { House, CardsThree, CaretDown, Plus, Gear } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 import { SidebarNavItem } from './(components)/SidebarNavItem'
 import { SidebarUserProfile } from './(components)/SidebarUserProfile'
@@ -99,7 +99,7 @@ export function SidebarContents({
                   since Agent is conceptually a peer of the
                   dashboard rather than a Connections/Settings-style
                   utility. */}
-              <SidebarNavItem href="/hub/connections" label="Connections" icon={SquaresFour} />
+              <SidebarNavItem href="/hub/connections" label="Connections" icon={CardsThree} />
               <SidebarNavItem href="/hub/settings" label="Settings" icon={Gear} />
             </motion.nav>
           )}

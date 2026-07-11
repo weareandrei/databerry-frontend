@@ -54,7 +54,7 @@ export function ProjectPageHeader({
 
         <div className="flex min-w-0 items-center gap-2" aria-hidden="true">
           <ProjectIcon websiteUrl={project.websiteUrl} size={20} pill={false} />
-          <span className="truncate text-sm font-bold text-foreground">
+          <span className="truncate text-sm font-semibold text-foreground">
             {projectDisplayLabel(project)}
           </span>
         </div>
@@ -63,7 +63,7 @@ export function ProjectPageHeader({
 
         <div className="flex min-w-0 items-center gap-2" aria-hidden="true">
           <PageIcon size={16} weight="bold" className="shrink-0 text-foreground" />
-          <span className="truncate text-sm font-bold text-foreground">{pageLabel}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{pageLabel}</span>
         </div>
       </div>
 

@@ -59,6 +59,9 @@ interface ChatEmptyProps {
    * as normal.
    */
   hideUserMcps?: boolean
+  /** Demo / embed escape hatch — when set, the trailing MCP CTA calls
+   *  this instead of routing to `/hub/connections`. */
+  onConfigMcpClick?: () => void
 }
 
 // We only show the first N MCP chips before the "Config MCP's"
@@ -77,6 +80,7 @@ export function ChatEmpty({
   mcpCtaLabel,
   compact = false,
   hideUserMcps = false,
+  onConfigMcpClick,
 }: ChatEmptyProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const router = useRouter()
@@ -166,7 +170,7 @@ export function ChatEmpty({
           {!hideUserMcps &&
             visibleMcps.map(conn => <UserMcpChip key={conn.id} name={conn.name} />)}
           <ConfigMcpChip
-            onClick={() => router.push('/hub/connections')}
+            onClick={onConfigMcpClick ?? (() => router.push('/hub/connections'))}
             label={mcpCtaLabel}
           />
         </div>

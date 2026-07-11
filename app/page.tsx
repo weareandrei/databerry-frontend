@@ -12,6 +12,7 @@ import FAQ from '@/app/(sections)/FAQ'
 import Contact from '@/app/(sections)/Contact'
 import { Footer } from './(sections)/Footer'
 import { LoadingScreen } from '@/app/(components)/LoadingScreen'
+import { DATABERRY_LOGO_URL } from '@/constants/brand'
 
 /**
  * Schema.org JSON-LD blocks for the landing page.
@@ -100,7 +101,7 @@ const SITE_JSONLD = [
     '@type': 'Organization',
     name: 'Databerry',
     url: 'https://databerry.app',
-    logo: 'https://databerry.app/databerry_logo_v2.png',
+    logo: DATABERRY_LOGO_URL,
     sameAs: ['https://twitter.com/xdrewmiko', 'https://x.com/xdrewmiko'],
   },
 ]

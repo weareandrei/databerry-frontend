@@ -45,7 +45,7 @@ export default function TermsPage() {
           confidential and for any activity under your account. Notify us at{' '}
           <a
             href="mailto:team@heavenmade.org"
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-secondary hover:underline"
           >
             team@heavenmade.org
           </a>{' '}
@@ -109,7 +109,7 @@ export default function TermsPage() {
         <p>
           Credentials are encrypted (AES&#8209;256&#8209;GCM with a per&#8209;user
           derived key) before being written to our database. See the{' '}
-          <a href="/privacy" className="font-medium text-primary hover:underline">
+          <a href="/privacy" className="font-medium text-secondary hover:underline">
             Privacy Policy
           </a>
           {' '}§5 for the full security architecture.
@@ -132,7 +132,7 @@ export default function TermsPage() {
           You retain all rights to the data your connected tools surface
           through the Service. We claim no ownership of it and won&apos;t use
           it for purposes outside operating the Service for you (see the{' '}
-          <a href="/privacy" className="font-medium text-primary hover:underline">
+          <a href="/privacy" className="font-medium text-secondary hover:underline">
             Privacy Policy
           </a>
           ).
@@ -178,7 +178,7 @@ export default function TermsPage() {
           time by emailing{' '}
           <a
             href="mailto:team@heavenmade.org"
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-secondary hover:underline"
           >
             team@heavenmade.org
           </a>
@@ -222,7 +222,7 @@ export default function TermsPage() {
           Questions about these Terms? Reach out to{' '}
           <a
             href="mailto:team@heavenmade.org"
-            className="font-medium text-primary hover:underline"
+            className="font-medium text-secondary hover:underline"
           >
             team@heavenmade.org
           </a>

@@ -1,7 +1,10 @@
 'use client'
 
 import { OverviewComposite } from './ProjectBodyViews'
-import { PROJECT_VIEW_SURFACE_WRAP } from './projectViewUtils'
+import {
+  PROJECT_OVERVIEW_LAYOUT_GRID,
+  PROJECT_VIEW_SURFACE_WRAP,
+} from './projectViewUtils'
 import type { DateMode } from '@/types/dates'
 import type { View } from '@/types/view'
 
@@ -33,7 +36,7 @@ export function ProjectOverviewSection({
   return (
     <div className={PROJECT_VIEW_SURFACE_WRAP}>
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_minmax(240px,320px)]">
+        <div className={PROJECT_OVERVIEW_LAYOUT_GRID}>
           <div className="min-h-[420px] animate-pulse rounded-2xl bg-black/[0.05]" />
           <div className="min-h-[420px] animate-pulse rounded-2xl bg-black/[0.05]" />
         </div>

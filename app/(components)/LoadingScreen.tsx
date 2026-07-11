@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import Image from 'next/image'
 
 export function LoadingScreen() {
@@ -46,7 +47,7 @@ export function LoadingScreen() {
             className="flex items-center gap-3"
           >
             <Image
-              src="/databerry_logo_v2.svg"
+              src={DATABERRY_LOGO_PATH}
               alt="DataBerry"
               width={40}
               height={40}
@@ -54,7 +55,7 @@ export function LoadingScreen() {
               className="rounded-xl"
             />
             <span
-              className="text-[1.6rem] font-bold text-primary"
+              className="text-[1.6rem] font-bold text-secondary"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '0.05em' }}
             >
               DataBerry

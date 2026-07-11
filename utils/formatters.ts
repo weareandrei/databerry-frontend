@@ -66,7 +66,10 @@ export function formatChartValue(value: number, type: string): string {
 export function formatChartAxisTick(v: number, type: string): string {
   if (isMoneyViewType(type)) {
     if (v === 0) return '$0'
-    return `$${(v / 100).toFixed(0)}`
+    const dollars = v / 100
+    if (dollars >= 1_000_000) return `$${(dollars / 1_000_000).toFixed(1)}M`
+    if (dollars >= 1000) return `$${(dollars / 1000).toFixed(dollars >= 10_000 ? 0 : 1)}k`
+    return `$${Math.round(dollars)}`
   }
   if (v === 0) return '0'
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(v >= 10_000_000 ? 0 : 1)}M`

@@ -96,7 +96,7 @@ export default function SignupPage() {
             <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
               {needsConfirmation ? (
                 <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
                     <span className="text-2xl">📩</span>
                   </div>
                   <h2
@@ -114,7 +114,7 @@ export default function SignupPage() {
               ) : (
                 <>
                   <div className="mb-5 md:mb-7">
-                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
+                    <p className="text-xs font-medium text-secondary uppercase tracking-widest mb-2">
                       Get started
                     </p>
                     <h2
@@ -137,7 +137,7 @@ export default function SignupPage() {
                       onChange={e => setEmail(e.target.value)}
                       required
                       autoComplete="email"
-                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-subtle"
                     />
                     <input
                       type="password"
@@ -147,7 +147,7 @@ export default function SignupPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-subtle"
                     />
                     <button
                       type="submit"
@@ -248,7 +248,7 @@ export default function WishlistPage() {
             <div className="bg-white rounded-xl px-8 py-10">
               {done ? (
                 <div className="flex flex-col items-center gap-3 py-4 text-center">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                  <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center">
                     <span className="text-2xl">🎉</span>
                   </div>
                   <h2
@@ -265,7 +265,7 @@ export default function WishlistPage() {
               ) : (
                 <>
                   <div className="mb-7">
-                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
+                    <p className="text-xs font-medium text-secondary uppercase tracking-widest mb-2">
                       Early access
                     </p>
                     <h2
@@ -287,7 +287,7 @@ export default function WishlistPage() {
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       required
-                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition-all placeholder:text-subtle"
+                      className="w-full rounded-lg border border-border bg-surface px-4 py-3 text-sm outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/10 transition-all placeholder:text-subtle"
                     />
                     <button
                       type="submit"

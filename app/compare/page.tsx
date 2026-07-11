@@ -99,7 +99,7 @@ export default function CompareHub() {
                   <p className="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">
                     {c.tagline}
                   </p>
-                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                  <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-secondary">
                     Read comparison
                     <ArrowRight
                       size={15}

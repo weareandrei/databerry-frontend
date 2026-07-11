@@ -29,7 +29,7 @@ export default function Pricing() {
           as a consistent rhythm. */}
       <div className="flex flex-col items-center text-center max-w-3xl mx-auto mb-12">
         <RevealOnScroll delay={0} y={16}>
-          <p className="text-xs font-medium text-primary uppercase tracking-widest">
+          <p className="text-xs font-medium text-secondary uppercase tracking-widest">
             Pricing
           </p>
         </RevealOnScroll>
