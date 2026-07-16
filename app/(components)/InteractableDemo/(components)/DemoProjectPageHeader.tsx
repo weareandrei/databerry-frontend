@@ -3,7 +3,7 @@
 import { ArrowLeft, CaretRight, Plus } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
-import { ProjectMenu } from '@/app/hub/(components)/project/(components)/ProjectMenu'
+import { ProjectMenu } from '@/app/hub/project/(components)/ProjectMenu'
 import { demoProjectLabel } from './demoProjectUtils'
 import { DemoGlobalDateChange, DemoGlobalDateModeDropdown } from './DemoGlobalDateControls'
 import type { DemoProject } from './context/DemoContext'
@@ -28,7 +28,7 @@ export function DemoProjectPageHeader({
   onDeleteProject,
 }: DemoProjectPageHeaderProps) {
   return (
-    <header className="hidden md:flex shrink-0 items-center gap-3 border-b border-stroke bg-white px-6 py-3">
+    <header className="hidden lg:flex shrink-0 items-center gap-3 border-b border-stroke bg-white px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
@@ -42,7 +42,12 @@ export function DemoProjectPageHeader({
         <span className="h-4 w-px shrink-0 bg-stroke" aria-hidden="true" />
 
         <div className="flex min-w-0 items-center gap-2" aria-hidden="true">
-          <ProjectIcon websiteUrl={project.websiteUrl} size={20} pill={false} />
+          <ProjectIcon
+            websiteUrl={project.websiteUrl}
+            logoSrc={project.logoSrc}
+            size={20}
+            pill={false}
+          />
           <span className="truncate text-sm font-semibold text-foreground">
             {demoProjectLabel(project)}
           </span>

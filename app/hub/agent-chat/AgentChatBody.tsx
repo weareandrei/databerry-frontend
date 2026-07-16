@@ -73,57 +73,53 @@ export function AgentChatBody({
   // MCP connections feed the chip rows. Memoised so the array
   // identity is stable across renders that don't change the list,
   // which keeps `<ChatEmpty>` from re-rendering for no reason.
-  const { connections } = useDashboard()
+  const { connections, projects: projectsCtx } = useDashboard()
   const mcpConnections = useMemo(
     () => connections.connections.filter(c => c.type === 'mcp'),
     [connections.connections],
+  )
+  const project = useMemo(
+    () => (projectId ? projectsCtx.projects.find(p => p.id === projectId) : null),
+    [projectId, projectsCtx.projects],
   )
 
   const isEmpty = messages.length === 0 && !sending
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col">
-      {/* Mobile-only chrome. The desktop `ChatHeader` that used to
-          render here is gone — the white card now starts at the top
-          of the page (with the shared 16-px margin) and stretches
-          the full viewport height; "clear" stays reachable via the
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+      {/* Mobile-only chrome. The hub layout's main panel already
+          carries the white background + left border, so this body
+          fills it edge-to-edge. "Clear" stays reachable via the
           floating "New chat" pill inside the active chat. */}
       {showChrome && (
-        <MobileTopBar
-          variant="page"
-          title="Agent"
-          rightSlot={
-            messages.length > 0 ? (
-              <button
-                type="button"
-                onClick={clear}
-                aria-label="Clear chat"
-                className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-foreground hover:bg-hover-fill transition-colors shrink-0"
-              >
-                <Trash size={14} weight="bold" />
-              </button>
-            ) : null
-          }
-        />
+        project ? (
+          <MobileTopBar
+            variant="project"
+            projectName={project.name}
+            projectId={project.id}
+            projectWebsiteUrl={project.websiteUrl}
+          />
+        ) : (
+          <MobileTopBar
+            variant="page"
+            title="Agent"
+            rightSlot={
+              messages.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clear}
+                  aria-label="Clear chat"
+                  className="flex items-center justify-center w-9 h-9 rounded-full border border-stroke bg-white shadow-pill text-foreground hover:bg-hover-fill transition-colors shrink-0"
+                >
+                  <Trash size={14} weight="bold" />
+                </button>
+              ) : null
+            }
+          />
+        )
       )}
 
-      {/* ── White card wrapper ────────────────────────────────────
-          All chat content sits inside a single white card —
-          rounded, soft-shadow, breathing room around it so it
-          doesn't hug the page edges. The card chrome is the same
-          `rounded-2xl border-stroke shadow-card` family used by
-          other "primary content" surfaces (view tiles' parent
-          containers, the connections card).
-
-          Margin rhythm: symmetric `mx-4 mt-4 mb-4` on every
-          breakpoint — the shared 16-px rhythm of the hub's body
-          panels (home, overview, filtered views), aligned with
-          `HubTopBar`'s `px-4` and the project sidebar card's
-          `top-4/bottom-4`. With the desktop header gone, `mt-4` is
-          what keeps the card off the viewport's top edge while it
-          stretches the full height. */}
-      <div className="flex-1 min-h-0 mx-4 mt-4 mb-4 bg-white rounded-2xl border border-stroke shadow-card flex flex-col overflow-hidden">
-        {isEmpty ? (
+      {isEmpty ? (
           // Empty state owns its own input. The bottom-pinned
           // `<ChatInput>` below is gated on `!isEmpty` so it
           // doesn't double up.
@@ -135,8 +131,7 @@ export function AgentChatBody({
             mcpConnections={mcpConnections}
           />
         ) : (
-          // Active chat — three-row flex column inside the white
-          // card:
+          // Active chat — three-row flex column:
           //
           //   1. Top row (shrink-0) — inset beta banner. Visually
           //      "sticky" by virtue of the parent's `overflow-hidden`:
@@ -161,7 +156,7 @@ export function AgentChatBody({
                 is horizontally centred inside the banner so the
                 short copy reads as one balanced unit rather than
                 pinning to the left. */}
-            <div className="shrink-0 px-4 pt-4 pb-2">
+            <div className="shrink-0 px-3 pt-3 pb-2 md:px-4 md:pt-4">
               <div className="flex items-center justify-center gap-2 rounded-lg border border-amber-200 bg-amber-50/40 px-3 py-2 text-xs text-foreground">
                 <Warning
                   size={14}
@@ -181,7 +176,7 @@ export function AgentChatBody({
                 bulleted answers have room; the footer below stays
                 at `max-w-3xl` so the input pill doesn't read as a
                 wall of textarea on big screens. */}
-            <div className="flex-1 overflow-y-auto min-h-0 px-4">
+            <div className="flex-1 overflow-y-auto min-h-0 px-3 md:px-4">
               <div className="max-w-4xl mx-auto py-4 space-y-4 pb-12">
                 {messages.map(m => (
                   <ChatMessage key={m.id} message={m} />
@@ -196,10 +191,10 @@ export function AgentChatBody({
                 not the outer footer — so it sits above the input's
                 actual left edge on any viewport width. When the
                 viewport is wide, the outer footer spans the full
-                card while the input is centred in a 3xl column;
+                panel while the input is centred in a 3xl column;
                 anchoring to the outer would put the pill out at
                 the left wall, far away from the input. */}
-            <div className="shrink-0 px-4 pb-4">
+            <div className="shrink-0 px-3 pb-3 md:px-4 md:pb-4">
               <div className="max-w-3xl mx-auto relative">
                 {/* Floating "New chat" pill — positioned ABSOLUTELY
                     above the inner column's top edge so it visually
@@ -310,7 +305,6 @@ export function AgentChatBody({
             </div>
           </>
         )}
-      </div>
     </div>
   )
 }

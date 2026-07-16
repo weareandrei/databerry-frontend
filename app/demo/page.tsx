@@ -20,9 +20,10 @@ export const metadata: Metadata = {
  * root is `h-full`, so it fills the screen. On `md+` it shows the icon
  * rail + project sidebar; on mobile those collapse to the burger +
  * bottom-sheet nav (`<DemoMobileNav>`), exactly like the real dashboard.
- * A fixed "Back to website" pill in the bottom-right returns to the
- * landing page; bottom-CENTER is left clear for the demo's own "not
- * available in the demo" notice.
+ * A fixed "Back to website" pill in the bottom-left returns to the
+ * landing page; bottom-right is reserved for the mobile "+ Create"
+ * FAB on the project overview. Bottom-CENTER stays clear for the
+ * demo's "not available in the demo" notice.
  */
 const DemoPage = () => {
   return (
@@ -32,7 +33,7 @@ const DemoPage = () => {
       <Link
         href="/"
         aria-label="Back to website"
-        className="fixed bottom-5 right-5 z-[100] flex items-center gap-2 rounded-full bg-foreground/95 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-opacity hover:opacity-90"
+        className="fixed bottom-5 left-5 right-auto z-[100] flex items-center gap-2 rounded-full bg-foreground/95 px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_-6px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-opacity hover:opacity-90"
       >
         <ArrowLeft size={16} weight="bold" />
         Back to website

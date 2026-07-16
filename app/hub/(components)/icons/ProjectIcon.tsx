@@ -36,6 +36,11 @@ interface ProjectIconProps {
   /** Project's website URL (or null/undefined for the Cube fallback). */
   websiteUrl: string | null | undefined
   /**
+   * Optional explicit logo image (e.g. demo assets). When set, takes
+   * precedence over the favicon derived from `websiteUrl`.
+   */
+  logoSrc?: string | null
+  /**
    * Outer visual size of the icon slot in px. The Cube is rendered
    * inside its pill chrome (when `pill=true`) or bare (when
    * `pill=false`); the favicon always fills this size directly.
@@ -83,57 +88,61 @@ const PILL_PADDING_PX = 8
 
 export function ProjectIcon({
   websiteUrl,
+  logoSrc,
   size = 30,
   pill = true,
   className,
 }: ProjectIconProps) {
-  // `errored` flips when the favicon `<img>` fires onError — we
+  // `errored` flips when the favicon / logo `<img>` fires onError — we
   // remember it so a single failure doesn't cause a flicker loop.
   const [errored, setErrored] = useState(false)
   const host = hostOf(websiteUrl)
+  const imageSrc = logoSrc?.trim() || (host && !errored ? faviconUrlFor(host) : null)
 
-  // ── Cube fallback ────────────────────────────────────────────────
-  if (!host || errored) {
-    if (pill) {
-      // Inner Cube is sized to leave the pill's padding around it;
-      // the math matches the original `<Cube size={14}>` inside a
-      // `p-2` (8 px) pill from the project header (14 + 8 + 8 = 30).
-      const innerSize = Math.max(8, size - PILL_PADDING_PX * 2)
-      return (
-        <span
-          style={{ width: size, height: size }}
-          className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-full bg-white border border-stroke shadow-pill',
-            className,
-          )}
-        >
-          <Cube size={innerSize} weight="bold" className="text-foreground" />
-        </span>
-      )
-    }
+  // ── Explicit logo or favicon ─────────────────────────────────────
+  // Prefer `logoSrc` (demo assets, etc.); otherwise Google's favicon
+  // for `websiteUrl`. Both render bare (no pill) like site icons.
+  if (imageSrc && !errored) {
+    // `eslint-disable-next-line @next/next/no-img-element` — Next's
+    // `<Image>` would force us to whitelist remote hosts in
+    // `next.config.ts` and adds bundle weight for images we don't
+    // optimize anyway. Native `<img>` is correct here.
     return (
-      <Cube
-        size={size}
-        weight="bold"
-        className={cn('text-foreground shrink-0', className)}
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={imageSrc}
+        alt=""
+        width={size}
+        height={size}
+        onError={() => setErrored(true)}
+        className={cn('block shrink-0 rounded-sm object-contain', className)}
       />
     )
   }
 
-  // ── Favicon (bare, no pill) ──────────────────────────────────────
-  // `eslint-disable-next-line @next/next/no-img-element` — Next's
-  // `<Image>` would force us to whitelist `google.com` in
-  // `next.config.ts` and adds bundle weight for an off-domain CDN
-  // image we don't optimize anyway. Native `<img>` is correct here.
+  // ── Cube fallback ────────────────────────────────────────────────
+  if (pill) {
+    // Inner Cube is sized to leave the pill's padding around it;
+    // the math matches the original `<Cube size={14}>` inside a
+    // `p-2` (8 px) pill from the project header (14 + 8 + 8 = 30).
+    const innerSize = Math.max(8, size - PILL_PADDING_PX * 2)
+    return (
+      <span
+        style={{ width: size, height: size }}
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-full bg-white border border-stroke shadow-pill',
+          className,
+        )}
+      >
+        <Cube size={innerSize} weight="bold" className="text-foreground" />
+      </span>
+    )
+  }
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={faviconUrlFor(host)}
-      alt=""
-      width={size}
-      height={size}
-      onError={() => setErrored(true)}
-      className={cn('block shrink-0 rounded-sm', className)}
+    <Cube
+      size={size}
+      weight="bold"
+      className={cn('text-foreground shrink-0', className)}
     />
   )
 }

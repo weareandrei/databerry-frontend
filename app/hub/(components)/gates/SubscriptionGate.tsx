@@ -57,7 +57,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
-import { TierPickerSheet } from '@/app/hub/(components)/Sidebar/(components)/TierPickerSheet'
+import { TierPickerSheet } from '@/app/hub/(components)/navigation/(components)/TierPickerSheet'
 import { useAccount } from '@/hooks/useAccount'
 import { trackEvent, EVENT } from '@/lib/posthog'
 

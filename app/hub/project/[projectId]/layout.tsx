@@ -3,7 +3,7 @@
 /**
  * Layout for every `/hub/project/[projectId]/*` page. Resolves the
  * project from the URL and bounces to /hub/home when the id is stale.
- * Navigation chrome now lives in the root `<DashboardSidebar>` — this
+ * Navigation chrome now lives in the root `<Sidebar>` — this
  * layout only gates on project existence.
  */
 

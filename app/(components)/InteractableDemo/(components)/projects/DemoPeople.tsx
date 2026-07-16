@@ -11,10 +11,10 @@
  */
 
 import { useMemo, useState } from 'react'
-import { PersonAvatar } from '@/app/hub/(components)/project/(components)/PersonAvatar'
-import { PersonEventsSheet } from '@/app/hub/(components)/project/(components)/PersonEventsSheet'
-import { PersonLastSeen } from '@/app/hub/(components)/project/(components)/PersonLastSeen'
-import { SourceIcon } from '@/app/hub/(components)/view/(components)/SourceIcon'
+import { PersonAvatar } from '@/app/hub/project/(components)/PersonAvatar'
+import { PersonEventsSheet } from '@/app/hub/project/(components)/PersonEventsSheet'
+import { PersonLastSeen } from '@/app/hub/project/(components)/PersonLastSeen'
+import { SourceIcon } from '@/app/hub/(components)/widgets/(components)/SourceIcon'
 import { CountryFlag } from '@/components/CountryFlag'
 import { SearchBar } from '@/components/SearchBar'
 import type { PersonEvent, PersonRow } from '@/lib/api'

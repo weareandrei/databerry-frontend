@@ -18,7 +18,7 @@ interface WelcomeEmptyProps {
 
 export function WelcomeEmpty({ onCreate }: WelcomeEmptyProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-24 px-6 text-center">
+    <div className="flex flex-col items-center justify-center py-24 px-3 md:px-6 text-center">
       <div className="w-12 h-12 rounded-2xl bg-white border border-stroke shadow-card flex items-center justify-center mb-5">
         <Cube size={22} weight="bold" className="text-primary" />
       </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   CaretLeft,
@@ -11,20 +12,30 @@ import {
   Plus,
   SignOut,
 } from '@phosphor-icons/react'
-import { CollapsibleSectionHeader } from '@/app/hub/(components)/Sidebar/(components)/CollapsibleSectionHeader'
+import { CollapsibleSectionHeader } from '@/app/hub/(components)/navigation/(components)/CollapsibleSectionHeader'
 import {
   AskAgentNavIcon,
   ConnectionsNavIcon,
   OverviewNavIcon,
   TimelineNavIcon,
-} from '@/app/hub/(components)/Sidebar/(components)/SidebarWorkspaceIcons'
-import { DASHBOARD_SIDEBAR_WIDTH_CLASS } from '@/app/hub/(components)/layout/DashboardSidebar'
+} from '@/app/hub/(components)/navigation/(components)/SidebarWorkspaceIcons'
+import {
+  DASHBOARD_SIDEBAR_WIDTH_CLASS,
+  SIDEBAR_MINI_WIDTH_CLASS,
+} from '@/app/hub/(components)/navigation/Sidebar'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { DATABERRY_LOGO_PATH } from '@/constants/brand'
 import { cn } from '@/lib/utils'
 import { DemoProjectSelect } from './DemoProjectSelect'
 import { useDemoContext } from './context/DemoContext'
 import type { DemoPage } from './context/DemoContext'
 
 const UNSUPPORTED = "This feature isn't available in the demo."
+
+const sidebarShellClass = cn(
+  'hidden lg:flex flex-col shrink-0 h-full',
+  'bg-gradient-to-bl from-surface to-[#F9F9FA]',
+)
 
 function CollapsibleSection({
   label,
@@ -91,6 +102,55 @@ function NavRow({
   )
 }
 
+function MiniNavTooltip({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactElement
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={children} />
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+function MiniIconButton({
+  label,
+  icon,
+  onClick,
+  active = false,
+  destructive = false,
+}: {
+  label: string
+  icon: React.ReactNode
+  onClick: () => void
+  active?: boolean
+  destructive?: boolean
+}) {
+  return (
+    <MiniNavTooltip label={label}>
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={cn(
+          'flex w-full cursor-pointer items-center justify-center rounded-lg p-2.5 transition-colors',
+          active
+            ? 'bg-hover-fill text-foreground'
+            : destructive
+              ? 'text-foreground hover:bg-hover-fill/70 hover:text-destructive'
+              : 'text-foreground hover:bg-hover-fill/70',
+        )}
+      >
+        {icon}
+      </button>
+    </MiniNavTooltip>
+  )
+}
+
 export function DemoDashboardSidebar() {
   const {
     projects,
@@ -130,14 +190,63 @@ export function DemoDashboardSidebar() {
     })
   }
 
+  // Home uses the icon-rail mini sidebar (same as hub `/hub/home`).
+  if (pageOpen === 'home') {
+    return (
+      <TooltipProvider delay={150}>
+        <aside className={cn(sidebarShellClass, SIDEBAR_MINI_WIDTH_CLASS)}>
+          <div className="flex shrink-0 items-center justify-center px-2 pt-5 pb-4">
+            <button
+              type="button"
+              aria-label="Databerry home"
+              onClick={() => goToPage('home')}
+              className="cursor-pointer"
+            >
+              <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-md border border-stroke">
+                <Image
+                  src={DATABERRY_LOGO_PATH}
+                  alt="Databerry"
+                  width={28}
+                  height={28}
+                  className="h-7 w-7 object-contain"
+                />
+              </div>
+            </button>
+          </div>
+
+          <nav className="flex flex-1 flex-col items-center gap-1 px-2 pb-4">
+            <MiniIconButton
+              label="Connections"
+              icon={<CardsThree size={20} weight="regular" />}
+              onClick={() => goToPage('connections', null)}
+            />
+          </nav>
+
+          <div className="flex shrink-0 flex-col items-center gap-1 px-2 pb-5">
+            <MiniIconButton
+              label="Settings"
+              icon={<Gear size={20} weight="regular" />}
+              onClick={() => showNotice(UNSUPPORTED)}
+            />
+            <MiniIconButton
+              label="Subscription"
+              icon={<CreditCard size={20} weight="regular" />}
+              onClick={() => showNotice(UNSUPPORTED)}
+            />
+            <MiniIconButton
+              label="Sign out"
+              icon={<SignOut size={20} weight="regular" />}
+              onClick={() => showNotice(UNSUPPORTED)}
+              destructive
+            />
+          </div>
+        </aside>
+      </TooltipProvider>
+    )
+  }
+
   return (
-    <aside
-      className={cn(
-        'hidden md:flex flex-col shrink-0 h-full',
-        DASHBOARD_SIDEBAR_WIDTH_CLASS,
-        'bg-gradient-to-bl from-surface to-[#F9F9FA]',
-      )}
-    >
+    <aside className={cn(sidebarShellClass, DASHBOARD_SIDEBAR_WIDTH_CLASS)}>
       <div className="shrink-0 px-3 pt-5 pb-4">
         <DemoProjectSelect />
       </div>
@@ -146,10 +255,7 @@ export function DemoDashboardSidebar() {
         <button
           type="button"
           onClick={() => goToPage('home')}
-          className={cn(
-            'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-subtle transition-colors hover:bg-hover-fill/70 hover:text-muted-foreground cursor-pointer',
-            pageOpen === 'home' && 'bg-hover-fill/50',
-          )}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-subtle transition-colors hover:bg-hover-fill/70 hover:text-muted-foreground cursor-pointer"
         >
           <CaretLeft size={14} weight="regular" className="shrink-0" />
           <span>All projects</span>

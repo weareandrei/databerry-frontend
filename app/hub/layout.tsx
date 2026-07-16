@@ -1,7 +1,7 @@
 import { StoreProvider } from '@/store/StoreProvider'
 import { DashboardProvider } from '@/contexts/DashboardContext'
 import { UserSettingsProvider } from '@/contexts/UserSettingsContext'
-import { DashboardSidebar } from '@/app/hub/(components)/layout/DashboardSidebar'
+import { Sidebar } from '@/app/hub/(components)/navigation/Sidebar'
 import { BillingReturnHandler } from '@/app/hub/(components)/gates/BillingReturnHandler'
 import { CreateProjectModal } from '@/app/hub/(components)/modals/CreateProjectModal'
 import { CreateFolderModal } from '@/app/hub/(components)/modals/CreateFolderModal'
@@ -25,9 +25,9 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
         <DashboardProvider>
           <UserSettingsProvider>
             <div className="dashboard flex h-screen overflow-hidden font-sans">
-              <DashboardSidebar />
+              <Sidebar />
 
-              <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden border-l border-stroke bg-white pt-[60px] md:pt-0">
+              <div className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden border-l border-stroke bg-white pt-[60px] lg:pt-0">
                 {children}
               </div>
             </div>

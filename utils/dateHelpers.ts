@@ -154,7 +154,7 @@ export function formatDateRange(start: Date, end: Date): string {
  *
  * Lives here (next to `formatDateRange`) so the date-string parsing
  * convention stays in one place. Previously this was duplicated inline
- * inside `ViewCard` as part of the MRR caption, which forced the view
+ * inside `LiveValueWidget` as part of the MRR caption, which forced the view
  * component to know about the Redux-globals date shape — directly
  * violating "low-level components don't reach into app-level state".
  */

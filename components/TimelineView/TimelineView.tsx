@@ -7,6 +7,7 @@
  */
 
 import {
+  useCallback,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -14,16 +15,43 @@ import {
   type CSSProperties,
 } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { timeFormat } from 'd3-time-format'
+import type { DateMode } from '@/types/dates'
+import { DateModeControls } from '@/components/DateModeControls'
 import { cn } from '@/lib/utils'
-import { layoutVerticalTimeline, MIN_RANGE_PX, TIMELINE_SLICE_HEIGHT } from './timelineMath'
-import { TimelineZoomControl } from './(components)/TimelineZoomControl'
-import type { TimelineViewProps } from './types'
+import {
+  bandPxForZoom,
+  layoutVerticalTimeline,
+  MIN_RANGE_PX,
+  TIMELINE_SLICE_HEIGHT,
+} from './timelineMath'
+import { TimelineAxisMark } from './(components)/TimelineAxisMark'
+import { TimelineNowMark } from './(components)/TimelineNowMark'
+import type { TimelineViewProps, TimelineViewportSize, TimelineZoom } from './types'
+
+const ZOOM_TO_MODE: Record<TimelineZoom, DateMode> = {
+  day: 'daily',
+  week: 'weekly',
+  month: 'monthly',
+}
+
+const MODE_TO_ZOOM: Record<DateMode, TimelineZoom> = {
+  daily: 'day',
+  weekly: 'week',
+  monthly: 'month',
+}
 
 const DEFAULT_NODE_WIDTH = 260
-const DEFAULT_AXIS_SIZE = 68
+const DEFAULT_AXIS_SIZE = 88
 const EST_NODE_HEIGHT = 56
 const COLUMN_GAP = 10
 const CROSS_PAD = 12
+
+const VIEWPORT_SIZE_CLASS: Record<TimelineViewportSize, string> = {
+  default: 'h-[52vh] min-h-[360px] 2xl:h-[calc(100vh_-_300px)]',
+  compact: 'h-[42vh] min-h-[280px]',
+  fill: 'h-full min-h-0',
+}
 
 export function TimelineView<T>({
   nodes,
@@ -38,9 +66,12 @@ export function TimelineView<T>({
   headerRight,
   className,
   viewportClassName,
+  viewportSize = 'default',
   style,
   nodeWidth = DEFAULT_NODE_WIDTH,
   axisSize = DEFAULT_AXIS_SIZE,
+  estNodeHeight: estNodeHeightProp,
+  timeRange,
 }: TimelineViewProps<T>) {
   const [zoomUncontrolled, setZoomUncontrolled] = useState(defaultZoom)
   const zoom = zoomProp ?? zoomUncontrolled
@@ -50,11 +81,31 @@ export function TimelineView<T>({
   }
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [focusedDay, setFocusedDay] = useState<Date | null>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const measureRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const [heights, setHeights] = useState<Map<string, number>>(new Map())
 
-  useLayoutEffect(() => setExpandedId(null), [nodes, zoom])
+  useLayoutEffect(() => {
+    setExpandedId(null)
+    setFocusedDay(null)
+  }, [nodes])
+
+  useLayoutEffect(() => setExpandedId(null), [zoom, focusedDay])
+
+  const handleDayClick = useCallback((day: Date) => {
+    const d = new Date(day)
+    d.setHours(0, 0, 0, 0)
+    setFocusedDay(d)
+    setZoom('day')
+  }, [setZoom])
+
+  const handleModeChange = useCallback((mode: DateMode) => {
+    setFocusedDay(null)
+    setZoom(MODE_TO_ZOOM[mode])
+  }, [setZoom])
+
+  const estNodeHeight = estNodeHeightProp ?? EST_NODE_HEIGHT
 
   const layout = useMemo(
     () =>
@@ -62,17 +113,35 @@ export function TimelineView<T>({
         nodeWidth,
         columnGap: COLUMN_GAP,
         crossPad: CROSS_PAD,
-        estNodeHeight: EST_NODE_HEIGHT,
-      }),
-    [nodes, zoom, heights, nodeWidth],
+        estNodeHeight,
+      }, focusedDay, timeRange),
+    [nodes, zoom, heights, nodeWidth, focusedDay, timeRange, estNodeHeight],
   )
 
-  // Measure point nodes (and compact dwell headers); range span comes from the scale.
+  const periodLabel = useMemo(() => {
+    if (focusedDay && zoom === 'day') {
+      return timeFormat('%A, %B %-d')(focusedDay)
+    }
+    if (layout.majors.length === 0) return ''
+    return layout.majors[layout.majors.length - 1].label
+  }, [focusedDay, zoom, layout.majors])
+
+  const dayCellHeights = useMemo(() => {
+    const dayTicks = layout.ticks.filter(t => t.variant === 'label' && t.at)
+    const bandPx = bandPxForZoom(zoom)
+    const heights = new Map<number, number>()
+    for (const tick of dayTicks) {
+      heights.set(tick.pos, bandPx)
+    }
+    return heights
+  }, [layout.ticks, zoom])
+
+  // Measure collapsed node chrome only — expand must not reflow the timeline.
   useLayoutEffect(() => {
     const next = new Map<string, number>()
     for (const { node, primarySpan } of layout.placed) {
       if (node.endAt != null) {
-        next.set(node.id, Math.min(primarySpan, EST_NODE_HEIGHT))
+        next.set(node.id, Math.min(primarySpan, estNodeHeight))
         continue
       }
       const el = measureRefs.current.get(node.id)
@@ -86,7 +155,7 @@ export function TimelineView<T>({
         return next
       })
     }
-  }, [layout.placed, nodes, expandedId])
+  }, [layout.placed, nodes, estNodeHeight])
 
   const sliceCount = Math.max(1, Math.ceil(layout.primarySize / TIMELINE_SLICE_HEIGHT))
 
@@ -97,11 +166,30 @@ export function TimelineView<T>({
     overscan: 1,
   })
 
-  // Scroll to newest activity when layout stabilises.
+  const userScrolledRef = useRef(false)
+
+  // Reset "user scrolled" when the dataset or zoom context changes.
+  useLayoutEffect(() => {
+    userScrolledRef.current = false
+  }, [nodes, zoom, focusedDay, timeRange?.from, timeRange?.to])
+
   useLayoutEffect(() => {
     const el = viewportRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [layout.primarySize, layout.crossSize, zoom, sliceCount])
+    if (!el) return
+    const onScroll = () => {
+      userScrolledRef.current = true
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => el.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // Jump to newest activity only when nodes/zoom/focused day change — not
+  // when height remeasurement refines layout (that was fighting user scroll).
+  useLayoutEffect(() => {
+    const el = viewportRef.current
+    if (!el || userScrolledRef.current) return
+    el.scrollTop = focusedDay ? 0 : el.scrollHeight
+  }, [nodes, zoom, focusedDay, timeRange?.from, timeRange?.to])
 
   if (!isVertical) {
     return (
@@ -112,13 +200,22 @@ export function TimelineView<T>({
   }
 
   const contentWidth = axisSize + (showSidebar ? 120 : 0) + layout.crossSize
+  const isFill = viewportSize === 'fill'
 
   return (
-    <div className={cn('space-y-3', className)} style={style}>
+    <div
+      className={cn(isFill ? 'flex min-h-0 flex-1 flex-col' : 'space-y-3', className)}
+      style={style}
+    >
       {(showZoomControl || headerLeft || headerRight) && (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-3">
-            {showZoomControl && <TimelineZoomControl zoom={zoom} onChange={setZoom} />}
+            {showZoomControl && (
+              <DateModeControls
+                value={ZOOM_TO_MODE[zoom]}
+                onChange={handleModeChange}
+              />
+            )}
             {headerLeft}
           </div>
           {headerRight}
@@ -143,7 +240,7 @@ export function TimelineView<T>({
           >
             {renderNode({
               node,
-              expanded: expandedId === node.id,
+              expanded: false,
               onToggle: () => {},
               primarySpan: EST_NODE_HEIGHT,
             })}
@@ -151,14 +248,21 @@ export function TimelineView<T>({
         ))}
       </div>
 
-      <div
-        ref={viewportRef}
-        className={cn(
-          'relative overflow-auto rounded-xl border border-stroke bg-surface',
-          'h-[52vh] min-h-[360px] 2xl:h-[calc(100vh_-_300px)]',
-          viewportClassName,
-        )}
-      >
+      <div className={cn('relative', isFill && 'flex min-h-0 flex-1 flex-col')}>
+        {periodLabel ? (
+          <div className="pointer-events-none absolute top-3 right-3 z-30">
+            <span className="text-lg font-semibold text-primary">{periodLabel}</span>
+          </div>
+        ) : null}
+        <div
+          ref={viewportRef}
+          className={cn(
+            'relative overflow-auto rounded-xl border border-stroke bg-white',
+            isFill
+              ? 'min-h-0 flex-1'
+              : (viewportClassName ?? VIEWPORT_SIZE_CLASS[viewportSize]),
+          )}
+        >
         <div
           className="relative"
           style={{
@@ -173,9 +277,6 @@ export function TimelineView<T>({
 
             const sliceTicks = layout.ticks.filter(
               t => t.pos >= sliceTop - 2 && t.pos < sliceBottom + 2,
-            )
-            const sliceMajors = layout.majors.filter(
-              m => m.pos + m.size > sliceTop && m.pos < sliceBottom,
             )
             const sliceNodes = layout.placed.filter(
               p =>
@@ -192,77 +293,84 @@ export function TimelineView<T>({
               <div
                 key={vSlice.key}
                 data-index={vSlice.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0"
+                className="absolute top-0 left-0 flex"
                 style={{
                   transform: `translateY(${vSlice.start}px)`,
                   width: contentWidth,
                   height: TIMELINE_SLICE_HEIGHT,
                 }}
               >
-                {/* Sticky axis band for this slice */}
+                {showNow && (
+                  <TimelineNowMark
+                    top={layout.nowPos! - sliceTop}
+                    axisSize={axisSize}
+                  />
+                )}
+
+                {/* Sticky time axis — flex sibling (not float) so node columns
+                    never collapse into the date rail. z-40 keeps the rail above
+                    scrolling / expanded cards. */}
                 <div
-                  className="sticky left-0 z-20 float-left bg-surface"
+                  className="sticky left-0 z-40 shrink-0 border-r border-stroke/40 bg-white"
                   style={{ width: axisSize, height: TIMELINE_SLICE_HEIGHT }}
                 >
-                  {sliceMajors.map((m, i) => (
+                  {sliceTicks.map((t, i) => {
+                    const isDayCell =
+                      zoom !== 'day' && t.variant === 'label' && t.at != null
+                    const cellHeight = isDayCell ? dayCellHeights.get(t.pos) : undefined
+
+                    return (
                     <div
-                      key={i}
-                      className="absolute right-0 left-0 flex items-start overflow-hidden border-b border-stroke/60 px-1.5 pt-1 text-[10px] font-semibold leading-tight text-muted-foreground"
-                      style={{
-                        top: m.pos - sliceTop,
-                        height: m.size,
-                      }}
-                    >
-                      <span className="line-clamp-2">{m.label}</span>
-                    </div>
-                  ))}
-                  {sliceTicks.map((t, i) => (
-                    <div
-                      key={i}
+                      key={`${t.pos}-${i}`}
                       className={cn(
-                        'absolute right-0 flex w-full items-center justify-end pr-1.5 text-[10px] tabular-nums',
-                        t.major ? 'font-semibold text-muted-foreground' : 'text-subtle',
+                        'absolute inset-x-0 overflow-hidden',
+                        !isDayCell && 'flex items-center justify-center',
                       )}
                       style={{
                         top: t.pos - sliceTop,
-                        transform: 'translateY(-50%)',
+                        height: isDayCell ? cellHeight : undefined,
+                        transform:
+                          !isDayCell && t.variant === 'label'
+                            ? 'translateY(-50%)'
+                            : undefined,
                       }}
                     >
-                      {t.label}
+                      <TimelineAxisMark
+                        tick={t}
+                        fullCell={isDayCell}
+                        onDayClick={
+                          zoom !== 'day' && t.at ? handleDayClick : undefined
+                        }
+                      />
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
+                {showSidebar ? (
+                  <div
+                    className="sticky shrink-0 border-r border-stroke/40 bg-white"
+                    style={{ width: 120, height: TIMELINE_SLICE_HEIGHT }}
+                  />
+                ) : null}
+
                 <div
-                  className="relative"
+                  className="relative shrink-0 overflow-visible"
                   style={{
-                    marginLeft: axisSize + (showSidebar ? 120 : 0),
                     width: layout.crossSize,
                     height: TIMELINE_SLICE_HEIGHT,
                   }}
                 >
-                  {sliceTicks.map((t, i) => (
+                  {sliceTicks
+                    .filter(t => t.variant === 'label')
+                    .map((t, i) => (
                     <div
                       key={i}
                       aria-hidden
-                      className={cn(
-                        'absolute right-0 left-0 h-px',
-                        t.major ? 'bg-stroke' : 'bg-stroke/40',
-                      )}
+                      className="absolute right-0 left-0 h-px bg-stroke/25"
                       style={{ top: t.pos - sliceTop }}
                     />
                   ))}
-
-                  {showNow && (
-                    <div
-                      aria-hidden
-                      className="absolute right-0 left-0 z-0 h-px bg-primary"
-                      style={{ top: layout.nowPos! - sliceTop }}
-                    >
-                      <span className="absolute -top-[3px] -left-[3px] h-[7px] w-[7px] rounded-full bg-primary" />
-                    </div>
-                  )}
 
                   {sliceNodes.map(({ node, primary, cross, primarySpan }) => {
                     const isRange = node.endAt != null
@@ -270,14 +378,14 @@ export function TimelineView<T>({
                     return (
                     <div
                       key={node.id}
-                      className="absolute"
+                      className="absolute overflow-visible"
                       style={{
                         top: primary - sliceTop,
                         left: cross,
                         width: nodeWidth,
-                        height: isRange && !isExpanded ? primarySpan : undefined,
+                        height: primarySpan,
                         minHeight: isRange ? MIN_RANGE_PX : undefined,
-                        zIndex: isExpanded ? 30 : 10,
+                        zIndex: isExpanded ? 20 : 10,
                       }}
                     >
                       {renderNode({
@@ -293,6 +401,7 @@ export function TimelineView<T>({
               </div>
             )
           })}
+        </div>
         </div>
       </div>
     </div>

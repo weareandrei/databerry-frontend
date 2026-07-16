@@ -44,7 +44,7 @@ export function ViewIllustration({
 
 function ValuePreview() {
   // Stylised "1,234" — large tabular digits in muted-foreground. Mirrors
-  // the dashboard ViewCard's `text-2xl font-semibold tabular-nums` rendering.
+  // the dashboard LiveValueWidget's `text-2xl font-semibold tabular-nums` rendering.
   return (
     <span className="text-[20px] font-semibold leading-none tabular-nums tracking-tight text-foreground/55">
       1,234
@@ -89,7 +89,7 @@ function ChartPreview() {
 function ListPreview() {
   // Three rows: a small leading dot/circle on the left + a horizontal
   // line of varying length on the right. Reads as "list of items" the
-  // way `ViewCardList` (Calendly meetings) actually renders.
+  // way `ListWidget` (Calendly meetings) actually renders.
   const rows = [
     { y: 9, w: 70 },
     { y: 20, w: 56 },

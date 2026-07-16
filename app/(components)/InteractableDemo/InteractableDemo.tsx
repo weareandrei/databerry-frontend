@@ -18,6 +18,8 @@ import { DemoHomePage } from './(components)/pages/DemoHomePage'
 import { DemoConnectionsPage } from './(components)/pages/DemoConnectionsPage'
 import { DemoProjectPageHeader } from './(components)/DemoProjectPageHeader'
 import { DemoCreateViewModal } from './(components)/DemoCreateViewModal'
+import { DemoSelectProjectHint } from './(components)/DemoSelectProjectHint'
+import { demoProjectLabel } from './(components)/demoProjectUtils'
 
 const DEMO_UNSUPPORTED_NOTICE = "This feature isn't available in the demo."
 const NOTICE_DURATION_MS = 3500
@@ -47,6 +49,7 @@ const DemoContent = () => {
     ? projects.find(p => p.id === currentProjectId) ?? null
     : null
   const [createViewOpen, setCreateViewOpen] = useState(false)
+  const [hasInteracted, setHasInteracted] = useState(false)
 
   useEffect(() => {
     if (pageOpen === 'overview' && !project) {
@@ -57,8 +60,12 @@ const DemoContent = () => {
   return (
     <div
       ref={setDialogContainer}
-      className="relative overflow-hidden rounded-lg flex h-full text-left font-sans bg-surface"
+      className="relative overflow-hidden flex h-full text-left font-sans bg-surface"
+      onPointerDownCapture={() => {
+        if (!hasInteracted) setHasInteracted(true)
+      }}
     >
+      <DemoSelectProjectHint hasInteracted={hasInteracted} />
       <div className="dashboard flex h-full w-full overflow-hidden">
         <DemoDashboardSidebar />
 
@@ -70,9 +77,9 @@ const DemoContent = () => {
               <>
                 <DemoMobileTopBar
                   variant="project"
-                  projectName={project.name}
+                  projectName={demoProjectLabel(project)}
                   projectWebsiteUrl={project.websiteUrl}
-                  onBack={() => goToPage('home')}
+                  projectLogoSrc={project.logoSrc}
                 />
                 <DemoProjectPageHeader
                   project={project}
@@ -94,7 +101,7 @@ const DemoContent = () => {
                     }
                   }}
                 />
-                <div className="flex-1 min-h-0 overflow-hidden">
+                <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
                   <DemoProjectView
                     project={project}
                     onCreateView={() => setCreateViewOpen(true)}
@@ -111,7 +118,16 @@ const DemoContent = () => {
 
             {pageOpen === 'agent' && (
               <>
-                <DemoMobileTopBar variant="page" title="Ask agent" />
+                {project ? (
+                  <DemoMobileTopBar
+                    variant="project"
+                    projectName={demoProjectLabel(project)}
+                    projectWebsiteUrl={project.websiteUrl}
+                    projectLogoSrc={project.logoSrc}
+                  />
+                ) : (
+                  <DemoMobileTopBar variant="page" title="Ask agent" />
+                )}
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   <DemoAgentBody />
                 </div>
@@ -120,15 +136,16 @@ const DemoContent = () => {
 
             {pageOpen === 'connections' && (
               <>
-                <DemoMobileTopBar
-                  variant="page"
-                  title="Connections"
-                  onBack={
-                    currentProjectId
-                      ? () => goToPage('overview', currentProjectId)
-                      : undefined
-                  }
-                />
+                {currentProjectId && project ? (
+                  <DemoMobileTopBar
+                    variant="project"
+                    projectName={demoProjectLabel(project)}
+                    projectWebsiteUrl={project.websiteUrl}
+                    projectLogoSrc={project.logoSrc}
+                  />
+                ) : (
+                  <DemoMobileTopBar variant="page" title="Connections" />
+                )}
                 <DemoConnectionsPage />
               </>
             )}

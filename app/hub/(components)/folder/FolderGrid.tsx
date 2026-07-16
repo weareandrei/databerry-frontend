@@ -1,6 +1,6 @@
 import { FolderSimplePlus } from '@phosphor-icons/react'
 import { FolderCard } from './(components)/FolderCard'
-import { ViewWrapper } from '@/app/hub/(components)/view/(components)/ViewWrapper'
+import { BaseWidget } from '@/app/hub/(components)/widgets/(components)/BaseWidget'
 import type { Folder } from '@/types/folder'
 
 interface FolderGridProps {
@@ -40,12 +40,12 @@ export function FolderGrid({
       ))}
       {onCreateFolder && (
         <button onClick={onCreateFolder} className="flex w-fit text-left cursor-pointer">
-          <ViewWrapper radius="lg" compact className="w-fit">
+          <BaseWidget radius="lg" compact className="w-fit">
             <div className="flex items-center gap-1.5 px-2.5 py-2">
               <FolderSimplePlus size={14} weight="bold" className="text-subtle shrink-0" />
               <span className="text-sm font-medium text-subtle whitespace-nowrap">New folder</span>
             </div>
-          </ViewWrapper>
+          </BaseWidget>
         </button>
       )}
     </div>

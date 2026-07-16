@@ -5,16 +5,16 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { AnimatePresence, motion } from 'framer-motion'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
-import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/(components)/ViewCardChart'
-import { ViewCardList } from '@/app/hub/(components)/view/(components)/ViewCardList'
-import { ViewCardFunnel } from '@/app/hub/(components)/view/(components)/ViewCardFunnel'
-import { ViewCardSentryIssues } from '@/app/hub/(components)/view/(components)/ViewCardSentryIssues'
+import { LiveValueWidget } from '@/app/hub/(components)/widgets/live-value/LiveValueWidget'
+import { ChartWidget } from '@/app/hub/(components)/widgets/chart/ChartWidget'
+import { ListWidget } from '@/app/hub/(components)/widgets/list/ListWidget'
+import { FunnelWidget } from '@/app/hub/(components)/widgets/funnel/FunnelWidget'
+import { SentryIssuesWidget } from '@/app/hub/(components)/widgets/sentry/SentryIssuesWidget'
 import {
   MOCK_POSTHOG_FUNNEL,
   MOCK_SENTRY_ISSUES_ACME,
 } from '@/app/(components)/InteractableDemo/(components)/demoMocks'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 import type { CalendlyMeeting } from '@/lib/api'
 
 const LOGOS = [
@@ -28,7 +28,7 @@ const LOGOS = [
   { src: '/connections/datafast_icon.png', alt: 'Datafast', comingSoon: true },
 ]
 
-function fakeView(id: string, name: string, connectionType: string, value: string | null): View {
+function fakeView(id: string, name: string, connectionType: string, value: string | null): Widget {
   return {
     id,
     name,
@@ -100,7 +100,7 @@ const GA_SESSION_POINTS = [
 function StripePreview() {
   return (
     <div style={{ height: '300px' }}>
-      <ViewCardChart
+      <ChartWidget
         view={{
           ...fakeView('s1', 'This Week Gross Volume', 'stripe_manual', '4820000'),
           type: 'stripe_gross_week',
@@ -124,7 +124,7 @@ function PostHogPreview() {
   // clips (mobile slot ≈ 316px content, desktop ≈ 396px).
   return (
     <div className="h-[300px] md:h-[390px]">
-      <ViewCardFunnel
+      <FunnelWidget
         view={{ ...fakeView('ph-funnel', 'Sign-up funnel', 'posthog', null), type: 'posthog_funnel' }}
         onUntrack={() => {}}
         onPin={() => {}}
@@ -141,7 +141,7 @@ function PostHogPreview() {
 function CalendlyPreview() {
   return (
     <div style={{ height: '300px' }}>
-      <ViewCardList
+      <ListWidget
         view={{
           ...fakeView('c1', "Today's Calls", 'calendly', null),
           type: 'calendly_meetings_list',
@@ -159,7 +159,7 @@ function GoogleAnalyticsPreview() {
   // Real GA sessions chart (amber bars) instead of flat stat tiles.
   return (
     <div style={{ height: '300px' }}>
-      <ViewCardChart
+      <ChartWidget
         view={{
           ...fakeView('ga1', 'Sessions this week', 'google_analytics', '14820'),
           type: 'ga_sessions_week',
@@ -180,7 +180,7 @@ function SentryPreview() {
   // exactly as the live view renders them.
   return (
     <div style={{ height: '340px' }}>
-      <ViewCardSentryIssues
+      <SentryIssuesWidget
         view={{
           ...fakeView('se1', 'Errors', 'sentry', null),
           type: 'sentry_issues_list',
@@ -208,7 +208,7 @@ function SimpleStatsPreview({
   return (
     <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '120px' }}>
       {stats.map(s => (
-        <ViewCard
+        <LiveValueWidget
           key={s.name}
           view={fakeView(s.name, s.name, connectionType, s.value)}
           onUntrack={() => {}}

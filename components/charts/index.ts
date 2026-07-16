@@ -4,6 +4,7 @@ export type { ECharts, EChartsOption } from './BaseChart'
 export { SimpleChart } from './SimpleChart'
 export { MixedChart } from './MixedChart'
 export { FunnelChart } from './FunnelChart'
+export { MiniMixedChart } from './MiniMixedChart'
 export type { FunnelChartProps } from './FunnelChart'
 
 export {
@@ -27,3 +28,4 @@ export type {
   MixedChartProps,
   SimpleChartProps,
 } from './types'
+export type { MiniMixedChartProps } from './MiniMixedChart'

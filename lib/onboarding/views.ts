@@ -6,10 +6,10 @@
  * and shared between the onboarding page and any future caller.
  */
 
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 import type { Connection } from '@/types/connection'
 
-export type ViewCreateBody = Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>
+export type ViewCreateBody = Omit<Widget, 'id' | 'userId' | 'createdAt' | 'isPinned'>
 
 /**
  * Connection-backed view definitions the onboarding can auto-create.

@@ -225,7 +225,7 @@ function viewOptionsForIntegration(integration: string): ViewOption[] {
 // ── The modal ───────────────────────────────────────────────────────────────
 
 export function CreateViewModal() {
-  const { views, connections, projects } = useDashboard()
+  const { widgets, connections, projects } = useDashboard()
   const [eventsStep, setEventsStep] = useState<EventsStep | null>(null)
   const [webhookStep, setWebhookStep] = useState<WebhookStep | null>(null)
   const [funnelStep, setFunnelStep] = useState<FunnelStep | null>(null)
@@ -248,14 +248,14 @@ export function CreateViewModal() {
   // Initial scope = project the modal opened from. If null (rare —
   // most paths set a project), fall back to 'all'.
   const [scope, setScope] = useState<ViewScope>(
-    views.createViewProjectId
-      ? { kind: 'project', projectId: views.createViewProjectId }
+    widgets.createViewProjectId
+      ? { kind: 'project', projectId: widgets.createViewProjectId }
       : { kind: 'all' },
   )
 
   // Project the new view should be saved to. Derived from the dropdown
   // selection; `'all'` falls back to the original opened-from project.
-  const targetProjectId = projectIdForScope(scope, views.createViewProjectId)
+  const targetProjectId = projectIdForScope(scope, widgets.createViewProjectId)
 
   // Reset scope when the modal re-opens against a different project, so
   // a user who swaps projects doesn't see stale dropdown state. Keyed
@@ -263,12 +263,12 @@ export function CreateViewModal() {
   // (Doing it here instead of `handleOpenChange(true)` keeps the
   // BottomDialog primitive unaware of "open" vs. "first open".)
   useEffect(() => {
-    if (views.createViewProjectId) {
-      setScope({ kind: 'project', projectId: views.createViewProjectId })
+    if (widgets.createViewProjectId) {
+      setScope({ kind: 'project', projectId: widgets.createViewProjectId })
     } else {
       setScope({ kind: 'all' })
     }
-  }, [views.createViewProjectId])
+  }, [widgets.createViewProjectId])
 
   const resetSubPages = () => {
     setEventsStep(null)
@@ -282,7 +282,7 @@ export function CreateViewModal() {
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      views.closeModal()
+      widgets.closeModal()
       resetSubPages()
     }
   }
@@ -317,11 +317,11 @@ export function CreateViewModal() {
   //
   // Treat the chart + sources pair as a single thing: existence of either
   // half disables the bar in the current target project.
-  const overviewAlreadyExists = views.views.some(
+  const overviewAlreadyExists = widgets.widgets.some(
     v =>
       (v.type === 'project_overview' || v.type === 'project_overview_sources') &&
       v.projectId === targetProjectId &&
-      (v.folderId ?? null) === (views.createViewFolderId ?? null),
+      (v.folderId ?? null) === (widgets.createViewFolderId ?? null),
   )
 
   // ── View creation primitives ─────────────────────────────────────────────
@@ -348,15 +348,15 @@ export function CreateViewModal() {
     trackingRef.current = true
     setTracking(true)
     try {
-      await views.createViews(
+      await widgets.createWidgets(
         list.map(b => ({
           projectId: targetProjectId!,
-          folderId: views.createViewFolderId,
+          folderId: widgets.createViewFolderId,
           ...b,
           value: null,
         })),
       )
-      views.closeModal()
+      widgets.closeModal()
       resetSubPages()
     } finally {
       trackingRef.current = false
@@ -662,10 +662,10 @@ export function CreateViewModal() {
     trackingRef.current = true
     setTracking(true)
     try {
-      await views.createViews(
+      await widgets.createWidgets(
         Array.from(selectedEvents).map(eventName => ({
           projectId: targetProjectId!,
-          folderId: views.createViewFolderId,
+          folderId: widgets.createViewFolderId,
           connectionId: eventsStep.connectionId,
           connectionType: 'posthog',
           type: 'daily_counter',
@@ -677,7 +677,7 @@ export function CreateViewModal() {
           value: null,
         })),
       )
-      views.closeModal()
+      widgets.closeModal()
       resetSubPages()
     } finally {
       trackingRef.current = false
@@ -742,10 +742,10 @@ export function CreateViewModal() {
     trackingRef.current = true
     setTracking(true)
     try {
-      await views.createViews([
+      await widgets.createWidgets([
         {
           projectId: targetProjectId!,
-          folderId: views.createViewFolderId,
+          folderId: widgets.createViewFolderId,
           connectionId: funnelStep.connectionId,
           connectionType: 'posthog',
           type: 'posthog_funnel',
@@ -757,7 +757,7 @@ export function CreateViewModal() {
           value: null,
         },
       ])
-      views.closeModal()
+      widgets.closeModal()
       resetSubPages()
     } finally {
       trackingRef.current = false
@@ -804,10 +804,10 @@ export function CreateViewModal() {
     trackingRef.current = true
     setTracking(true)
     try {
-      await views.createViews([
+      await widgets.createWidgets([
         {
           projectId: targetProjectId!,
-          folderId: views.createViewFolderId,
+          folderId: widgets.createViewFolderId,
           connectionId: retentionStep.connectionId,
           connectionType: 'posthog',
           type: 'posthog_retention',
@@ -822,7 +822,7 @@ export function CreateViewModal() {
           value: null,
         },
       ])
-      views.closeModal()
+      widgets.closeModal()
       resetSubPages()
     } finally {
       trackingRef.current = false
@@ -842,10 +842,10 @@ export function CreateViewModal() {
     trackingRef.current = true
     setTracking(true)
     try {
-      await views.createViews([
+      await widgets.createWidgets([
         {
           projectId: targetProjectId!,
-          folderId: views.createViewFolderId,
+          folderId: widgets.createViewFolderId,
           connectionId: webhookStep.connectionId,
           connectionType: 'webhook',
           type: webhookStep.viewType,
@@ -854,7 +854,7 @@ export function CreateViewModal() {
           value: null,
         },
       ])
-      views.closeModal()
+      widgets.closeModal()
       resetSubPages()
     } finally {
       trackingRef.current = false
@@ -908,7 +908,7 @@ export function CreateViewModal() {
 
   return (
     <BottomDialog
-      open={views.isModalOpen}
+      open={widgets.isModalOpen}
       onOpenChange={handleOpenChange}
       dirty={dirty}
     >
@@ -1412,7 +1412,7 @@ export function CreateViewModal() {
             // target) with a close button. Replacing `headerRight`
             // means we lose the BottomDialog default close, so we
             // render our own — same visual treatment (round white pill
-            // with X) — and route it through `views.closeModal()` so
+            // with X) — and route it through `widgets.closeModal()` so
             // the BottomDialog `onOpenChange(false)` codepath fires.
             headerRight={
               <div className="flex shrink-0 items-center gap-2">
@@ -1420,12 +1420,12 @@ export function CreateViewModal() {
                   scope={scope}
                   onScopeChange={setScope}
                   projects={projects.projects}
-                  defaultProjectId={views.createViewProjectId}
+                  defaultProjectId={widgets.createViewProjectId}
                 />
                 <button
                   type="button"
                   onClick={() => {
-                    views.closeModal()
+                    widgets.closeModal()
                     resetSubPages()
                   }}
                   className="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-stroke bg-white text-foreground shadow-pill transition-colors hover:bg-hover-fill"
@@ -1540,8 +1540,8 @@ export function CreateViewModal() {
                 <button
                   type="button"
                   onClick={() => {
-                    views.closeModal()
-                    connections.openModal(views.createViewFolderId)
+                    widgets.closeModal()
+                    connections.openModal(widgets.createViewFolderId)
                   }}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-hover-fill"
                 >

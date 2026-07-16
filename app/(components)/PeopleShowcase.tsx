@@ -26,9 +26,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { PersonAvatar } from '@/app/hub/(components)/project/(components)/PersonAvatar'
+import { PersonAvatar } from '@/app/hub/project/(components)/PersonAvatar'
 import { ConnectionIcon } from '@/app/hub/(components)/connections/(components)/ConnectionIcon'
-import { SourceIcon } from '@/app/hub/(components)/view/(components)/SourceIcon'
+import { SourceIcon } from '@/app/hub/(components)/widgets/(components)/SourceIcon'
 import { CountryFlag } from '@/components/CountryFlag'
 import { SearchBar } from '@/components/SearchBar'
 

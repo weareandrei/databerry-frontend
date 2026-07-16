@@ -54,7 +54,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { NotchBar } from '@/app/(components)/navbar'
-import { PosthogEventPickerDialog } from '@/app/hub/(components)/view/(components)/PosthogEventPickerDialog'
+import { PosthogEventPickerDialog } from '@/app/hub/(components)/widgets/(components)/PosthogEventPickerDialog'
 import {
   POSTHOG_HOSTS,
   connectPosthog,

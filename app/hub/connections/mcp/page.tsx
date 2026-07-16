@@ -65,9 +65,9 @@ export default function McpConnectionsPage() {
         }
       />
       {/* Matches the parent Connections page's body container —
-          16-px mobile padding, "no-left / 24-px right" on desktop so
+          12-px mobile padding, "no-left / 24-px right" on desktop so
           the card sits flush against the sidebar's gutter. */}
-      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:px-0 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
+      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-3 pt-3 pb-8 md:px-0 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
         <ConnectionDetailModal
           connection={selectedConnection}
           onClose={() => {

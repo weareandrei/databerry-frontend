@@ -2,6 +2,9 @@ import type { CSSProperties, ReactNode } from 'react'
 
 export type TimelineZoom = 'day' | 'week' | 'month'
 
+/** Scrollport height presets for different host wrappers (sheet vs page). */
+export type TimelineViewportSize = 'default' | 'compact' | 'fill'
+
 /**
  * Minimal node contract for the generic timeline. Domain wrappers map
  * their API models (e.g. `PersonEvent`) into this shape.
@@ -58,12 +61,23 @@ export interface TimelineViewProps<T = unknown> {
 
   className?: string
   viewportClassName?: string
+  /** Preset scrollport height; overridden by `viewportClassName` when both are set. */
+  viewportSize?: TimelineViewportSize
   style?: CSSProperties
 
   /** Fixed card width used for column packing (px). */
   nodeWidth?: number
   /** Sticky axis width when `isVertical` (px). */
   axisSize?: number
+
+  /** Estimated collapsed point-node height for layout packing (px). */
+  estNodeHeight?: number
+
+  /**
+   * When set, the axis spans this range instead of inferring from node
+   * timestamps. Useful when an outer date picker defines the period.
+   */
+  timeRange?: { from: string | Date; to: string | Date }
 }
 
 /** Props for the fetch-enabled wrapper around `TimelineView`. */
@@ -88,7 +102,14 @@ export interface PlacedTimelineNode<T> {
 
 export interface TimelineAxisTick {
   pos: number
-  label: string
+  /** Main sidebar text — foreground, 2xl. */
+  primaryLabel?: string
+  /** Secondary line below primary — primary color, xl (e.g. month abbrev). */
+  accentLabel?: string
+  /** Day start for drill-down clicks in week/month view. */
+  at?: Date
+  /** Short dash between labeled marks (e.g. 15-minute ticks in day view). */
+  variant: 'label' | 'dash'
   major: boolean
 }
 

@@ -16,9 +16,9 @@ export default function ProjectAgentChatPage() {
   const params = useParams()
   const projectId = params.projectId as string
   return (
-    // The chat card's own `mt-4/mb-4` provides the vertical margins —
-    // the page just pins the column to one viewport height.
-    <div className="flex flex-col h-[calc(100dvh-60px)] md:h-screen">
+    // Pin the chat column to one viewport height — the hub layout's
+    // main panel already carries the white background + border.
+    <div className="flex flex-col h-[calc(100dvh-60px)] bg-white md:h-screen">
       <AgentChatBody projectId={projectId} showChrome />
     </div>
   )

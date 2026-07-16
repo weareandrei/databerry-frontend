@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { ALGORITHM } from '@/lib/api'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 
 export function usePins() {
-  const [pinnedViews, setPinnedViews] = useState<View[]>([])
+  const [pinnedViews, setPinnedViews] = useState<Widget[]>([])
   const [loading, setLoading] = useState(false)
 
   const loadPinnedViews = useCallback(async () => {
@@ -44,7 +44,7 @@ export function usePins() {
    * connection — the tile then re-fetches its live value because the
    * `view.connectionId` dependency on the live-value `useEffect` changes.
    */
-  const replacePin = (updated: View) => {
+  const replacePin = (updated: Widget) => {
     setPinnedViews(prev => prev.map(v => (v.id === updated.id ? updated : v)))
   }
 

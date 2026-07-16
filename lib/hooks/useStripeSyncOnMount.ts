@@ -32,7 +32,7 @@
  * The event-based fan-out (instead of returning a `tick` from this hook
  * and threading it down) means callers don't have to plumb a new prop
  * through every view component. Tiles already pick up via
- * `useViewLiveValue`'s listener — see that hook for the receiver side.
+ * `useWidgetLiveValue`'s listener — see that hook for the receiver side.
  *
  * Safe to call on every mount: if no Stripe views exist, it does nothing.
  * Safe to call multiple times: backend throttle + idempotent upserts.
@@ -40,7 +40,7 @@
 
 import { useEffect } from 'react'
 import { ALGORITHM } from '@/lib/api'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 
 const STRIPE_CONNECTION_TYPES = new Set(['stripe', 'stripe_manual'])
 
@@ -59,7 +59,7 @@ export interface StripeRefreshEventDetail {
  * Pass the FULL view list — the hook filters internally. This avoids
  * each call site reimplementing the same Set-of-connection-ids extraction.
  */
-export function useStripeSyncOnMount(views: ReadonlyArray<View> | null | undefined): void {
+export function useStripeSyncOnMount(views: ReadonlyArray<Widget> | null | undefined): void {
   // Stable key of unique Stripe connection IDs. JSON.stringify is fine for
   // a Set of strings; the alphabetical sort ensures `[a,b]` and `[b,a]`
   // produce the same key, so a re-render with the same IDs in different
@@ -102,7 +102,7 @@ export function useStripeSyncOnMount(views: ReadonlyArray<View> | null | undefin
 }
 
 function collectStripeConnectionIds(
-  views: ReadonlyArray<View> | null | undefined,
+  views: ReadonlyArray<Widget> | null | undefined,
 ): string[] {
   if (!views || views.length === 0) return []
   const ids = new Set<string>()

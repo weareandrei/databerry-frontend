@@ -223,7 +223,7 @@ export default function ConnectionsPage() {
         - Desktop's `<SectionHeader>` (with the labelled "Add
           connection" pill in its `rightSlot`) wraps in
           `hidden md:block` so it disappears on mobile.
-      Padding mirrors the home page: balanced 16-px on mobile,
+      Padding mirrors the home page: balanced 12-px on mobile,
       desktop reverts to "no left (sidebar fills it), 24-px right".
     */
     <>
@@ -241,7 +241,7 @@ export default function ConnectionsPage() {
           </button>
         }
       />
-      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-4 pt-4 pb-8 md:pl-4 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
+      <div className="flex-1 overflow-y-auto md:overflow-visible md:flex-none px-3 pt-3 pb-8 md:pl-4 md:pt-6 md:pr-6 md:pb-8 md:max-w-[1600px] flex flex-col">
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />

@@ -21,7 +21,11 @@ import { AgentChatBody } from './AgentChatBody'
 function AgentChatRoute() {
   const searchParams = useSearchParams()
   const initialQuery = searchParams.get('q') ?? undefined
-  return <AgentChatBody initialQuery={initialQuery} showChrome />
+  return (
+    <div className="flex flex-col h-[calc(100dvh-60px)] bg-white md:h-screen">
+      <AgentChatBody initialQuery={initialQuery} showChrome />
+    </div>
+  )
 }
 
 export default function AgentChatPage() {

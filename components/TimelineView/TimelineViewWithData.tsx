@@ -2,18 +2,9 @@
 
 import { useCallback } from 'react'
 import { TimelineView } from './TimelineView'
+import { TimelineLoadingSkeleton } from './(components)/TimelineLoadingSkeleton'
 import { useTimelineNodes } from './useTimelineNodes'
 import type { TimelineViewWithDataProps } from './types'
-
-function DefaultLoading() {
-  return (
-    <div className="space-y-2.5 animate-pulse">
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="h-12 rounded-lg bg-black/[0.04]" />
-      ))}
-    </div>
-  )
-}
 
 /**
  * `TimelineView` + `useTimelineNodes` for screens that only need
@@ -39,7 +30,7 @@ export function TimelineViewWithData<T>({
   })
 
   if (loading || nodes === null) {
-    return renderLoading?.() ?? <DefaultLoading />
+    return renderLoading?.() ?? <TimelineLoadingSkeleton />
   }
 
   if (nodes.length === 0) {

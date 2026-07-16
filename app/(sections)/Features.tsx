@@ -2,10 +2,10 @@
 import { useRef, useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
-import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/(components)/ViewCardChart'
+import { LiveValueWidget } from '@/app/hub/(components)/widgets/live-value/LiveValueWidget'
+import { ChartWidget } from '@/app/hub/(components)/widgets/chart/ChartWidget'
 import { CheckCircle, ArrowRight } from '@phosphor-icons/react'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
 
 // ─── fake data helpers ────────────────────────────────────────────────────────
@@ -16,7 +16,7 @@ function fakeView(
   connectionType: string,
   value: string,
   type = 'custom',
-): View {
+): Widget {
   return {
     id,
     name,
@@ -55,10 +55,10 @@ const UPTIME_PRODUCTS = [
 function MarketingPreview() {
   return (
     <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '110px' }}>
-      <ViewCard view={fakeView('ph1', 'user_signed_up', 'posthog', '2841')} onUntrack={() => {}} />
-      <ViewCard view={fakeView('ph2', 'trial_started', 'posthog', '619')} onUntrack={() => {}} />
-      <ViewCard view={fakeView('ph3', 'conversion_rate', 'posthog', '22')} onUntrack={() => {}} />
-      <ViewCard
+      <LiveValueWidget view={fakeView('ph1', 'user_signed_up', 'posthog', '2841')} onUntrack={() => {}} />
+      <LiveValueWidget view={fakeView('ph2', 'trial_started', 'posthog', '619')} onUntrack={() => {}} />
+      <LiveValueWidget view={fakeView('ph3', 'conversion_rate', 'posthog', '22')} onUntrack={() => {}} />
+      <LiveValueWidget
         view={fakeView('ph4', 'churn_this_month', 'posthog', '14')}
         onUntrack={() => {}}
       />
@@ -70,7 +70,7 @@ function SalesPreview() {
   return (
     <div className="flex flex-col gap-3">
       <div style={{ height: '220px' }}>
-        <ViewCardChart
+        <ChartWidget
           view={{
             ...fakeView('s1', 'This Week Gross Volume', 'stripe_manual', '4820000'),
             type: 'stripe_gross_week',
@@ -83,15 +83,15 @@ function SalesPreview() {
         />
       </div>
       {/* Cards size to their natural height now (no `gridAutoRows` forcing
-          90 px) — ViewCard expects header (~50 px) + value (~50 px) +
+          90 px) — LiveValueWidget expects header (~50 px) + value (~50 px) +
           its own `px-4 pb-4` padding to all coexist, so any rigid sub-
           100 px row clips the value text against the bottom edge. */}
       <div className="grid grid-cols-2 gap-3">
-        <ViewCard
+        <LiveValueWidget
           view={fakeView('s2', 'New Customers', 'stripe_manual', '38')}
           onUntrack={() => {}}
         />
-        <ViewCard
+        <LiveValueWidget
           view={fakeView('s3', "Today's Revenue", 'stripe_manual', '284000', 'stripe_gross')}
           onUntrack={() => {}}
         />
@@ -153,19 +153,19 @@ function HistoryPreview() {
         ))}
       </div>
       <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '100px' }}>
-        <ViewCard
+        <LiveValueWidget
           view={fakeView('h1', 'Gross Volume', 'stripe_manual', '1042000', 'stripe_gross')}
           onUntrack={() => {}}
         />
-        <ViewCard
+        <LiveValueWidget
           view={fakeView('h2', 'New Customers', 'stripe_manual', '28')}
           onUntrack={() => {}}
         />
-        <ViewCard
+        <LiveValueWidget
           view={fakeView('h3', 'user_signed_up', 'posthog', '194')}
           onUntrack={() => {}}
         />
-        <ViewCard
+        <LiveValueWidget
           view={fakeView('h4', 'trial_started', 'posthog', '51')}
           onUntrack={() => {}}
         />

@@ -9,7 +9,7 @@ import {
   MIXED_CHART_BLUR,
   MIXED_CHART_EMPHASIS,
 } from './chartTheme'
-import type { ChartSeries, MixedChartProps } from './types'
+import type { MixedChartProps } from './types'
 
 function lineAreaStyle(color: string) {
   return {
@@ -40,15 +40,8 @@ export function MixedChart({
       type: 'value' as const,
     }))
 
-    const builtSeries = series.map(s => {
+    const builtSeries: EChartsOption['series'] = series.map(s => {
       if (s.type === 'bar') {
-        const emphasis = s.suppressEmphasis
-          ? { disabled: true as const }
-          : MIXED_CHART_EMPHASIS
-        const blur = s.suppressEmphasis
-          ? { disabled: true as const }
-          : MIXED_CHART_BLUR
-
         return {
           type: 'bar' as const,
           name: s.name,
@@ -61,8 +54,10 @@ export function MixedChart({
           },
           ...(s.markLine ? { markLine: s.markLine } : {}),
           ...(s.barCategoryGap != null ? { barCategoryGap: s.barCategoryGap } : {}),
-          emphasis,
-          blur,
+          // `blur` has no `disabled` flag in ECharts — omit it when suppressing.
+          ...(s.suppressEmphasis
+            ? { emphasis: { disabled: true as const } }
+            : { emphasis: MIXED_CHART_EMPHASIS, blur: MIXED_CHART_BLUR }),
         }
       }
 

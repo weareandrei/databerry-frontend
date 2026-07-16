@@ -1,4 +1,4 @@
-import { projectDisplayLabel } from '@/app/hub/(components)/project/(components)/projectViewUtils'
+import { projectDisplayLabel } from '@/app/hub/project/(components)/projectViewUtils'
 import type { DemoProject } from './context/DemoContext'
 import type { Project } from '@/types/project'
 

@@ -46,7 +46,7 @@ interface DemoCardProps {
 }
 
 const DemoCard = ({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps) => {
-  const { scale, borderRadius, sidePadding } = useDemoCardAnimation(containerRef)
+  const { scale, borderRadius } = useDemoCardAnimation(containerRef)
 
   return (
     <div
@@ -63,24 +63,21 @@ const DemoCard = ({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
             - xl+   `w-[59vw]`   (wide-screen breathing room)
             - 3xl+  `w-[72rem]`  (caps growth on huge displays; ≈1152px)
           Custom `3xl` breakpoint lives in `globals.css`. */}
-      <div className="sticky z-[20] mx-auto w-[80vw] lg:w-[70vw] xl:w-[59vw] 3xl:w-[72rem] pb-24" style={{ top: stickyTop }}>
-        {/* ── Mobile (<md): a blurred dashboard screenshot teaser with a
-            centered "See demo" button that opens the full-screen `/demo`
-            page. Wrapped in the SAME white-bordered, translucent card chrome
-            (+ "Interactable demo" badge) as the desktop card — only the
-            content differs (static image + CTA vs the live demo). Same
-            scroll-driven `scale` grow. */}
+      <div className="sticky z-[20] mx-auto w-[85vw] lg:w-[78vw] xl:w-[80vw] 3xl:w-[75rem] pb-24" style={{ top: stickyTop }}>
+        {/* ── Mobile (<md): screenshot teaser → `/demo`. Same window chrome
+            as desktop (hover-fill + p-2 → bordered frame → traffic-light
+            header); only the body differs. Same scroll-driven scale. */}
         <motion.div
           style={{ scale, borderRadius }}
-          className="md:hidden border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] origin-center"
+          className="md:hidden shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] origin-top"
         >
-          <motion.div style={{ borderRadius }} className="bg-white/35 overflow-hidden">
-            <div className="flex justify-center py-3">
-              <DemoBadge />
-            </div>
-
-            <div className="px-3 pb-3">
-              <div className="relative aspect-[424/580] w-full overflow-hidden rounded-xl">
+          <motion.div
+            style={{ borderRadius }}
+            className="bg-hover-fill p-2 overflow-hidden"
+          >
+            <div className="overflow-hidden rounded-lg border border-stroke bg-white">
+              <DemoWindowHeader />
+              <div className="relative aspect-[424/580] w-full overflow-hidden">
                 <Image
                   src="/mobile_demo_preview_2.png"
                   alt="Databerry dashboard preview"
@@ -92,8 +89,6 @@ const DemoCard = ({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
                   className="object-cover scale-105 blur-[3px]"
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-                  {/* Same "double pill" treatment as the rest of the landing
-                      page's CTAs — solid inner pill inside a translucent halo. */}
                   <span className="inline-flex items-center rounded-full bg-white/25 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
                     <Link
                       href="/demo"
@@ -109,34 +104,30 @@ const DemoCard = ({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
           </motion.div>
         </motion.div>
 
-        {/* ── Desktop (md+): the scroll-animated interactive demo. */}
+        {/* ── Desktop (md+): scroll-animated interactive demo.
+            Layers: outer `bg-hover-fill p-2` → bordered frame → mac-like
+            header + demo body. */}
         <motion.div
           ref={cardRef}
           style={{ scale, borderRadius }}
-          className="hidden md:block border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] origin-center"
+          className="hidden md:block shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] origin-top"
         >
-          {/* Inner div needs to be a motion component too: it carries the
-              `overflow-hidden` clip that crops the dashboard's square edges
-              against the card's rounded corners. If only the outer corners
-              animate, the inner clip stays rounded and the demo content
-              keeps cropped corners after the card has gone square. */}
-          <motion.div style={{ borderRadius }} className="bg-white/35 overflow-hidden">
-            <div className="flex justify-center py-3">
-              <DemoBadge />
-            </div>
+          {/* Inner motion div carries the overflow clip so rounded
+              corners stay in sync with the animated outer radius. */}
+          <motion.div
+            style={{ borderRadius }}
+            className="bg-hover-fill p-2 overflow-hidden"
+          >
+            <div className="overflow-hidden rounded-lg border border-stroke bg-white">
+              <DemoWindowHeader />
 
-            {/* Discrete fixed heights (not an aspect-ratio rule) keep the
-                card comfortably shorter than vh at every breakpoint — the
-                scroll-driven `scale` grows it to 1.15× and we need room
-                above/below without overflowing the viewport. `pt-0 pb-4`
-                keep the top/bottom insets; the left/right inset is the
-                scroll-driven `sidePadding` (16px → 0). */}
-            <motion.div
-              className="dashboard h-[443px] xl:h-[438px] 2xl:h-[490px] 3xl:h-[543px] pt-0 pb-4"
-              style={{ paddingLeft: sidePadding, paddingRight: sidePadding }}
-            >
-              <InteractableDemo />
-            </motion.div>
+              {/* Discrete fixed heights keep the card shorter than vh —
+                  scale settles at 0.9× so these heights are the layout
+                  size before the final visual scale. */}
+              <div className="dashboard h-[65vh] xl:h-[75vh] 2xl:h-[75vh] 3xl:h-[543px]">
+                <InteractableDemo />
+              </div>
+            </div>
           </motion.div>
         </motion.div>
       </div>
@@ -144,13 +135,19 @@ const DemoCard = ({ cardRef, containerRef, topOffset, stickyTop }: DemoCardProps
   )
 }
 
-const DemoBadge = () => {
+/** Mac-like traffic lights on the left, centered "Interactable demo" title. */
+const DemoWindowHeader = () => {
   return (
-    <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
-      <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
+    <header className="relative flex h-10 shrink-0 items-center border-b border-stroke px-3">
+      <div className="flex items-center gap-[6px]" aria-hidden>
+        <span className="size-[10px] rounded-full bg-[#FF5F57]" />
+        <span className="size-[10px] rounded-full bg-[#FEBC2E]" />
+        <span className="size-[10px] rounded-full bg-[#28C840]" />
+      </div>
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs font-medium text-muted-foreground">
         Interactable demo
       </span>
-    </span>
+    </header>
   )
 }
 
@@ -169,23 +166,16 @@ const useDemoCardAnimation = (containerRef: React.RefObject<HTMLDivElement | nul
     offset: ['start start', 'end end'],
   })
 
-  // Grows the card on scroll. The growth FINISHES by ~55% of the scroll and
-  // holds, so the side-padding melt (below) runs AFTER it rather than at the
-  // same time — the two were fighting (transform vs. layout) and read as a
-  // lag when overlapped. Desktop peaks at 1.15×; mobile uses a gentler curve
-  // (1.08×) so the screenshot card doesn't crowd the viewport on small screens.
-  const scaleOutput = isMobile ? [1, 1.04, 1.07, 1.08] : [1, 1.07, 1.14, 1.15]
+  // Scales UP into the settled demo size on scroll. Starts undersized at
+  // the top so the card reads as a preview under the hero, then settles
+  // at 0.9× by ~55% — the demo runs slightly under true CSS size so denser
+  // hub UI fits the landing card. Desktop starts ~0.78×; mobile is gentler.
+  const scaleOutput = isMobile ? [0.833, 0.867, 0.892, 0.9] : [0.783, 0.837, 0.892, 0.9]
   const scale = useTransform(scrollYProgress, [0, 0.2, 0.4, 0.55], scaleOutput)
   // Corners stay rounded at every scroll position. 18px = `rounded-2xl`.
   const borderRadius = useTransform(scrollYProgress, [0, 1], [18, 18])
-  // The dashboard's left/right inset melts from 16px → 0, but only AFTER the
-  // resize above has finished (it runs over [0.55, 0.9], picking up where
-  // `scale` stops). Sequencing it this way — grow first, then expand to fill
-  // — avoids running a layout animation (padding) at the same time as the
-  // transform animation (scale), which felt laggy. Desktop only.
-  const sidePadding = useTransform(scrollYProgress, [0.55, 0.9], [16, 0])
 
-  return { scale, borderRadius, sidePadding }
+  return { scale, borderRadius }
 }
 
 const useDemoLayout = (cardRef: React.RefObject<HTMLDivElement | null>) => {

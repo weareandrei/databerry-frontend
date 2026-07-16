@@ -2,7 +2,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import projectsReducer from './slices/projectsSlice'
 import foldersReducer from './slices/foldersSlice'
 import connectionsReducer from './slices/connectionsSlice'
-import viewsReducer from './slices/viewsSlice'
+import widgetsReducer from './slices/widgetsSlice'
 import uiReducer from './slices/uiSlice'
 
 export const store = configureStore({
@@ -10,7 +10,7 @@ export const store = configureStore({
     projects: projectsReducer,
     folders: foldersReducer,
     connections: connectionsReducer,
-    views: viewsReducer,
+    widgets: widgetsReducer,
     ui: uiReducer,
   },
 })

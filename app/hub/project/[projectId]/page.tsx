@@ -7,8 +7,8 @@
 
 import { SquaresFour } from '@phosphor-icons/react'
 import { useParams } from 'next/navigation'
-import { ProjectPageBody } from '@/app/hub/(components)/project/ProjectPageBody'
-import { ProjectPageShell } from '@/app/hub/(components)/project/ProjectPageShell'
+import { ProjectPageBody } from '@/app/hub/project/(components)/ProjectPageBody'
+import { ProjectPageShell } from '@/app/hub/project/(components)/ProjectPageShell'
 import { useDashboard } from '@/contexts/DashboardContext'
 
 export default function ProjectOverviewPage() {

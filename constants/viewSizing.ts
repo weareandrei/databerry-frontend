@@ -170,15 +170,17 @@ const COL_SPAN_CLASSES: Record<number, string> = {
   // 1 col always fits regardless of grid total — no downscaling.
   1: 'col-span-1',
   // 2 cols needs ≥ 2 grid cols; below @sm (1-col grid) → whole row.
-  2: 'col-span-full @sm:col-span-2',
+  // `max-md:!col-span-full` keeps phone viewports single-tile even when
+  // the @container is wide enough for @sm (no sidebar on mobile).
+  2: 'col-span-full max-md:!col-span-full @sm:col-span-2',
   // 3 cols → need a 3-col grid (@xl).
-  3: 'col-span-full @xl:col-span-3',
+  3: 'col-span-full max-md:!col-span-full @xl:col-span-3',
   // 4 cols → need a 4-col grid (@3xl).
-  4: 'col-span-full @3xl:col-span-4',
+  4: 'col-span-full max-md:!col-span-full @3xl:col-span-4',
   // 5 cols → 5-col grid (@5xl).
-  5: 'col-span-full @5xl:col-span-5',
+  5: 'col-span-full max-md:!col-span-full @5xl:col-span-5',
   // 6 cols → 6-col grid (@7xl).
-  6: 'col-span-full @7xl:col-span-6',
+  6: 'col-span-full max-md:!col-span-full @7xl:col-span-6',
 }
 
 const ROW_SPAN_CLASSES: Record<number, string> = {
@@ -217,6 +219,10 @@ export function cellSpanClasses(span: CellSpan): string {
  *   @5xl   (≥1024px)          → 5 cols
  *   @7xl   (≥1280px)          → 6 cols (large external display)
  *
+ * Phone viewports (`max-md`) force 1 column even when the container is
+ * ≥384px (mobile has no sidebar, so the body is nearly full-bleed and
+ * would otherwise pack two value tiles per row).
+ *
  * The grid must sit inside an `@container` (see `ProjectBodyViews`)
  * for the `@` variants to resolve. Past 6 cols we deliberately stop
  * scaling — the page padding grows instead of producing 150-px tiles
@@ -231,7 +237,8 @@ export function cellSpanClasses(span: CellSpan): string {
 // gaps are easier to explain than "I dropped it here but it moved."
 export const PROJECT_GRID_CONTAINER_CLASS =
   'grid gap-y-6 gap-x-4 ' +
-  'grid-cols-1 @sm:grid-cols-2 @xl:grid-cols-3 @3xl:grid-cols-4 @5xl:grid-cols-5 @7xl:grid-cols-6'
+  'grid-cols-1 max-md:!grid-cols-1 ' +
+  '@sm:grid-cols-2 @xl:grid-cols-3 @3xl:grid-cols-4 @5xl:grid-cols-5 @7xl:grid-cols-6'
 
 /** Inline style for the grid container — explicit auto-row height
  *  so multi-row tiles (charts at row-span-3 = 420 px + 2× gap) get

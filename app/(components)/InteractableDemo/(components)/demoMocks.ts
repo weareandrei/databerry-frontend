@@ -3,7 +3,7 @@
  *
  * The demo runs entirely client-side — no Supabase, no backend.
  * Everything in this file is hand-crafted to look plausible for the
- * two showcase projects ("Acme SaaS" + "Side Project") so a visitor
+ * two showcase projects ("Acme" + "Initech") so a visitor
  * scrolling the demo card sees realistic numbers across every view
  * type the real product supports.
  *
@@ -34,11 +34,23 @@ export interface DemoProject {
   id: string
   name: string
   websiteUrl?: string | null
+  /** Static logo under `/public` — preferred over favicon in the demo. */
+  logoSrc?: string | null
 }
 
 export const INITIAL_PROJECTS: DemoProject[] = [
-  { id: 'proj-acme', name: 'Acme SaaS', websiteUrl: 'https://acme.example.com' },
-  { id: 'proj-side', name: 'Side Project', websiteUrl: null },
+  {
+    id: 'proj-acme',
+    name: 'Acme',
+    websiteUrl: 'https://acme.app',
+    logoSrc: '/demo/acme_logo.png',
+  },
+  {
+    id: 'proj-side',
+    name: 'Initech',
+    websiteUrl: 'https://initech.com',
+    logoSrc: '/demo/initech_demo.png',
+  },
 ]
 
 // ─── Folders (per project) ────────────────────────────────────────────────
@@ -84,14 +96,14 @@ export interface DemoConnection {
 
 export const INITIAL_CONNECTIONS: DemoConnection[] = [
   { id: 'conn-stripe-acme', name: 'Stripe · Acme', type: 'stripe_manual', projectId: 'proj-acme' },
-  { id: 'conn-stripe-side', name: 'Stripe · Side', type: 'stripe_manual', projectId: 'proj-side' },
+  { id: 'conn-stripe-side', name: 'Stripe · Initech', type: 'stripe_manual', projectId: 'proj-side' },
   { id: 'conn-posthog-acme', name: 'PostHog · Acme', type: 'posthog', projectId: 'proj-acme' },
-  { id: 'conn-posthog-side', name: 'PostHog · Side', type: 'posthog', projectId: 'proj-side' },
+  { id: 'conn-posthog-side', name: 'PostHog · Initech', type: 'posthog', projectId: 'proj-side' },
   { id: 'conn-calendly', name: 'Calendly', type: 'calendly', projectId: null },
   { id: 'conn-ga-acme', name: 'Google Analytics · Acme', type: 'google_analytics', projectId: 'proj-acme' },
-  { id: 'conn-ga-side', name: 'Google Analytics · Side', type: 'google_analytics', projectId: 'proj-side' },
+  { id: 'conn-ga-side', name: 'Google Analytics · Initech', type: 'google_analytics', projectId: 'proj-side' },
   { id: 'conn-sentry-acme', name: 'Sentry · Acme', type: 'sentry', projectId: 'proj-acme' },
-  { id: 'conn-sentry-side', name: 'Sentry · Side', type: 'sentry', projectId: 'proj-side' },
+  { id: 'conn-sentry-side', name: 'Sentry · Initech', type: 'sentry', projectId: 'proj-side' },
 ]
 
 // ─── Demo source palette ──────────────────────────────────────────────────
@@ -148,18 +160,17 @@ function acmeBucket(label: string, organic: number, direct: number, reddit: numb
 
 const acmeChart: OverviewChartResponse = {
   buckets: [
-    acmeBucket('Mon', 540, 320, 180, 130,  70, 3.4),
-    acmeBucket('Tue', 620, 380, 220, 160,  90, 4.1),
-    acmeBucket('Wed', 700, 410, 240, 180, 100, 5.2),
-    acmeBucket('Thu', 770, 470, 270, 200, 110, 4.8),
-    acmeBucket('Fri', 920, 540, 320, 240, 130, 5.6),
-    acmeBucket('Sat', 590, 320, 180, 130,  70, 3.1),
-    acmeBucket('Sun', 530, 290, 160, 110,  60, 2.9),
+    acmeBucket('Mon', 540, 320, 180, 130,  70, 1840),
+    acmeBucket('Tue', 620, 380, 220, 160,  90, 2210),
+    acmeBucket('Wed', 700, 410, 240, 180, 100, 2680),
+    acmeBucket('Thu', 770, 470, 270, 200, 110, 2940),
+    acmeBucket('Fri', 920, 540, 320, 240, 130, 3420),
+    acmeBucket('Sat', 590, 320, 180, 130,  70, 1680),
+    acmeBucket('Sun', 530, 290, 160, 110,  60, 1520),
   ],
-  // Sums match the per-row totals so `<ViewCardOverviewChart>`'s
-  // header total reads consistent.
+  // Sums match the per-row totals so chart header totals stay consistent.
   totalPrimary:  4670 + 2730 + 1570 + 1150 + 630, // = 10750
-  totalSecondary: 4.2,
+  totalSecondary: 16290,
   trafficProvider: 'posthog',
 }
 
@@ -169,40 +180,40 @@ const sideChart: OverviewChartResponse = {
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 180 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 90 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 50 },
-    ], secondary: null },
+    ], secondary: 420 },
     { label: 'Tue', total: 410, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 220 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 130 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 60 },
-    ], secondary: null },
+    ], secondary: 580 },
     { label: 'Wed', total: 380, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 200 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 120 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 60 },
-    ], secondary: null },
+    ], secondary: 510 },
     { label: 'Thu', total: 510, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 270 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 160 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 80 },
-    ], secondary: null },
+    ], secondary: 740 },
     { label: 'Fri', total: 470, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 250 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 140 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 80 },
-    ], secondary: null },
+    ], secondary: 690 },
     { label: 'Sat', total: 290, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 160 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 90 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 40 },
-    ], secondary: null },
+    ], secondary: 310 },
     { label: 'Sun', total: 230, bySource: [
       { source: 'direct',   label: 'Direct',   color: DEMO_SOURCE_COLOR.direct, value: 130 },
       { source: 'organic',  label: 'Organic',  color: DEMO_SOURCE_COLOR.organic, value: 70 },
       { source: 'reddit',   label: 'Reddit',   color: DEMO_SOURCE_COLOR.reddit, value: 30 },
-    ], secondary: null },
+    ], secondary: 240 },
   ],
   totalPrimary: 2610,
-  totalSecondary: null,
+  totalSecondary: 3490,
   trafficProvider: 'posthog',
 }
 

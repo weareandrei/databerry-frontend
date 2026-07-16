@@ -7,7 +7,7 @@ export function formatCents(cents: number): string {
 // Add new currency tiles here (see also `MONEY_TYPES` in chart components).
 //
 // `stripe_gross` is now polymorphic on `config.displayMode`: chart mode is
-// rendered by `<ViewCardChart>` (its own formatter), value mode flows through
+// rendered by `<ChartWidget>` (its own formatter), value mode flows through
 // here. Including it in MONEY_TYPES is safe — chart mode never hits this
 // path because chart cards don't use `formatViewValue`.
 const MONEY_TYPES = [

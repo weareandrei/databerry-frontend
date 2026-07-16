@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { ViewWrapper } from '@/app/hub/(components)/view/(components)/ViewWrapper'
+import { BaseWidget } from '@/app/hub/(components)/widgets/(components)/BaseWidget'
 import { RenameFolderDialog } from './RenameFolderDialog'
 import type { Folder as FolderType } from '@/types/folder'
 
@@ -48,7 +48,7 @@ export function FolderCard({
 
   return (
     <>
-      <ViewWrapper radius="lg" compact className="w-fit">
+      <BaseWidget radius="lg" compact className="w-fit">
         <div className="flex items-center justify-between gap-1.5 px-2.5 py-2">
           <button
             onClick={() => onClick?.(folder.id)}
@@ -87,7 +87,7 @@ export function FolderCard({
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-      </ViewWrapper>
+      </BaseWidget>
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

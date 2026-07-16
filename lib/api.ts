@@ -3,7 +3,7 @@ import { reportServerReachable, reportServerUnreachable } from '@/lib/serverHeal
 import type { Project } from '@/types/project'
 import type { Folder } from '@/types/folder'
 import type { Connection } from '@/types/connection'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 
 export interface WebhookKey {
   id: string
@@ -235,7 +235,7 @@ function isReauthBody(body: unknown): body is IntegrationReauthBody {
  * (or ownership transferred) while the view tile was still alive.
  *
  * Distinct from `IntegrationReauthError` (the *credentials* are stale but
- * the connection row exists). Routed by `ViewCard` to the centred
+ * the connection row exists). Routed by `LiveValueWidget` to the centred
  * `ReassignConnectionDialog` instead of the OAuth-restart banner —
  * reconnecting the integration would be a wrong fix here, since the
  * connection itself is gone; the user needs to point this view at a
@@ -328,7 +328,7 @@ async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> 
       throw new IntegrationReauthError(body.integration, body.connectionId, body.detail)
     }
     // Structured "your connection FK is dangling" signal from backend
-    // `ConnectionMissingException`. Routed by `ViewCard` to the
+    // `ConnectionMissingException`. Routed by `LiveValueWidget` to the
     // reassign-connection dialog so the user can pick a fresh connection
     // for this view without nuking + recreating it.
     if (res.status === 410 && isConnectionMissingBody(body)) {
@@ -553,7 +553,7 @@ export const ALGORITHM = {
   /**
    * Time-series for `ga_users_today` / `ga_sessions_today` /
    * `ga_pageviews_today` views in chart mode (`config.displayMode === 'chart'`).
-   * Wire shape matches `getStripeManualChartData` so `<ViewCardChart>`
+   * Wire shape matches `getStripeManualChartData` so `<ChartWidget>`
    * accepts both interchangeably.
    */
   getGoogleAnalyticsChartData: (
@@ -701,17 +701,17 @@ export const ALGORITHM = {
 
   // ── Views ─────────────────────────────────────────────────────────────────
 
-  getViewsByFolder: (folderId: string, dateFrom?: string, dateTo?: string) =>
-    apiFetch<View[]>(
+  getWidgetsByFolder: (folderId: string, dateFrom?: string, dateTo?: string) =>
+    apiFetch<Widget[]>(
       `/views?folderId=${folderId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
   getViewsByProject: (projectId: string, dateFrom?: string, dateTo?: string) =>
-    apiFetch<View[]>(
+    apiFetch<Widget[]>(
       `/views?projectId=${projectId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}`,
     ),
 
-  getPinnedViews: () => apiFetch<View[]>('/views/pinned'),
+  getPinnedViews: () => apiFetch<Widget[]>('/views/pinned'),
 
   /**
    * Total view count for the authenticated user, across all their
@@ -731,7 +731,7 @@ export const ALGORITHM = {
    * sequence is sent — the backend rewrites every view's `position` to
    * match its index in the array. 204 No Content on success.
    */
-  reorderViews: (
+  reorderWidgets: (
     projectId: string,
     folderId: string | null,
     orderedViewIds: string[],
@@ -755,7 +755,7 @@ export const ALGORITHM = {
   /**
    * Time-series for a `daily_counter` view in chart mode
    * (`config.displayMode === 'chart'`). Same wire shape as the
-   * Stripe + GA chart endpoints — `<ViewCardChart>` reads any of them.
+   * Stripe + GA chart endpoints — `<ChartWidget>` reads any of them.
    */
   getPosthogChartData: (
     connectionId: string,
@@ -824,14 +824,14 @@ export const ALGORITHM = {
       `/posthog/views/users?connectionId=${connectionId}&viewId=${viewId}${dateFrom ? `&dateFrom=${dateFrom}&dateTo=${dateTo ?? dateFrom}` : ''}${tzParam(tz)}`,
     ),
 
-  createView: (body: Omit<View, 'id' | 'userId' | 'createdAt' | 'isPinned'>) =>
-    apiFetch<View>('/views', { method: 'POST', body: JSON.stringify(body) }),
+  createView: (body: Omit<Widget, 'id' | 'userId' | 'createdAt' | 'isPinned'>) =>
+    apiFetch<Widget>('/views', { method: 'POST', body: JSON.stringify(body) }),
 
   updateView: (
     viewId: string,
     body: { config?: Record<string, unknown>; name?: string; connectionId?: string | null },
   ) =>
-    apiFetch<View>(`/views/${viewId}`, {
+    apiFetch<Widget>(`/views/${viewId}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     }),

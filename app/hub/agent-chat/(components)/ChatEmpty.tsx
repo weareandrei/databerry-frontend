@@ -104,7 +104,7 @@ export function ChatEmpty({
       className={
         compact
           ? 'w-full flex flex-col items-center'
-          : 'flex-1 min-h-0 flex flex-col items-center justify-center px-6 py-10'
+          : 'flex-1 min-h-0 flex flex-col items-center justify-center px-3 py-10 md:px-6'
       }
     >
       <div className="w-full max-w-2xl flex flex-col items-center">

@@ -2,12 +2,12 @@
  * Seed view data for the two showcase projects on the demo dashboard.
  *
  * Each `DemoView` is a discriminated union by `kind`:
- *   - 'value'             → single number → `<ViewCard>`
- *   - 'chart'             → bar chart → `<ViewCardChart>`
- *   - 'meetings'          → Calendly list → `<ViewCardList>`
- *   - 'customers'         → Stripe top customers → `<ViewCardCustomerList>`
- *   - 'funnel'            → PostHog funnel → `<ViewCardFunnel>`
- *   - 'sentry-issues'     → Sentry errors list → `<ViewCardSentryIssues>`
+ *   - 'value'             → single number → `<LiveValueWidget>`
+ *   - 'chart'             → bar chart → `<ChartWidget>`
+ *   - 'meetings'          → Calendly list → `<ListWidget>`
+ *   - 'customers'         → Stripe top customers → `<CustomerListWidget>`
+ *   - 'funnel'            → PostHog funnel → `<FunnelWidget>`
+ *   - 'sentry-issues'     → Sentry errors list → `<SentryIssuesWidget>`
  *   - 'overview-chart'    → composite project overview chart
  *   - 'overview-sources'  → composite project overview sources/users
  *
@@ -21,10 +21,9 @@
  *     tile, not a wide chart), 1 PostHog event, 1 GA tile. NO folders
  *     on Side — every tile lives directly under the project header.
  *
- * Pinned set: MRR (in Acme/Revenue) + Pageviews (Side) — small pinned
- * row at the top of the demo home page. Calendly was previously
- * pinned but flipped off because the meetings list reads visually
- * heavier than other tiles and crowded the row.
+ * Pinned set (home pinned strip): Acme MRR + signups + sessions;
+ * Initech Pageviews + Gross + Users — a few compact value tiles
+ * so the home page shows a real pin lane like the hub.
  */
 
 import {
@@ -39,7 +38,7 @@ import {
 import type {
   SentryIssuesPeriod,
   SentryIssuesSort,
-} from '@/app/hub/(components)/view/data/useSentryIssues'
+} from '@/app/hub/(components)/widgets/data/useSentryIssues'
 import type {
   CalendlyMeeting,
   PosthogFunnelStep,
@@ -100,14 +99,14 @@ export type DemoView =
        * Frozen mock list — real mode pulls live from
        * `/sentry/views/issues-list`, but the demo runs offline so
        * the rows are baked in. Same shape (`SentryIssue[]`) the real
-       * fetcher returns, so `<ViewCardSentryIssues>` consumes it
+       * fetcher returns, so `<SentryIssuesWidget>` consumes it
        * without a special demo-only branch.
        */
       mockIssues: SentryIssue[]
       /**
        * Seed values for the in-card filter dropdowns. The dropdowns
        * still work in demo mode — they update local component state
-       * inside `<ViewCardSentryIssues>` — but the underlying mock
+       * inside `<SentryIssuesWidget>` — but the underlying mock
        * list doesn't actually re-filter, so picking a different
        * period/sort changes the badge label only. Acceptable for the
        * demo's purpose (showing that filters EXIST); a "real" demo
@@ -207,7 +206,7 @@ export const INITIAL_VIEWS: DemoView[] = [
     folderId: 'fld-acme-marketing',
     connectionId: 'conn-posthog-acme',
     connectionType: 'posthog',
-    pinned: false,
+    pinned: true,
     mockValue: '2841',
   },
   {
@@ -245,7 +244,7 @@ export const INITIAL_VIEWS: DemoView[] = [
     folderId: 'fld-acme-marketing',
     connectionId: 'conn-ga-acme',
     connectionType: 'google_analytics',
-    pinned: false,
+    pinned: true,
     mockValue: '14820',
     viewType: 'ga_sessions_today',
   },
@@ -326,7 +325,7 @@ export const INITIAL_VIEWS: DemoView[] = [
     folderId: 'fld-side-root',
     connectionId: 'conn-stripe-side',
     connectionType: 'stripe_manual',
-    pinned: false,
+    pinned: true,
     mockValue: String(MOCK_STRIPE_GROSS['proj-side']!.chartTotal),
     viewType: 'stripe_gross_week',
   },
@@ -354,7 +353,7 @@ export const INITIAL_VIEWS: DemoView[] = [
     folderId: 'fld-side-root',
     connectionId: 'conn-ga-side',
     connectionType: 'google_analytics',
-    pinned: false,
+    pinned: true,
     mockValue: '2104',
     viewType: 'ga_users_today',
   },

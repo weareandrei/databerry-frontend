@@ -63,7 +63,7 @@ const INTEGRATIONS: IntegrationCard[] = [
   { id: 'gmail', name: 'Gmail', description: 'Emails & threads', disabled: true, badge: 'In development' },
 ]
 
-type View =
+type ConnectionModalScreen =
   | 'list'
   | 'posthog-form'
   | 'posthog-project-select'
@@ -307,7 +307,7 @@ export function CreateConnectionModal() {
   const { connections, projects: projectsCtx } = useDashboard()
   const { enforceConnectionLimit } = usePlanLimits()
   const router = useRouter()
-  const [view, setView] = useState<View>('list')
+  const [view, setView] = useState<ConnectionModalScreen>('list')
   const [projectId, setProjectId] = useState<string | null>(null)
   const [webhookCreated, setWebhookCreated] = useState<WebhookCreatedInfo | null>(null)
 

@@ -2,7 +2,7 @@
 
 /**
  * Demo project view — mirror of the real `<ProjectView>`
- * (`app/hub/(components)/project/ProjectView.tsx`), scaled to the demo
+ * (`app/hub/project/(components)/ProjectView.tsx`), scaled to the demo
  * card's footprint.
  *
  * DESKTOP renders the same four individually-carded sections the real
@@ -14,7 +14,7 @@
  *   3. People — the project's cross-platform end-users (`<DemoPeople>`),
  *      root only.
  *   4. Everything else — the uniform tile grid of all other views
- *      (funnel + every `<DemoViewCard>`).
+ *      (funnel + every `<DemoLiveValueWidget>`).
  *
  * Project identity + the ⋮ (rename / delete) + "Create view" live in
  * `<DemoProjectSidebar>` on desktop — so the body renders header-less,
@@ -32,12 +32,12 @@ import { useMemo, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CaretLeft } from '@phosphor-icons/react'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
-import { ViewCardOverviewChart } from '@/app/hub/(components)/view/(components)/ViewCardOverviewChart'
-import { ViewCardOverviewSources } from '@/app/hub/(components)/view/(components)/ViewCardOverviewSources'
-import { ViewCardFunnel } from '@/app/hub/(components)/view/(components)/ViewCardFunnel'
+import { OverviewChartWidget } from '@/app/hub/(components)/widgets/overview/OverviewChartWidget'
+import { OverviewSourcesWidget } from '@/app/hub/(components)/widgets/overview/OverviewSourcesWidget'
+import { FunnelWidget } from '@/app/hub/(components)/widgets/funnel/FunnelWidget'
 import { buildOverviewChart, DEMO_POSTHOG_EVENTS, useDemoContext } from '../context/DemoContext'
 import type { DemoProject, DemoView } from '../context/DemoContext'
-import { DemoViewCard } from '../DemoViewCard'
+import { DemoLiveValueWidget } from '../DemoLiveValueWidget'
 import { DemoPeople } from './DemoPeople'
 import {
   // `MOCK_OVERVIEW_CHARTS` is the static (non-date-aware) snapshot
@@ -51,23 +51,22 @@ import {
   MOCK_OVERVIEW_COUNTRIES,
 } from '../demoMocks'
 import type { Folder as RealFolder } from '@/types/folder'
-import type { View as RealView } from '@/types/view'
+import type { Widget as RealWidget } from '@/types/widget'
 import type {
   ConnectionMetricRef,
   OverviewPrimaryMetric,
   OverviewSecondaryMetric,
   ProjectOverviewChartConfig,
-} from '@/types/view'
-import { ProjectScrollBody } from '@/app/hub/(components)/project/(components)/ProjectScrollBody'
+} from '@/types/widget'
+import { ProjectScrollBody } from '@/app/hub/project/(components)/ProjectScrollBody'
+import { BaseView } from '@/app/hub/(components)/views/(components)/BaseView'
+import { ViewBody } from '@/app/hub/(components)/views/(components)/ViewBody'
+import { ViewWrapper } from '@/app/hub/(components)/views/ViewWrapper'
 import {
   PROJECT_OVERVIEW_CHART_PANE,
   PROJECT_OVERVIEW_LAYOUT_GRID,
   PROJECT_OVERVIEW_SOURCES_PANE,
-  PROJECT_VIEW_SURFACE_WRAP,
-} from '@/app/hub/(components)/project/(components)/projectViewUtils'
-
-/** Shared card chrome — matches the real `<ProjectView>`'s `PROJECT_VIEW_CARD`. */
-const CARD = 'bg-white rounded-2xl border border-stroke shadow-card'
+} from '@/app/hub/project/(components)/projectViewUtils'
 
 interface DemoProjectViewProps {
   project: DemoProject
@@ -86,11 +85,11 @@ function toRealFolder(f: { id: string; name: string; projectId: string; parentId
   }
 }
 
-// Build a `RealView` shell for the overview composite tiles. The
-// shared `<ViewCardOverviewChart>` reads `view.id` / `view.projectId`
+// Build a `RealWidget` shell for the overview composite tiles. The
+// shared `<OverviewChartWidget>` reads `view.id` / `view.projectId`
 // + uses `view.config` for initial metric — we pass the metric
 // explicitly via props so config can stay empty.
-function toRealOverviewView(v: DemoView): RealView {
+function toRealOverviewView(v: DemoView): RealWidget {
   return {
     id: v.id,
     name: v.name,
@@ -245,7 +244,7 @@ export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps)
   // The composite chart tile, shared by both layouts (built once).
   const compositeChart =
     !currentFolderId && overviewChart && mockChart ? (
-      <ViewCardOverviewChart
+      <OverviewChartWidget
         view={toRealOverviewView(overviewChart)}
         dateFrom={globalDate.from}
         dateTo={globalDate.to}
@@ -269,7 +268,7 @@ export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps)
     ) : null
   const compositeSources =
     !currentFolderId && overviewSources ? (
-      <ViewCardOverviewSources
+      <OverviewSourcesWidget
         view={toRealOverviewView(overviewSources)}
         dateFrom={globalDate.from}
         dateTo={globalDate.to}
@@ -293,7 +292,7 @@ export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps)
   // The funnel tile, shared by both layouts (built once). Root only.
   const funnelTile =
     !currentFolderId && funnel && funnel.kind === 'funnel' ? (
-      <ViewCardFunnel
+      <FunnelWidget
         view={{
           id: funnel.id,
           name: funnel.name,
@@ -315,14 +314,14 @@ export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps)
         onPin={() => togglePin(funnel.id)}
         isPinned={funnel.pinned}
         // `dense` activates the demo-specific row-span + min-height
-        // bump inside ViewCardFunnel + HorizontalFunnelChart.
+        // bump inside FunnelWidget + HorizontalFunnelChart.
         dense
       />
     ) : null
 
   return (
     <ProjectScrollBody onCreateView={onCreateView}>
-      <div className={PROJECT_VIEW_SURFACE_WRAP}>
+      <ViewWrapper>
         <div className="flex flex-col gap-3">
           {currentFolder && (
             <Button
@@ -344,10 +343,10 @@ export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps)
             onFolderClick={id => setCurrentFolderId(id)}
           />
         </div>
-      </div>
+      </ViewWrapper>
 
       {compositeChart && (
-        <div className={PROJECT_VIEW_SURFACE_WRAP}>
+        <ViewWrapper>
           <div className={PROJECT_OVERVIEW_LAYOUT_GRID}>
             <div className={PROJECT_OVERVIEW_CHART_PANE}>
               <div className="flex min-h-0 flex-1 flex-col">{compositeChart}</div>
@@ -358,43 +357,54 @@ export function DemoProjectView({ project, onCreateView }: DemoProjectViewProps)
               </div>
             )}
           </div>
-        </div>
+        </ViewWrapper>
       )}
 
       {!currentFolderId && (
-        <div id="project-timeline" className={PROJECT_VIEW_SURFACE_WRAP}>
-          <section className={`${CARD} p-5`}>
-            <DemoPeople />
-          </section>
-        </div>
+        <ViewWrapper id="project-timeline">
+          <BaseView
+            body={
+              <ViewBody>
+                <DemoPeople />
+              </ViewBody>
+            }
+          />
+        </ViewWrapper>
       )}
 
-      <div className={PROJECT_VIEW_SURFACE_WRAP}>
-        <section className={`${CARD} p-5`}>
-          {regularViews.length > 0 || funnelTile ? (
-            <div
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
-              style={{ gridAutoRows: '110px' }}
-            >
-              {funnelTile}
-              {regularViews.map(v => (
-                <DemoViewCard
-                  key={v.id}
-                  view={v}
-                  onUntrack={() => deleteView(v.id)}
-                  onPin={() => togglePin(v.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs text-muted-foreground py-6">
-              {currentFolderId
-                ? 'No views in this folder yet.'
-                : 'No other views yet. Use “Create view” in the header to add one.'}
-            </p>
-          )}
-        </section>
-      </div>
+      <ViewWrapper>
+        <BaseView
+          body={
+            <ViewBody>
+              {regularViews.length > 0 || funnelTile ? (
+                // Mobile: flex column so widget `col-span-*` can't spawn
+                // implicit grid tracks and pack 2+ tiles per row. md+
+                // keeps the multi-col tile grid (spans apply there).
+                <div
+                  className="flex flex-col gap-3 md:grid md:grid-cols-2 lg:grid-cols-3"
+                  style={{ gridAutoRows: '110px' }}
+                >
+                  {funnelTile}
+                  {regularViews.map(v => (
+                    <DemoLiveValueWidget
+                      key={v.id}
+                      view={v}
+                      onUntrack={() => deleteView(v.id)}
+                      onPin={() => togglePin(v.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <p className="py-6 text-xs text-muted-foreground">
+                  {currentFolderId
+                    ? 'No views in this folder yet.'
+                    : 'No other views yet. Use “Create view” in the header to add one.'}
+                </p>
+              )}
+            </ViewBody>
+          }
+        />
+      </ViewWrapper>
     </ProjectScrollBody>
   )
 }

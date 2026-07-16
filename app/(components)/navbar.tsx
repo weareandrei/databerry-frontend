@@ -173,10 +173,10 @@ const Navbar = () => {
           <Link href="/" className="flex items-center gap-2 md:gap-1.5 mx-auto md:mx-0">
             <Image src={DATABERRY_LOGO_PATH} alt="Databerry" width={24} height={24} className="md:w-[28px] md:h-[28px] rounded-md" />
             <span
-              className="text-lg md:text-[28px] font-bold text-secondary"
+              className="text-lg md:text-[20px] font-bold text-secondary"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '-0.01em' }}
             >
-              DataBerry
+              databerry
             </span>
           </Link>
 

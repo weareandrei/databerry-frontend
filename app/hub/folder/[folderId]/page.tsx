@@ -7,7 +7,7 @@
  *
  * Per-view fetching lives in `app/hub/(components)/view/data/`. The wide
  * PostHog cards come from
- * `app/hub/(components)/view/renderers/WidePosthogViewRenderer.tsx`.
+ * `app/hub/(components)/view/renderers/WidePosthogWidgetRenderer.tsx`.
  *
  * Historical (non-today) date semantics:
  *   - Live-only views (Stripe live-value, Calendly meetings,
@@ -29,16 +29,16 @@ import { usePlanLimits } from '@/hooks/usePlanLimits'
 import type { RootState } from '@/store'
 import { ALGORITHM } from '@/lib/api'
 import { FolderGrid } from '@/app/hub/(components)/folder/FolderGrid'
-import { ViewCard } from '@/app/hub/(components)/view/(components)/ViewCard'
-import { ViewCardChart } from '@/app/hub/(components)/view/(components)/ViewCardChart'
-import { ViewCardList } from '@/app/hub/(components)/view/(components)/ViewCardList'
-import { ViewCardCustomerList } from '@/app/hub/(components)/view/(components)/ViewCardCustomerList'
-import { ViewCardOverviewChartConnected } from '@/app/hub/(components)/view/(components)/ViewCardOverviewChartConnected'
-import { ViewCardOverviewSourcesConnected } from '@/app/hub/(components)/view/(components)/ViewCardOverviewSourcesConnected'
+import { LiveValueWidget } from '@/app/hub/(components)/widgets/live-value/LiveValueWidget'
+import { ChartWidget } from '@/app/hub/(components)/widgets/chart/ChartWidget'
+import { ListWidget } from '@/app/hub/(components)/widgets/list/ListWidget'
+import { CustomerListWidget } from '@/app/hub/(components)/widgets/customers/CustomerListWidget'
+import { OverviewChartWidgetConnected } from '@/app/hub/(components)/widgets/overview/OverviewChartWidgetConnected'
+import { OverviewSourcesWidgetConnected } from '@/app/hub/(components)/widgets/overview/OverviewSourcesWidgetConnected'
 import {
-  WidePosthogViewRenderer,
+  WidePosthogWidgetRenderer,
   isWidePosthogView,
-} from '@/app/hub/(components)/view/renderers/WidePosthogViewRenderer'
+} from '@/app/hub/(components)/widgets/renderers/WidePosthogWidgetRenderer'
 import {
   isGAChartView,
   isPosthogChartView,
@@ -48,19 +48,19 @@ import {
   usePosthogChart,
   useStripeChart,
   useStripeTopCustomers,
-  useViewLiveValue,
-} from '@/app/hub/(components)/view/data'
+  useWidgetLiveValue,
+} from '@/app/hub/(components)/widgets/data'
 import { useStripeSyncOnMount } from '@/lib/hooks/useStripeSyncOnMount'
 import { Button } from '@/components/ui/button'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 import { toDateStr, isSameDay, addDays, formatDateLabel } from '@/utils/dateHelpers'
 
 // ── View dispatch helpers ──────────────────────────────────────────────────
 
-function isCalendlyMeetingsListView(view: View): boolean {
+function isCalendlyMeetingsListView(view: Widget): boolean {
   return view.connectionType === 'calendly' && view.type === 'calendly_meetings_list'
 }
-function isStripeTopCustomersView(view: View): boolean {
+function isStripeTopCustomersView(view: Widget): boolean {
   return (
     (view.connectionType === 'stripe_manual' || view.connectionType === 'stripe') &&
     view.type === 'stripe_top_customers'
@@ -69,8 +69,8 @@ function isStripeTopCustomersView(view: View): boolean {
 
 // ── Per-view dispatch ──────────────────────────────────────────────────────
 
-interface ViewCardRouterProps {
-  view: View
+interface LiveValueWidgetRouterProps {
+  view: Widget
   historical: boolean
   selectedDate: Date
   /** User's currently-selected timezone (page reads it once from Redux
@@ -78,22 +78,22 @@ interface ViewCardRouterProps {
    *  bucketing matches the rest of the app. */
   tz: string | null
   onUntrack: (id: string) => void
-  onConnectionAssigned?: (updated: View) => void
+  onConnectionAssigned?: (updated: Widget) => void
 }
 
-function ViewCardRouter({
+function LiveValueWidgetRouter({
   view,
   historical,
   selectedDate,
   tz,
   onUntrack,
   onConnectionAssigned,
-}: ViewCardRouterProps) {
+}: LiveValueWidgetRouterProps) {
   // Folder-page hooks always run with API defaults (no explicit dateFrom/
   // dateTo); the date picker is local to this page, not global. When
   // `historical` is true we skip-fetch via `enabled: false` so the cards
   // show their "Live data only" empty state.
-  const live = useViewLiveValue(view, { enabled: !historical, tz })
+  const live = useWidgetLiveValue(view, { enabled: !historical, tz })
   const stripeChart = useStripeChart(view, { enabled: !historical, tz })
   const gaChart = useGAChart(view, { enabled: !historical, tz })
   const posthogChart = usePosthogChart(view, { enabled: !historical, tz })
@@ -110,7 +110,7 @@ function ViewCardRouter({
   if (view.type === 'project_overview') {
     const dateStr = toDateStr(selectedDate)
     return (
-      <ViewCardOverviewChartConnected
+      <OverviewChartWidgetConnected
         view={view}
         dateFrom={dateStr}
         dateTo={dateStr}
@@ -122,7 +122,7 @@ function ViewCardRouter({
   if (view.type === 'project_overview_sources') {
     const dateStr = toDateStr(selectedDate)
     return (
-      <ViewCardOverviewSourcesConnected
+      <OverviewSourcesWidgetConnected
         view={view}
         dateFrom={dateStr}
         dateTo={dateStr}
@@ -138,7 +138,7 @@ function ViewCardRouter({
     // always fetches against whatever range we hand it.
     const dateStr = toDateStr(selectedDate)
     return (
-      <WidePosthogViewRenderer
+      <WidePosthogWidgetRenderer
         view={view}
         dateFrom={dateStr}
         dateTo={dateStr}
@@ -150,7 +150,7 @@ function ViewCardRouter({
 
   if (isStripeChartView(view)) {
     return (
-      <ViewCardChart
+      <ChartWidget
         view={view}
         onUntrack={onUntrack}
         historical={historical}
@@ -166,7 +166,7 @@ function ViewCardRouter({
   }
   if (isGAChartView(view)) {
     return (
-      <ViewCardChart
+      <ChartWidget
         view={view}
         onUntrack={onUntrack}
         historical={historical}
@@ -182,7 +182,7 @@ function ViewCardRouter({
   }
   if (isPosthogChartView(view)) {
     return (
-      <ViewCardChart
+      <ChartWidget
         view={view}
         onUntrack={onUntrack}
         historical={historical}
@@ -198,7 +198,7 @@ function ViewCardRouter({
   }
   if (isStripeTopCustomersView(view)) {
     return (
-      <ViewCardCustomerList
+      <CustomerListWidget
         view={view}
         onUntrack={onUntrack}
         historical={historical}
@@ -213,7 +213,7 @@ function ViewCardRouter({
   }
   if (isCalendlyMeetingsListView(view)) {
     return (
-      <ViewCardList
+      <ListWidget
         view={view}
         onUntrack={onUntrack}
         historical={historical}
@@ -227,7 +227,7 @@ function ViewCardRouter({
     )
   }
   return (
-    <ViewCard
+    <LiveValueWidget
       view={view}
       onUntrack={onUntrack}
       liveValue={live.liveValue}
@@ -243,27 +243,27 @@ function ViewCardRouter({
 // ── Folder-level state hook ────────────────────────────────────────────────
 
 function useFolderPage(folderId: string) {
-  const { folders: foldersCtx, views: viewsCtx } = useDashboard()
+  const { folders: foldersCtx, widgets: widgetsCtx } = useDashboard()
   const folder = foldersCtx.folders.find(f => f.id === folderId)
   const subFolders = foldersCtx.getChildFolders(folderId)
-  const todayViews = viewsCtx.getViewsByFolder(folderId)
+  const todayViews = widgetsCtx.getWidgetsByFolder(folderId)
 
   const [selectedDate, setSelectedDate] = useState<Date>(() => new Date())
-  const [historicalViews, setHistoricalViews] = useState<View[] | null>(null)
+  const [historicalViews, setHistoricalViews] = useState<Widget[] | null>(null)
   const [loadingHistorical, setLoadingHistorical] = useState(false)
 
   const isToday = isSameDay(selectedDate, new Date())
   const folderViews = isToday ? todayViews : (historicalViews ?? [])
 
   useEffect(() => {
-    viewsCtx.loadViewsForFolder(folderId)
+    widgetsCtx.loadWidgetsForFolder(folderId)
   }, [folderId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadHistorical = useCallback(
     async (date: Date) => {
       setLoadingHistorical(true)
       try {
-        const data = await ALGORITHM.getViewsByFolder(folderId, toDateStr(date))
+        const data = await ALGORITHM.getWidgetsByFolder(folderId, toDateStr(date))
         setHistoricalViews(data)
       } catch {
         setHistoricalViews([])
@@ -297,7 +297,7 @@ function useFolderPage(folderId: string) {
     loadingHistorical,
     isEmpty,
     foldersCtx,
-    viewsCtx,
+    widgetsCtx,
   }
 }
 
@@ -315,11 +315,11 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
     loadingHistorical,
     isEmpty,
     foldersCtx,
-    viewsCtx,
+    widgetsCtx,
   } = useFolderPage(folderId)
   const { enforceViewLimit } = usePlanLimits()
 
-  // Lifted Redux read — passed down to FolderViewsBody → ViewCardRouter
+  // Lifted Redux read — passed down to FolderViewsBody → LiveValueWidgetRouter
   // → per-view data hooks. The view tree itself stays provider-free.
   const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
 
@@ -332,16 +332,16 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-3 md:p-8 max-w-6xl mx-auto">
       <FolderHeader
         folder={folder}
         onNewFolder={() => foldersCtx.openModal(folderId, folder.projectId)}
         onAddView={() => {
-          const projectViewCount = viewsCtx.views.filter(
+          const projectViewCount = widgetsCtx.widgets.filter(
             v => v.projectId === folder.projectId,
           ).length
           if (!enforceViewLimit(projectViewCount)) return
-          viewsCtx.openModal(folderId, folder.projectId)
+          widgetsCtx.openModal(folderId, folder.projectId)
         }}
       />
 
@@ -372,8 +372,8 @@ export default function FolderPage({ params }: { params: Promise<{ folderId: str
             selectedDate={selectedDate}
             tz={tz}
             isEmpty={isEmpty}
-            onUntrack={viewsCtx.untrackView}
-            onConnectionAssigned={viewsCtx.replaceView}
+            onUntrack={widgetsCtx.untrackWidget}
+            onConnectionAssigned={widgetsCtx.replaceWidget}
           />
         </div>
       </div>
@@ -480,16 +480,16 @@ function FolderViewsBody({
   onConnectionAssigned,
 }: {
   loadingHistorical: boolean
-  folderViews: View[]
+  folderViews: Widget[]
   isToday: boolean
   selectedDate: Date
-  /** Forwarded to `ViewCardRouter` → per-view data hooks. Read once at
+  /** Forwarded to `LiveValueWidgetRouter` → per-view data hooks. Read once at
    *  the page level from `state.ui.globalTimeZone`; we don't read Redux
-   *  inside `ViewCardRouter` to keep the routing tree provider-free. */
+   *  inside `LiveValueWidgetRouter` to keep the routing tree provider-free. */
   tz: string | null
   isEmpty: boolean
   onUntrack: (id: string) => void
-  onConnectionAssigned: (updated: View) => void
+  onConnectionAssigned: (updated: Widget) => void
 }) {
   if (loadingHistorical) {
     return (
@@ -521,8 +521,8 @@ function FolderViewsBody({
       !isWidePosthogView(v),
   )
 
-  const renderRouter = (view: View) => (
-    <ViewCardRouter
+  const renderRouter = (view: Widget) => (
+    <LiveValueWidgetRouter
       key={view.id}
       view={view}
       historical={!isToday}

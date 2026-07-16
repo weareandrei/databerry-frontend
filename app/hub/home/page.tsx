@@ -4,15 +4,12 @@
  * Hub home — the workspace-level landing page.
  *
  * Layout (per the structural redesign):
- *   - Top bar: search (filters pinned views) + global date controls.
- *   - Centered agent launcher: a "Chat with Agent" button (opens the
- *     full-page `/hub/agent-chat`) above the "Ask anything" box.
- *     Submitting the box deep-links to `/hub/agent-chat?q=…`, which
- *     auto-sends the prompt — the conversation itself never happens
- *     on the home page.
- *   - Pinned views, grouped BY PROJECT — one labelled section per
- *     project (favicon + "Pinned views"), each rendering the shared
- *     `<PinnedViews>` lanes for that project's pins only.
+ *   - Top bar: project select + global date controls.
+ *   - Centered greeting + agent ask box. Submitting the box deep-links
+ *     to `/hub/agent-chat?q=…`, which auto-sends the prompt — the
+ *     conversation itself never happens on the home page.
+ *   - Mini project overview cards — one per project, visitors + revenue
+ *     for the globally selected date range.
  *
  * Gone from this page (moved, not lost):
  *   - The Dashboard/Agent toggle — replaced by the launcher + the
@@ -24,56 +21,31 @@
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { DashboardHeader } from '@/app/hub/(components)/layout/DashboardHeader'
-import { PinnedViews } from '@/app/hub/home/(components)/PinnedViews'
-import { PinnedViewsSkeleton } from '@/app/hub/home/(components)/PinnedViewsSkeleton'
+import { DashboardHeader } from '@/app/hub/(components)/navigation/DashboardHeader'
+import { HomeGreetingHeader } from '@/app/hub/home/(components)/HomeGreetingHeader'
+import { ProjectsSummaryView } from '@/app/hub/(components)/views/ProjectsSummaryView'
+import { PinnedWidgetsView } from '@/app/hub/(components)/views/PinnedWidgetsView'
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
 import { ChatEmpty } from '@/app/hub/agent-chat/(components)/ChatEmpty'
-import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
 import { MobileHomeBody } from '@/app/hub/(components)/mobile/MobileHomeBody/MobileHomeBody'
-import type { Project } from '@/types/project'
-import type { View } from '@/types/view'
 
 export default function HomePage() {
   const router = useRouter()
-  const { projects: projectsCtx, pins: pinsCtx, connections } = useDashboard()
-  const [query, setQuery] = useState('')
+  const { projects: projectsCtx, connections, pins: pinsCtx } = useDashboard()
   const [prompt, setPrompt] = useState('')
 
-  // ── Search — filters pinned views (by view OR project name) ──────
-  const normalizedQuery = query.trim().toLowerCase()
-  const isSearching = normalizedQuery.length > 0
-
-  const filteredPins = useMemo(() => {
-    if (!isSearching) return pinsCtx.pinnedViews
-    return pinsCtx.pinnedViews.filter(pin => {
-      if (pin.name.toLowerCase().includes(normalizedQuery)) return true
-      const owningProject = projectsCtx.projects.find(p => p.id === pin.projectId)
-      return owningProject?.name.toLowerCase().includes(normalizedQuery) ?? false
-    })
-  }, [pinsCtx.pinnedViews, projectsCtx.projects, normalizedQuery, isSearching])
-
-  // Group pins by project, in project order — each group becomes its
-  // own labelled "Pinned views" section.
-  const pinGroups = useMemo(() => {
-    const groups: { project: Project; pins: View[] }[] = []
-    for (const project of projectsCtx.projects) {
-      const pins = filteredPins.filter(p => p.projectId === project.id)
-      if (pins.length > 0) groups.push({ project, pins })
-    }
-    return groups
-  }, [projectsCtx.projects, filteredPins])
+  const projects = useMemo(
+    () => projectsCtx.projects.filter(p => !p.id.startsWith('temp-')),
+    [projectsCtx.projects],
+  )
 
   const mcpConnections = useMemo(
     () => connections.connections.filter(c => c.type === 'mcp'),
     [connections.connections],
   )
 
-  // Submitting the launcher hands the prompt to the full-page agent
-  // via the existing `?q=` deep-link (auto-sends on mount there).
   const launchAgent = (q?: string) => {
     const trimmed = (q ?? '').trim()
     router.push(
@@ -81,50 +53,32 @@ export default function HomePage() {
     )
   }
 
-  const showWelcome = !projectsCtx.loading && projectsCtx.projects.length === 0
-  // Pins depend on BOTH projects (to group) and the pins fetch, so the
-  // section is "still loading" until both settle. Drives the skeleton.
-  const pinsLoading = projectsCtx.loading || pinsCtx.loading
+  const showWelcome = !projectsCtx.loading && projects.length === 0
+  const projectsLoading = projectsCtx.loading
+  const pinsLoading = pinsCtx.loading
+  const showPinnedSection = pinsCtx.pinnedViews.length > 0
 
   return (
     <>
-      {/* ─── Mobile layout (<md) ──────────────────────────────────── */}
-      {/* `<MobileHomeBody>` owns the whole scrollable column now:
-          agent launcher (ask-box + "Chat with Agent") → projects →
-          pinned views per project. */}
-      <div className="md:hidden h-[calc(100dvh-60px)] flex flex-col bg-surface">
+      <div className="lg:hidden h-[calc(100dvh-60px)] flex flex-col bg-white">
         <MobileTopBar variant="home" />
         <MobileHomeBody />
       </div>
 
-      {/* ─── Desktop layout (md+) ─────────────────────────────────── */}
-      <div className="hidden md:flex h-screen flex-col">
-        <DashboardHeader searchValue={query} onSearch={setQuery} />
+      <div className="hidden lg:flex h-screen flex-col">
+        <DashboardHeader
+          showProjectSelectDropdown
+          showCreateProjectButton
+          onCreateProject={() => projectsCtx.openModal()}
+        />
 
         <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
           {showWelcome ? (
             <WelcomeEmpty onCreate={() => projectsCtx.openModal()} />
           ) : (
             <div className="flex flex-col gap-10 px-6 pt-8 pb-12">
-              {/* ── Agent launcher ────────────────────────────────
-                  Centered column: the "Chat with Agent" pill above
-                  the ask box. The box is the SAME `<ChatEmpty>` the
-                  agent pages use (input + disclaimer + MCP chips),
-                  just without its heading — submitting routes to the
-                  full-page chat with the prompt pre-sent. */}
               <section className="flex flex-col items-center">
-                <button
-                  type="button"
-                  onClick={() => launchAgent()}
-                  className="mb-2 inline-flex items-center gap-2.5 rounded-xl border border-stroke bg-white pl-1.5 pr-4 py-1.5 shadow-sm cursor-pointer hover:bg-hover-fill transition-colors"
-                >
-                  <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface text-foreground">
-                    <ArrowRight size={13} weight="bold" />
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
-                    Chat with Agent
-                  </span>
-                </button>
+                <HomeGreetingHeader />
                 <div className="w-full max-w-3xl">
                   <ChatEmpty
                     value={prompt}
@@ -137,51 +91,16 @@ export default function HomePage() {
                 </div>
               </section>
 
-              {/* Skeleton stand-in while projects + pins load — keeps
-                  the dashboard from launching with a blank gap where
-                  the pinned views will appear. (During this window
-                  `pinGroups` is empty, so the map below renders
-                  nothing.) */}
-              {pinsLoading && <PinnedViewsSkeleton />}
+              <ProjectsSummaryView projects={projects} loading={projectsLoading} />
 
-              {/* ── Pinned views, one section per project ──────────
-                  Tiles sit directly on the panel (no nested white
-                  cards — the page body IS the card now). */}
-              {pinGroups.map(({ project, pins }) => (
-                <section key={project.id}>
-                  <button
-                    type="button"
-                    onClick={() => router.push(`/hub/project/${project.id}`)}
-                    className="flex items-center gap-2 px-1 mb-4 cursor-pointer group"
-                    title={`Open ${project.name}`}
-                  >
-                    <ProjectIcon websiteUrl={project.websiteUrl} size={22} pill />
-                    <h2 className="text-xs font-medium uppercase tracking-wider text-subtle group-hover:text-foreground transition-colors">
-                      Pinned views
-                    </h2>
-                  </button>
-                  <PinnedViews
-                    pins={pins}
-                    unpinView={pinsCtx.unpinView}
-                    onConnectionAssigned={pinsCtx.replacePin}
-                    projects={projectsCtx.projects}
-                  />
-                </section>
-              ))}
-
-              {isSearching && pinGroups.length === 0 && (
-                <div className="rounded-xl border border-dashed border-stroke bg-surface/50 px-6 py-12 text-center">
-                  <p className="text-sm text-foreground font-medium">
-                    No pinned views match &ldquo;{query}&rdquo;
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setQuery('')}
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-xs font-medium text-foreground hover:bg-surface transition-colors cursor-pointer"
-                  >
-                    Clear search
-                  </button>
-                </div>
+              {(showPinnedSection || pinsLoading) && (
+                <PinnedWidgetsView
+                  pins={pinsCtx.pinnedViews}
+                  projects={projects}
+                  loading={pinsLoading}
+                  unpinView={pinsCtx.unpinView}
+                  onConnectionAssigned={pinsCtx.replacePin}
+                />
               )}
             </div>
           )}

@@ -15,6 +15,16 @@ import type { User } from '@supabase/supabase-js'
 let ensuredForUserId: string | null = null
 
 /**
+ * sessionStorage key — set while this browser tab already has an active
+ * auth session. Used to tell a *real* sign-in apart from Supabase's
+ * `SIGNED_IN` noise: token refresh, cross-tab sync, and the duplicate
+ * `SIGNED_IN` that often follows `INITIAL_SESSION` all fire while the
+ * user is already signed in. Without this guard we logged ~100
+ * `logged_in` events per active user per day.
+ */
+const SESSION_ACTIVE_KEY = 'db_session_active_user'
+
+/**
  * Guarantee the user's `accounts` row exists — APP-LEVEL, replacing
  * the `on_auth_user_created` DB trigger that has now silently died
  * twice in prod (Supabase platform upgrades eat custom triggers on
@@ -66,6 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(u)
       if (!u) {
         resetUser()
+        try {
+          sessionStorage.removeItem(SESSION_ACTIVE_KEY)
+        } catch {
+          /* private mode */
+        }
         return
       }
 
@@ -100,9 +115,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       //   - Fresh user this browser → fire signed_up (created_at fresh)
       //                               or logged_in (older account being
       //                               seen here the first time).
-      //   - Already-seen user → fire logged_in only on `SIGNED_IN`
-      //                         (not on INITIAL_SESSION page reloads),
-      //                         so a refresh doesn't pad the count.
+      //   - Already-seen user → fire logged_in only on a genuine
+      //                         sign-in transition (no active session
+      //                         in this tab yet). Supabase also emits
+      //                         `SIGNED_IN` on token refresh and tab
+      //                         sync — those must NOT count as logins.
       //
       // The flag is per-browser, never cleared on sign-out — that's
       // intentional. After signing out and back in, we still want
@@ -121,11 +138,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         /* private mode / disabled — fall through and treat as unseen */
       }
 
+      let sessionAlreadyActive = false
+      try {
+        sessionAlreadyActive = sessionStorage.getItem(SESSION_ACTIVE_KEY) === u.id
+      } catch {
+        /* private mode — treat as inactive, may over-count once */
+      }
+
       if (alreadySeen) {
-        // Returning user. Only count an actual sign-in, not the page
-        // reload that triggers INITIAL_SESSION on every navigation.
-        if (event === 'SIGNED_IN') {
+        // Returning user. Only count a real sign-in (logged-out →
+        // logged-in), not token refresh / tab sync / remount noise.
+        if (event === 'SIGNED_IN' && !sessionAlreadyActive) {
           trackEvent(EVENT.LOGGED_IN, { method })
+        }
+        try {
+          sessionStorage.setItem(SESSION_ACTIVE_KEY, u.id)
+        } catch {
+          /* private mode */
         }
         return
       }
@@ -147,6 +176,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(flagKey, '1')
       } catch {
         /* private mode — re-firing on next page load is acceptable */
+      }
+
+      try {
+        sessionStorage.setItem(SESSION_ACTIVE_KEY, u.id)
+      } catch {
+        /* private mode */
       }
     })
 

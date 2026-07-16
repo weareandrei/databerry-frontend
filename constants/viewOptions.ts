@@ -181,7 +181,7 @@ export const SENTRY_VIEW_OPTIONS: ViewOption[] = [
 
 /**
  * Returns the picker option matching a (`connectionType`, `viewType`)
- * pair, or `null` when none exists. Used by `ViewHeader` to figure out
+ * pair, or `null` when none exists. Used by `WidgetHeader` to figure out
  * what display modes a live view can be converted between, without the
  * caller having to know which `*_VIEW_OPTIONS` array applies.
  *

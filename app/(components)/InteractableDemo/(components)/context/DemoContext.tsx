@@ -56,7 +56,7 @@ import type { OverviewChartResponse, PosthogEventDefinition } from '@/lib/api'
 import type {
   OverviewPrimaryMetric,
   OverviewSecondaryMetric,
-} from '@/types/view'
+} from '@/types/widget'
 
 // ─── Types re-exported for callers ────────────────────────────────────────
 
@@ -223,7 +223,7 @@ const SOURCE_COLOR = (key: string): string =>
  * bucket, since it's a rate not a count.
  *
  * Wire shape stays identical to what the real backend produces, so
- * `<ViewCardOverviewChart>` consumes this verbatim.
+ * `<OverviewChartWidget>` consumes this verbatim.
  */
 /**
  * Per-day source values for a given project. Always returned in the
@@ -311,7 +311,7 @@ function primaryTotalForDay(
 /**
  * Per-day secondary metric value (the overlay line on top of the
  * stacked bars). Returns `null` for an unsupported (metric, project)
- * combo so `<ViewCardOverviewChart>` hides the line cleanly.
+ * combo so `<OverviewChartWidget>` hides the line cleanly.
  */
 function secondaryValueForDay(
   r: DemoTimeSeriesRow,
@@ -572,7 +572,7 @@ interface DemoContextValue {
    * This used to be a pre-computed `overviewCharts: Record<projectId,
    * OverviewChartResponse>` here, built with fixed `'visitors' + null`
    * metrics. Trouble: the metric pickers in
-   * `<ViewCardOverviewChart>` had nowhere to go — picking "Revenue"
+   * `<OverviewChartWidget>` had nowhere to go — picking "Revenue"
    * still showed visitor counts, because the context never saw the
    * picker state. Moving the build to the consumer (via `useMemo`
    * depending on the local picker state) fixes it: each project view
@@ -750,7 +750,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   // ─── Project mutations ─────────────────────────────────────────────────
   const createProject = useCallback((name: string): string => {
     const id = uid('proj')
-    setProjects(prev => [...prev, { id, name, websiteUrl: null }])
+    setProjects(prev => [...prev, { id, name, websiteUrl: null, logoSrc: null }])
     return id
   }, [])
   const renameProject = useCallback((id: string, name: string) => {

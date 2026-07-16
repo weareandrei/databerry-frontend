@@ -4,46 +4,43 @@
  * Body of the mobile home page — the whole scrollable column under
  * `<MobileTopBar variant="home">`. Stacked sections, in order:
  *
- *   1. Agent launcher — ONE white card holding a "Chat with Agent"
- *      button ABOVE the real `<ChatEmpty>` ask-box (same box the
- *      desktop home + agent pages use, embedded `compact`). The box
- *      shows ONLY a single "Connect MCPs" button — never the
- *      per-connection MCP chips (`hideUserMcps`). The full agent page
- *      still lists every connection as normal.
- *   2. Projects — the flat tap-through list (`<MobileProjectsList>`).
- *   3. Pinned views — grouped BY PROJECT, each project's pins in its
- *      own white-bordered card (single-column).
+ *   1. Agent launcher — same "Hi {name}" + period stats as desktop,
+ *      then the compact `<ChatEmpty>` ask-box (MCP chips collapsed to
+ *      a single "Connect MCPs" CTA).
+ *   2. Projects — same mini summary cards as desktop
+ *      (`<ProjectsSummaryView>`), one full-width row each.
+ *   3. Pinned widgets — same `<PinnedWidgetsView>` as desktop,
+ *      forced single-column.
  *   4. "Help us improve" suggest card — moved here from the burger
  *      sheet so it's reachable from the home page itself.
  *
- * Self-contained: owns the launcher prompt state, the suggest-dialog
- * state, and the per-project pin grouping, so the home page's mobile
- * branch is just `<MobileTopBar /> <MobileHomeBody />`. Empty (no
- * projects) → launcher + suggest card stay, `<WelcomeEmpty>` replaces
- * projects + pinned.
+ * Self-contained: owns the launcher prompt state and the suggest-
+ * dialog state, so the home page's mobile branch is just
+ * `<MobileTopBar /> <MobileHomeBody />`. Empty (no projects) →
+ * launcher + suggest card stay, `<WelcomeEmpty>` replaces projects
+ * + pinned.
  */
 
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowRight } from '@phosphor-icons/react'
 import { useDashboard } from '@/contexts/DashboardContext'
-import { PinnedViews } from '@/app/hub/home/(components)/PinnedViews'
-import { PinnedViewsSkeleton } from '@/app/hub/home/(components)/PinnedViewsSkeleton'
+import { ProjectsSummaryView } from '@/app/hub/(components)/views/ProjectsSummaryView'
+import { PinnedWidgetsView } from '@/app/hub/(components)/views/PinnedWidgetsView'
+import { HomeGreetingHeader } from '@/app/hub/home/(components)/HomeGreetingHeader'
 import { WelcomeEmpty } from '@/app/hub/home/(components)/WelcomeEmpty'
 import { ChatEmpty } from '@/app/hub/agent-chat/(components)/ChatEmpty'
-import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 import { HelpImproveCard, SuggestFeatureDialog } from '@/app/hub/(components)/feedback/SuggestFeature'
-import { MobileProjectsList } from './(components)/MobileProjectsList'
-import type { Project } from '@/types/project'
-import type { View } from '@/types/view'
-
-const SECTION_LABEL = 'text-xs font-medium uppercase tracking-wider text-subtle'
 
 export function MobileHomeBody() {
   const router = useRouter()
   const { projects: projectsCtx, pins: pinsCtx, connections } = useDashboard()
   const [prompt, setPrompt] = useState('')
   const [suggestOpen, setSuggestOpen] = useState(false)
+
+  const projects = useMemo(
+    () => projectsCtx.projects.filter(p => !p.id.startsWith('temp-')),
+    [projectsCtx.projects],
+  )
 
   const mcpConnections = useMemo(
     () => connections.connections.filter(c => c.type === 'mcp'),
@@ -59,40 +56,18 @@ export function MobileHomeBody() {
     )
   }
 
-  // Pins grouped by project, in project order — one card per project.
-  const pinGroups = useMemo(() => {
-    const groups: { project: Project; pins: View[] }[] = []
-    for (const project of projectsCtx.projects) {
-      const pins = pinsCtx.pinnedViews.filter(p => p.projectId === project.id)
-      if (pins.length > 0) groups.push({ project, pins })
-    }
-    return groups
-  }, [projectsCtx.projects, pinsCtx.pinnedViews])
-
-  const showWelcome = !projectsCtx.loading && projectsCtx.projects.length === 0
-  // Skeleton stands in until BOTH projects (to group) and pins settle.
-  const pinsLoading = projectsCtx.loading || pinsCtx.loading
+  const showWelcome = !projectsCtx.loading && projects.length === 0
+  const projectsLoading = projectsCtx.loading
+  const pinsLoading = pinsCtx.loading
+  const showPinnedSection = pinsCtx.pinnedViews.length > 0
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 pt-4 pb-8">
+    <div className="flex-1 overflow-y-auto px-3 pt-6 pb-8">
       <div className="flex flex-col gap-6">
-        {/* ── 1. Agent launcher ─────────────────────────────────────
-            Button + ask-box live in ONE white card (not separated).
-            `<ChatEmpty compact>` drops its own page padding so the
-            card's `p-4` owns the spacing; `hideUserMcps` leaves only
-            the "Connect MCPs" CTA. */}
-        <section>
-          <div className="rounded-2xl border border-stroke bg-white shadow-card p-4 flex flex-col items-center">
-            <button
-              type="button"
-              onClick={() => launchAgent()}
-              className="mb-3 inline-flex items-center gap-2.5 rounded-xl border border-stroke bg-white pl-1.5 pr-4 py-1.5 shadow-sm cursor-pointer hover:bg-hover-fill transition-colors"
-            >
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface text-foreground">
-                <ArrowRight size={13} weight="bold" />
-              </span>
-              <span className="text-sm font-semibold text-foreground">Chat with Agent</span>
-            </button>
+        {/* ── 1. Agent launcher — Hi {name} + stats + ask-box ──────── */}
+        <section className="flex flex-col items-center gap-4">
+          <HomeGreetingHeader compact />
+          <div className="w-full">
             <ChatEmpty
               value={prompt}
               onChange={setPrompt}
@@ -111,48 +86,21 @@ export function MobileHomeBody() {
           <WelcomeEmpty onCreate={() => projectsCtx.openModal()} />
         ) : (
           <>
-            {/* ── 2. Projects ───────────────────────────────────────── */}
-            <section>
-              <h2 className={`px-1 mb-2 ${SECTION_LABEL}`}>Projects</h2>
-              <MobileProjectsList projects={projectsCtx.projects} />
-            </section>
+            <ProjectsSummaryView projects={projects} loading={projectsLoading} />
 
-            {/* Pinned-views skeleton while projects + pins load, so the
-                section isn't a blank gap on launch. */}
-            {pinsLoading && (
-              <section>
-                <div className="rounded-xl border border-stroke bg-white shadow-card p-4">
-                  <PinnedViewsSkeleton singleColumn />
-                </div>
-              </section>
+            {(showPinnedSection || pinsLoading) && (
+              <PinnedWidgetsView
+                pins={pinsCtx.pinnedViews}
+                projects={projects}
+                loading={pinsLoading}
+                unpinView={pinsCtx.unpinView}
+                onConnectionAssigned={pinsCtx.replacePin}
+                singleColumn
+              />
             )}
-
-            {/* ── 3. Pinned views, one card per project ─────────────── */}
-            {pinGroups.map(({ project, pins }) => (
-              <section key={project.id}>
-                <button
-                  type="button"
-                  onClick={() => router.push(`/hub/project/${project.id}`)}
-                  className="flex items-center gap-2 px-1 mb-2 cursor-pointer"
-                >
-                  <ProjectIcon websiteUrl={project.websiteUrl} size={20} pill />
-                  <h2 className={SECTION_LABEL}>Pinned views</h2>
-                </button>
-                <div className="rounded-xl border border-stroke bg-white shadow-card p-4">
-                  <PinnedViews
-                    pins={pins}
-                    unpinView={pinsCtx.unpinView}
-                    onConnectionAssigned={pinsCtx.replacePin}
-                    projects={projectsCtx.projects}
-                    singleColumn
-                  />
-                </div>
-              </section>
-            ))}
           </>
         )}
 
-        {/* ── 4. Help-us-improve suggest card (moved off the burger) ── */}
         <HelpImproveCard onSuggest={() => setSuggestOpen(true)} />
       </div>
 

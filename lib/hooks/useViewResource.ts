@@ -18,7 +18,7 @@
  *
  * The catch path preserves `IntegrationReauthError` and
  * `ConnectionMissingError` *as instances*, not as strings. View cards
- * (`ViewCardChart`, `ViewCardCustomerList`, etc.) do `instanceof`
+ * (`ChartWidget`, `CustomerListWidget`, etc.) do `instanceof`
  * checks against these to render the OAuth-reconnect banner or the
  * click-to-reattach badge respectively — collapsing them to strings
  * would lose that routing. Plain `Error`s are normalised to a
@@ -54,7 +54,7 @@ export interface ViewResource<T> {
   error: ViewResourceError | null
   /** Bump `refreshTick`; the next render re-runs the effect. Returns
    *  `undefined` when the hook is inactive, matching the convention
-   *  used by `ViewCard*` props (`onRefresh?: () => void`). */
+   *  used by `LiveValueWidget*` props (`onRefresh?: () => void`). */
   refresh: (() => void) | undefined
 }
 

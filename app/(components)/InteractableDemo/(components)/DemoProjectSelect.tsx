@@ -1,7 +1,13 @@
 'use client'
 
+/**
+ * Demo counterpart of hub `ProjectSelect`. On home (no active project)
+ * shows the SquaresFour + "Select project" state; selecting a project
+ * opens its overview. Used in both the sidebar and the home header.
+ */
+
 import { useMemo } from 'react'
-import { CaretUpDown, Plus } from '@phosphor-icons/react'
+import { CaretUpDown, Plus, SquaresFour } from '@phosphor-icons/react'
 import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 import { demoProjectLabel } from './demoProjectUtils'
 import {
@@ -26,30 +32,38 @@ export function DemoProjectSelect() {
     [projects, currentProjectId],
   )
 
-  const displayProject = activeProject ?? projects[0] ?? null
-
   const dropdownProjects = useMemo(
     () =>
-      displayProject
-        ? projects.filter(p => p.id !== displayProject.id)
+      activeProject
+        ? projects.filter(p => p.id !== activeProject.id)
         : projects,
-    [projects, displayProject],
+    [projects, activeProject],
   )
 
   const selectProject = (projectId: string) => {
     goToPage('overview', projectId)
   }
 
+  const pageSubtitle =
+    pageOpen === 'overview'
+      ? 'Overview'
+      : pageOpen === 'connections'
+        ? 'Connections'
+        : pageOpen === 'agent'
+          ? 'Ask agent'
+          : null
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
+        data-demo-select-project
         className={cn(
-          'flex w-full items-center gap-3 rounded-xl px-1 py-1',
+          'inline-flex max-w-full items-center gap-3 rounded-xl px-1 py-1 lg:flex lg:w-full',
           'text-left transition-colors cursor-pointer',
           'hover:bg-hover-fill',
         )}
       >
-        {displayProject ? (
+        {activeProject ? (
           <span
             style={{ width: LOGO_WRAPPER_SIZE, height: LOGO_WRAPPER_SIZE }}
             className={cn(
@@ -58,7 +72,8 @@ export function DemoProjectSelect() {
             )}
           >
             <ProjectIcon
-              websiteUrl={displayProject.websiteUrl}
+              websiteUrl={activeProject.websiteUrl}
+              logoSrc={activeProject.logoSrc}
               size={LOGO_ICON_SIZE}
               pill={false}
             />
@@ -66,48 +81,71 @@ export function DemoProjectSelect() {
         ) : (
           <span
             style={{ width: LOGO_WRAPPER_SIZE, height: LOGO_WRAPPER_SIZE }}
-            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white shadow-control text-subtle text-xs font-semibold"
+            className={cn(
+              'inline-flex shrink-0 items-center justify-center rounded-lg',
+              'bg-white shadow-control',
+            )}
           >
-            —
+            <SquaresFour size={LOGO_ICON_SIZE} weight="regular" className="text-subtle" />
           </span>
         )}
 
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-foreground">
-            {displayProject ? demoProjectLabel(displayProject) : 'Select project'}
-          </span>
-          <span className="block truncate text-[11px] font-normal text-subtle">
-            {pageOpen === 'overview' && activeProject
-              ? 'Overview'
-              : pageOpen === 'connections' && activeProject
-                ? 'Connections'
-                : pageOpen === 'agent' && activeProject
-                  ? 'Ask agent'
-                  : 'All projects'}
-          </span>
+        <span className="min-w-0 max-w-[11rem] lg:max-w-none lg:flex-1">
+          {activeProject ? (
+            <>
+              <span className="block truncate text-base font-bold leading-tight text-foreground">
+                {demoProjectLabel(activeProject)}
+              </span>
+              {pageSubtitle && (
+                <span className="mt-0.5 block truncate text-xs leading-tight text-subtle">
+                  {pageSubtitle}
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="block truncate text-sm font-medium leading-tight text-subtle">
+              Select project
+            </span>
+          )}
         </span>
 
-        <CaretUpDown size={14} weight="regular" className="shrink-0 text-subtle" />
+        <span
+          className={cn(
+            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+            'bg-white shadow-control',
+          )}
+        >
+          <CaretUpDown size={14} weight="regular" className="text-subtle" />
+        </span>
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
-        {dropdownProjects.map(project => (
-          <DropdownMenuItem
-            key={project.id}
-            onClick={() => selectProject(project.id)}
-            className="gap-2.5 text-sm"
-          >
-            <ProjectIcon websiteUrl={project.websiteUrl} size={20} pill={false} />
-            <span className="truncate">{demoProjectLabel(project)}</span>
-          </DropdownMenuItem>
-        ))}
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="start" className="w-[var(--anchor-width)] min-w-56 p-1">
+        {projects.length === 0 ? (
+          <p className="px-2 py-2 text-xs text-subtle">No projects yet</p>
+        ) : (
+          dropdownProjects.map(project => (
+            <DropdownMenuItem
+              key={project.id}
+              onClick={() => selectProject(project.id)}
+              className="gap-2.5 py-2 cursor-pointer"
+            >
+              <ProjectIcon
+                websiteUrl={project.websiteUrl}
+                logoSrc={project.logoSrc}
+                size={18}
+                pill={false}
+              />
+              <span className="truncate font-medium">{demoProjectLabel(project)}</span>
+            </DropdownMenuItem>
+          ))
+        )}
+        {dropdownProjects.length > 0 && <DropdownMenuSeparator />}
         <DropdownMenuItem
           onClick={() => showNotice(UNSUPPORTED)}
-          className="gap-2 text-sm text-subtle"
+          className="gap-2 py-2 text-primary font-medium cursor-pointer"
         >
           <Plus size={14} weight="bold" />
-          New project
+          Add new project
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

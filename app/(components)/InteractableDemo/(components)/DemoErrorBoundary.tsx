@@ -6,8 +6,8 @@
  * `<DashboardProvider>` is in scope), suppresses the crash, and
  * surfaces a friendly notice instead.
  *
- * Why this exists: shared view cards (`<ViewCard>`,
- * `<ViewCardSentryIssues>`, `<ViewCardFunnel>`, …) include a
+ * Why this exists: shared view cards (`<LiveValueWidget>`,
+ * `<SentryIssuesWidget>`, `<FunnelWidget>`, …) include a
  * "Reconnect" affordance that opens `<ReassignConnectionDialog>`,
  * whose body calls `useDashboard()`. There's no `DashboardProvider`
  * inside the demo (the demo is its own self-contained tree), so the

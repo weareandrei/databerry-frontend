@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect } from 'react'
 import { useFolders } from '@/hooks/useFolders'
 import { useConnections } from '@/hooks/useConnections'
 import { usePins } from '@/hooks/usePins'
-import { useViews } from '@/hooks/useViews'
+import { useWidgets } from '@/hooks/useWidgets'
 import { useProjects } from '@/hooks/useProjects'
 
 type DashboardContextValue = {
@@ -12,7 +12,7 @@ type DashboardContextValue = {
   folders: ReturnType<typeof useFolders>
   connections: ReturnType<typeof useConnections>
   pins: ReturnType<typeof usePins>
-  views: ReturnType<typeof useViews>
+  widgets: ReturnType<typeof useWidgets>
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null)
@@ -22,7 +22,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const folders = useFolders()
   const connections = useConnections()
   const pins = usePins()
-  const views = useViews()
+  const widgets = useWidgets()
 
   useEffect(() => {
     projects.loadProjects()
@@ -32,7 +32,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <DashboardContext.Provider value={{ projects, folders, connections, pins, views }}>
+    <DashboardContext.Provider value={{ projects, folders, connections, pins, widgets }}>
       {children}
     </DashboardContext.Provider>
   )

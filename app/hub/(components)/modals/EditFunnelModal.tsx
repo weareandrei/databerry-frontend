@@ -29,7 +29,7 @@ import {
   ALGORITHM,
   type PosthogEventDefinition,
 } from '@/lib/api'
-import type { View } from '@/types/view'
+import type { Widget } from '@/types/widget'
 import { cn } from '@/lib/utils'
 
 const CONVERSION_WINDOW_OPTIONS: { label: string; seconds: number }[] = [
@@ -53,7 +53,7 @@ interface FunnelConfig {
   conversionWindowSeconds: number
 }
 
-function readFunnelConfig(view: View): FunnelConfig {
+function readFunnelConfig(view: Widget): FunnelConfig {
   const cfg = (view.config ?? {}) as Partial<FunnelConfig>
   const steps = Array.isArray(cfg.steps) ? cfg.steps : []
   return {
@@ -70,11 +70,11 @@ function readFunnelConfig(view: View): FunnelConfig {
 }
 
 interface Props {
-  view: View
+  view: Widget
   open: boolean
   onOpenChange: (open: boolean) => void
   /** Fires with the freshly-PATCHed view after a successful save. */
-  onSaved?: (updated: View) => void
+  onSaved?: (updated: Widget) => void
   /** Optional container element — same plumbing as the demo's modals
    *  for rendering inside a confined surface. Omit in real-dashboard
    *  usage to portal to <body>. */
