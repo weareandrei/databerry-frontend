@@ -195,14 +195,13 @@ function FoundersJoinedBadge() {
             className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center"
           >
             <motion.span
-              className="absolute h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}
+              className="bg-green-500/50 absolute h-1.5 w-1.5 rounded-full"
+              // style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}
               animate={{ scale: [1, 2.4, 1] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
             />
             <span
-              className="relative z-10 h-1.5 w-1.5 rounded-full"
-              style={{ backgroundColor: '#ffffff' }}
+              className="bg-green-500 relative z-10 h-1.5 w-1.5 rounded-full"
             />
           </span>
           <span className="font-semibold tabular-nums">
