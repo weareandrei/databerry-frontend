@@ -3,9 +3,10 @@ import { useEffect, useId, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import Xarrow from 'react-xarrows'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight } from '@phosphor-icons/react'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
+import { FeaturedBadges } from '@/app/(components)/FeaturedBadges'
 import { EVENT, trackEvent } from '@/lib/posthog'
 
 // Shared variant factory — hero elements animate in on mount, staggered
@@ -25,6 +26,50 @@ const LOGOS = [
   { src: '/landing/logos/notion_logo.png', alt: 'Notion' },
 ]
 
+/**
+ * Inline square app icon that advances every 2s — same assets as the
+ * connector row below the headline. Fixed square size, so swaps don't
+ * reflow the surrounding text.
+ */
+function DataSourceSlider() {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setIndex(i => (i + 1) % LOGOS.length)
+    }, 2000)
+    return () => window.clearInterval(id)
+  }, [])
+
+  const logo = LOGOS[index]!
+
+  return (
+    <span className="inline-flex align-middle pl-1.5" aria-live="polite">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={logo.alt}
+          className="inline-flex items-center"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+        >
+          <Image
+            src={logo.src}
+            alt={logo.alt}
+            width={40}
+            height={40}
+            className="mb-1.5 h-[0.9775em] w-[0.9775em] rounded-[0.2em] object-contain"
+          />
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  )
+}
+
+/** Brand primary (#FF5D78) as RGB — used for the border worm glow. */
+const FOUNDERS_WORM_RGB = '255, 93, 120'
+
 /** Worm segments: longest/dimmest first → shortest/brightest last.
  *  Comet ~60% of the rim. Bright head at the dash start;
  *  dashoffset runs positive so that head leads as it travels. */
@@ -40,7 +85,7 @@ const FOUNDERS_WORM_SEGMENTS = [
 /**
  * Landing hero badge: "[N] founders joined this month".
  * Fetches `GET /founders-joined` (public). A glowing green "worm"
- * crawls the pill border — head at full opacity, tail fading to 0.
+ * crawls the pill border — primary-colored head at full opacity, tail fading to 0.
  */
 function FoundersJoinedBadge() {
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -131,7 +176,7 @@ function FoundersJoinedBadge() {
               rx={rx}
               ry={rx}
               fill="none"
-              stroke={`rgba(52, 211, 153, ${opacity})`}
+              stroke={`rgba(${FOUNDERS_WORM_RGB}, ${opacity})`}
               strokeWidth={2}
               strokeLinecap="round"
               pathLength={100}
@@ -180,44 +225,21 @@ export const Hero = () => {
 
       {/* Content */}
       <div className="relative md:absolute md:inset-0 z-10 flex flex-col justify-center items-center text-center px-6 pt-28 pb-12 md:pt-20 md:pb-0">
-        {/* Product Hunt featured badge — first in the hero cascade
-            (slightly earlier delay than the founders badge below) so the
-            top-to-bottom fade reads naturally. The image is a plain
-            `<img>` (not `next/image`) because PH's CDN isn't in our
-            `images.remotePatterns` and a single 250×54 badge isn't
-            worth wiring up the config for. Adding an eslint-disable
-            for the @next/next/no-img-element rule keeps the rest of
-            the codebase honest about its `<Image>` usage. */}
-        <motion.div {...heroFade(0.75)} className="mb-3">
-          <a
-            href="https://www.producthunt.com/products/databerry?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-databerry"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt="Databerry - Track all your business data in a single dashboard | Product Hunt"
-              width={250}
-              height={54}
-              src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1133651&theme=light&t=1779139221585"
-            />
-          </a>
+        <motion.div {...heroFade(0.75)} className="mb-12 mt-4 md:mb-14 md:mt-14 w-full max-w-4xl md:mt-16">
+          <FeaturedBadges />
         </motion.div>
 
         <FoundersJoinedBadge />
 
-        {/* H1 */}
+        {/* H1 — second-line closer in white for contrast on the orange hero. */}
         <motion.h1
           {...heroFade(1.05)}
-          className="max-w-4xl text-4xl md:text-6xl font-semibold leading-[1.1] md:leading-[1] tracking-[-0.06em] text-white"
+          className="max-w-4xl text-4xl md:text-6xl font-semibold leading-[1.15] md:leading-[1.05] tracking-[-0.06em] text-black"
           style={{ fontFamily: 'var(--font-bricolage)' }}
         >
-          <span className="text-black">Track </span>
-          all <span className="text-black">your business data in a</span>
-          <span className="hidden md:inline">
-            <br />
-          </span>{' '}
-          single dashboard
+          Your data is {' '}hidden in <DataSourceSlider/> <br/>
+          <span className="text-white"> Databerry unlocks it.</span>
+
         </motion.h1>
 
         {/* Subheader — descriptive body copy, so it's a <p>, not a
@@ -230,7 +252,8 @@ export const Hero = () => {
           className="mt-8 max-w-2xl text-base md:text-lg font-normal leading-[1.4] tracking-[0.01em] text-black"
           style={{ fontFamily: 'var(--font-inter)' }}
         >
-          Built for founders that use too many tools. Connect Stripe, PostHog, Google Analytics, and the rest of your stack. All metrics that matter, side by side.
+          Built for founders that use too many tools. Connect Stripe, PostHog, Google Analytics, and
+          the rest of your stack. All metrics that matter, side by side.
         </motion.p>
 
         {/* CTA — black solid pill wrapped in a 25 %-opacity black
