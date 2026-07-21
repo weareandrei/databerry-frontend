@@ -6,7 +6,7 @@ import InteractableDemo from '@/app/(components)/InteractableDemo/InteractableDe
 export const metadata: Metadata = {
   title: 'Interactive demo — Databerry',
   description:
-    'Explore the full Databerry dashboard demo — switch projects, browse connections, and try the agent.',
+    'Try the Databerry demo: connect-style dashboard, merged users, project timeline, and the AI agent — no signup required.',
   // The demo is a sandbox, not canonical product content — keep it out
   // of search results so it doesn't compete with the real app pages.
   robots: { index: false, follow: false },

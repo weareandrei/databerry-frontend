@@ -10,24 +10,24 @@ import { COMPARISONS } from './comparisons'
 const URL = 'https://databerry.app/compare'
 
 export const metadata: Metadata = {
-  title: 'Compare Databerry — how it stacks up against analytics tools',
+  title: 'Compare Databerry — unlock your tools vs deep product analytics',
   description:
-    'See how Databerry, the all-in-one business dashboard for founders and small teams, compares to product-analytics platforms like Amplitude and Mixpanel.',
+    'See how Databerry — the founder dashboard that unlocks Stripe, PostHog, Google Analytics & more without an SDK — compares to Amplitude, Mixpanel, and other product-analytics platforms.',
   robots: { index: true, follow: true },
   alternates: { canonical: URL },
   openGraph: {
-    title: 'Compare Databerry — how it stacks up against analytics tools',
+    title: 'Compare Databerry — unlock your tools vs deep product analytics',
     description:
-      'See how Databerry compares to product-analytics platforms like Amplitude and Mixpanel.',
+      'Databerry unlocks data across the tools you already use. See how it stacks up against Amplitude, Mixpanel, and other product-analytics platforms.',
     url: URL,
     type: 'website',
     images: [{ url: 'https://databerry.app/x_preview.png' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Compare Databerry — how it stacks up against analytics tools',
+    title: 'Compare Databerry — unlock your tools vs deep product analytics',
     description:
-      'See how Databerry compares to product-analytics platforms like Amplitude and Mixpanel.',
+      'Databerry unlocks data across the tools you already use. See how it stacks up against Amplitude, Mixpanel, and other product-analytics platforms.',
     images: ['https://databerry.app/x_preview.png'],
   },
 }
@@ -39,10 +39,13 @@ export default function CompareHub() {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: 'Compare Databerry',
+    description:
+      'How Databerry — the founder dashboard that unlocks data across Stripe, PostHog, Google Analytics and more without an SDK — compares to product-analytics platforms.',
     url: URL,
     hasPart: items.map(c => ({
       '@type': 'TechArticle',
       headline: `Databerry vs ${c.competitor}`,
+      description: c.metaDescription,
       url: `https://databerry.app/compare/${c.slug}`,
     })),
   }
@@ -75,9 +78,10 @@ export default function CompareHub() {
               className="mx-auto mt-7 max-w-2xl text-base md:text-lg leading-[1.5] text-black"
               style={{ fontFamily: 'var(--font-inter)' }}
             >
-              Databerry is the all-in-one business dashboard for founders — every
-              number that matters in one place, no SDK required. Here&apos;s how
-              it compares to the product-analytics tools you might know.
+              Databerry unlocks the data hidden across tools you already use —
+              every number that matters in one place, no SDK required.
+              Here&apos;s how it compares to the product-analytics tools you
+              might know.
             </p>
           </section>
 

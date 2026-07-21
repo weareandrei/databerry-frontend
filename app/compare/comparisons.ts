@@ -66,12 +66,12 @@ const STARTER_STATS: ComparisonStat[] = [
 export const AMPLITUDE: Comparison = {
   slug: 'amplitude',
   competitor: 'Amplitude',
-  metaTitle: 'Databerry vs Amplitude — all-in-one founder dashboard vs product analytics',
+  metaTitle: 'Databerry vs Amplitude — unlock your tools vs product analytics',
   metaDescription:
-    'Databerry vs Amplitude, fast: an all-in-one dashboard that connects Stripe, PostHog & Google Analytics with no SDK, versus a deep product-analytics platform. Setup, data scope, pricing, and who each is for.',
+    'Databerry vs Amplitude: unlock Stripe, PostHog, Google Analytics & more with no SDK — versus a deep product-analytics platform. Setup, scope, pricing, and who each is for.',
   tagline:
-    'Amplitude tells you how users behave inside your product. Databerry shows you the whole business — revenue, traffic, and usage — on one screen, no SDK.',
-  lead: 'They solve different problems. Amplitude is deep product analytics: instrument your app, stream events, build funnels and cohorts. Databerry connects the tools you already run — Stripe, PostHog, Google Analytics, Calendly — and puts every number that matters side by side. No tracking code, no data team.',
+    'Amplitude tells you how users behave inside your product. Databerry unlocks the data already sitting in your tools — revenue, traffic, and usage on one screen, no SDK.',
+  lead: 'They solve different problems. Amplitude is deep product analytics: instrument your app, stream events, build funnels and cohorts. Databerry unlocks data hidden across tools you already run — Stripe, PostHog, Google Analytics, Calendly, Sentry — and puts every number that matters side by side. No tracking code, no data team.',
   stats: STARTER_STATS,
   keyPoints: [
     {
@@ -114,12 +114,12 @@ export const AMPLITUDE: Comparison = {
 export const MIXPANEL: Comparison = {
   slug: 'mixpanel',
   competitor: 'Mixpanel',
-  metaTitle: 'Databerry vs Mixpanel — one dashboard for your business vs product analytics',
+  metaTitle: 'Databerry vs Mixpanel — unlock your tools vs product analytics',
   metaDescription:
-    'Databerry vs Mixpanel, fast: an all-in-one dashboard that connects Stripe, PostHog & Google Analytics with no SDK, versus event-based product analytics. Setup, data scope, pricing, and who each is for.',
+    'Databerry vs Mixpanel: unlock Stripe, PostHog, Google Analytics & more with no SDK — versus event-based product analytics. Setup, scope, pricing, and who each is for.',
   tagline:
-    'Mixpanel is deep analytics for one slice of your business — in-app behaviour. Databerry is the one dashboard for all of it, with no SDK to install.',
-  lead: 'Mixpanel is event-based product analytics: instrument your app, stream events, build funnels and retention reports. Databerry connects the accounts you already have — Stripe, PostHog, Google Analytics, Calendly — and lays revenue, traffic, and usage side by side. No tracking snippet, no event schema to maintain.',
+    'Mixpanel is deep analytics for one slice of your business — in-app behaviour. Databerry unlocks data across all of it, with no SDK to install.',
+  lead: 'Mixpanel is event-based product analytics: instrument your app, stream events, build funnels and retention reports. Databerry unlocks accounts you already have — Stripe, PostHog, Google Analytics, Calendly, Sentry — and lays revenue, traffic, and usage side by side. No tracking snippet, no event schema to maintain.',
   stats: STARTER_STATS,
   keyPoints: [
     {

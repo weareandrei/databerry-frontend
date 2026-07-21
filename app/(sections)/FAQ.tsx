@@ -106,7 +106,7 @@ const FAQS: FAQEntry[] = [
   {
     q: 'Which tools can I connect?',
     aText:
-      'Today: Stripe, PostHog, Google Analytics, and custom webhooks. We ship new integrations every few weeks based on what users ask for.',
+      'Today: Stripe, PostHog, Google Analytics, Calendly, Sentry, Vercel, custom webhooks, and any MCP server. Notion, Gmail, and Datafast are on the way — we ship new integrations based on what users ask for.',
   },
   {
     q: 'What if I use a tool that’s not currently listed?',
