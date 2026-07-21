@@ -27,8 +27,12 @@ function parseDayEnd(dateStr: string): number {
   return new Date(`${dateStr}T23:59:59.999`).getTime()
 }
 
-export function isInDateRange(iso: string, dateFrom: string, dateTo: string): boolean {
-  const t = new Date(iso).getTime()
+export function isInDateRange(
+  at: string | Date | number,
+  dateFrom: string,
+  dateTo: string,
+): boolean {
+  const t = at instanceof Date ? at.getTime() : new Date(at).getTime()
   if (!Number.isFinite(t)) return false
   return t >= parseDayStart(dateFrom) && t <= parseDayEnd(dateTo)
 }
