@@ -21,6 +21,8 @@ export interface DemoDashboardHeaderProps {
   onCreateConnection?: () => void
   showCreateProjectButton?: boolean
   onCreateProject?: () => void
+  showNewChatButton?: boolean
+  onNewChat?: () => void
   showProjectMenu?: boolean
   onEditProject?: () => void
   onDeleteProject?: () => void
@@ -39,6 +41,8 @@ export function DemoDashboardHeader({
   onCreateConnection,
   showCreateProjectButton = false,
   onCreateProject,
+  showNewChatButton = false,
+  onNewChat,
   showProjectMenu = false,
   onEditProject,
   onDeleteProject,
@@ -49,6 +53,7 @@ export function DemoDashboardHeader({
     (showCreateViewButton && onCreateView)
     || (showCreateConnectionButton && onCreateConnection)
     || (showCreateProjectButton && onCreateProject)
+    || (showNewChatButton && onNewChat)
     || (showProjectMenu && onEditProject && onDeleteProject)
 
   return (
@@ -96,6 +101,13 @@ export function DemoDashboardHeader({
               <button type="button" onClick={onCreateProject} className={actionButtonClass}>
                 <Plus size={14} weight="bold" />
                 New project
+              </button>
+            )}
+
+            {showNewChatButton && onNewChat && (
+              <button type="button" onClick={onNewChat} className={actionButtonClass}>
+                <Plus size={14} weight="bold" />
+                New chat
               </button>
             )}
 

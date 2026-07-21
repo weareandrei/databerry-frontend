@@ -17,6 +17,8 @@ export interface DashboardHeaderProps {
   onCreateConnection?: () => void
   showCreateProjectButton?: boolean
   onCreateProject?: () => void
+  showNewChatButton?: boolean
+  onNewChat?: () => void
   showProjectMenu?: boolean
   onEditProject?: () => void
   onDeleteProject?: () => void
@@ -35,6 +37,8 @@ export function DashboardHeader({
   onCreateConnection,
   showCreateProjectButton = false,
   onCreateProject,
+  showNewChatButton = false,
+  onNewChat,
   showProjectMenu = false,
   onEditProject,
   onDeleteProject,
@@ -45,6 +49,7 @@ export function DashboardHeader({
     (showCreateViewButton && onCreateView)
     || (showCreateConnectionButton && onCreateConnection)
     || (showCreateProjectButton && onCreateProject)
+    || (showNewChatButton && onNewChat)
     || (showProjectMenu && onEditProject && onDeleteProject)
 
   return (
@@ -92,6 +97,13 @@ export function DashboardHeader({
               <button type="button" onClick={onCreateProject} className={actionButtonClass}>
                 <Plus size={14} weight="bold" />
                 New project
+              </button>
+            )}
+
+            {showNewChatButton && onNewChat && (
+              <button type="button" onClick={onNewChat} className={actionButtonClass}>
+                <Plus size={14} weight="bold" />
+                New chat
               </button>
             )}
 

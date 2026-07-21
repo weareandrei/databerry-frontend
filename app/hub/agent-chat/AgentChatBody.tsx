@@ -20,13 +20,15 @@
 import { useEffect, useMemo, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Plus, Trash, Warning } from '@phosphor-icons/react'
+import { Trash, Warning } from '@phosphor-icons/react'
 import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileTopBar'
+import { DashboardHeader } from '@/app/hub/(components)/navigation/DashboardHeader'
 import {
   ChatEmpty,
   ConfigMcpChip,
   UserMcpChip,
 } from './(components)/ChatEmpty'
+import { AgentChatBreadcrumbs } from './(components)/AgentChatBreadcrumbs'
 import { ChatMessage } from './(components)/ChatMessage'
 import { ChatTypingIndicator } from './(components)/ChatTypingIndicator'
 import { ChatInput } from './(components)/ChatInput'
@@ -87,10 +89,9 @@ export function AgentChatBody({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-      {/* Mobile-only chrome. The hub layout's main panel already
-          carries the white background + left border, so this body
-          fills it edge-to-edge. "Clear" stays reachable via the
-          floating "New chat" pill inside the active chat. */}
+      {/* Mobile top-bar. Desktop chrome is the shared DashboardHeader
+          below (breadcrumbs + New chat) — same pattern as Settings /
+          project pages. */}
       {showChrome && (
         project ? (
           <MobileTopBar
@@ -119,6 +120,15 @@ export function AgentChatBody({
         )
       )}
 
+      {showChrome && (
+        <DashboardHeader
+          breadcrumbs={<AgentChatBreadcrumbs project={project} />}
+          showDateSelect={false}
+          showNewChatButton
+          onNewChat={clear}
+        />
+      )}
+
       {isEmpty ? (
           // Empty state owns its own input. The bottom-pinned
           // `<ChatInput>` below is gated on `!isEmpty` so it
@@ -145,9 +155,10 @@ export function AgentChatBody({
           //      uncomfortable past ~70ch. `pb-12` adds breathing
           //      room above the bottom footer so the last message
           //      isn't crammed against the input.
-          //   3. Bottom row (shrink-0) — "+ New chat" pill, the
-          //      input, the disclaimer, and the MCP chip row
-          //      (mirroring the empty state's chip row).
+          //   3. Bottom row (shrink-0) — the input, disclaimer, and
+          //      MCP chip row (mirroring the empty state's chip row).
+          //      "New chat" lives in the dashboard header on desktop
+          //      and in the mobile top-bar trash affordance.
           <>
             {/* Row 1 — top banner. Outlined-only look: thin amber
                 border on a near-white background (`amber-50/40`),
@@ -186,84 +197,35 @@ export function AgentChatBody({
               </div>
             </div>
 
-            {/* Row 3 — bottom footer. The floating "New chat" pill
-                anchors to the INNER (`max-w-3xl mx-auto`) column —
-                not the outer footer — so it sits above the input's
-                actual left edge on any viewport width. When the
-                viewport is wide, the outer footer spans the full
-                panel while the input is centred in a 3xl column;
-                anchoring to the outer would put the pill out at
-                the left wall, far away from the input. */}
+            {/* Row 3 — bottom footer. On mobile the Config MCP pill
+                floats above the input (desktop keeps the bottom MCP
+                chip row instead). New chat moved to DashboardHeader. */}
             <div className="shrink-0 px-3 pb-3 md:px-4 md:pb-4">
               <div className="max-w-3xl mx-auto relative">
-                {/* Floating "New chat" pill — positioned ABSOLUTELY
-                    above the inner column's top edge so it visually
-                    overlaps the message scroll area (messages can
-                    scroll behind it) rather than living inside a
-                    full-width white strip that hid the last bubble.
-                    Only the pill itself carries chrome; the
-                    surrounding area is transparent.
-                    - `-top-12` lifts it ~48 px above the column.
-                    - `left-0` aligns its left edge with the input's
-                      left edge.
-                    - `z-10` keeps it above the scroll area's content
-                      (default stacking already does, but explicit).
-                    Message column's `pb-12` (above) is what reserves
-                    the empty space the floating pill sits over — so
-                    scrolling all the way down still shows the last
-                    message ABOVE the pill, not behind it. */}
-                {messages.length > 0 && (
-                  // Floating row above the input. New-chat pill is
-                  // always shown; Config-MCP's pill is mobile-only —
-                  // on mobile the bottom MCP chip row is hidden (no
-                  // vertical budget for it), so we surface the
-                  // Config affordance up here next to New chat
-                  // instead. Desktop keeps the bottom MCP row, so
-                  // it doesn't need the duplicate.
-                  <div className="absolute -top-12 left-0 z-10 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={clear}
-                      className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
-                    >
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-surface">
-                        <Plus
-                          size={14}
-                          weight="bold"
-                          className="text-foreground"
-                        />
-                      </span>
-                      <span className="text-sm font-semibold text-foreground">
-                        New chat
-                      </span>
-                    </button>
-                    {/* Mobile-only Config MCP's — sized to match the
-                        New chat pill exactly (same outer chrome, same
-                        `w-7 h-7` icon tile) so they read as a pair.
-                        Identical structure to `<ConfigMcpChip>` but
-                        without the chevron — at this size the chevron
-                        crowded the label. */}
-                    <button
-                      type="button"
-                      onClick={() => router.push('/hub/connections')}
-                      className="md:hidden inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
-                      aria-label="Configure MCP connections"
-                    >
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary">
-                        <Image
-                          src="/icons/mcp.svg"
-                          alt=""
-                          width={14}
-                          height={14}
-                          style={{ filter: 'brightness(0) invert(1)' }}
-                        />
-                      </span>
-                      <span className="text-sm font-semibold text-foreground">
-                        Config MCP&rsquo;s
-                      </span>
-                    </button>
-                  </div>
-                )}
+                {/* Mobile-only Config MCP — sized to match the old
+                    New-chat pill chrome. Desktop uses the MCP chip
+                    row below the disclaimer. */}
+                <div className="absolute -top-12 left-0 z-10 md:hidden">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/hub/connections')}
+                    className="inline-flex items-center gap-2 rounded-xl border border-stroke bg-white pl-1.5 pr-3 py-1.5 shadow-sm cursor-pointer"
+                    aria-label="Configure MCP connections"
+                  >
+                    <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-primary">
+                      <Image
+                        src="/icons/mcp.svg"
+                        alt=""
+                        width={14}
+                        height={14}
+                        style={{ filter: 'brightness(0) invert(1)' }}
+                      />
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">
+                      Config MCP&rsquo;s
+                    </span>
+                  </button>
+                </div>
 
                 <ChatInput
                   value={input}
@@ -286,9 +248,9 @@ export function AgentChatBody({
                     Config affordance.
                     DESKTOP ONLY: `hidden md:flex`. On mobile the
                     active-chat surface already has the Config MCP's
-                    button up next to New chat, and the user chips
-                    would otherwise add a second row at the bottom
-                    that competes with the input for vertical space.
+                    button above the input, and the user chips would
+                    otherwise add a second row at the bottom that
+                    competes with the input for vertical space.
                     Empty state still shows the row on mobile because
                     it has no input-overlap problem. */}
                 <div className="mt-4 hidden md:flex items-center justify-center flex-wrap gap-3">

@@ -5,8 +5,8 @@
  * `/hub/agent-chat`, scoped to one project: separate conversation
  * history per project, and the project id travels with every send so
  * the backend can focus on that project's data. Reuses
- * `<AgentChatBody>` wholesale; per the layout spec this page renders
- * NO search/date chrome.
+ * `<AgentChatBody>` wholesale — chrome is breadcrumbs + New chat
+ * (no date picker).
  */
 
 import { useParams } from 'next/navigation'

@@ -3,15 +3,12 @@
 /**
  * Standalone Agent route. Thin wrapper around `<AgentChatBody>`
  * with `showChrome` enabled so the mobile top-bar + desktop
- * ChatHeader render. All chat state + send logic lives in
- * `AgentChatBody`, which is also embedded inside the home page's
- * Dashboard / Ask-agent in-page toggle (see
- * `home/(components)/DashboardAgentSwitch.tsx`).
+ * DashboardHeader (breadcrumbs + New chat) render. All chat state
+ * + send logic lives in `AgentChatBody`.
  *
  * `useSearchParams` requires a Suspense boundary in the App
- * Router — only this route reads `?q=`, the home-page embed
- * doesn't, so the Suspense wrapper stays here rather than
- * inside `AgentChatBody`.
+ * Router — only this route reads `?q=`, so the Suspense wrapper
+ * stays here rather than inside `AgentChatBody`.
  */
 
 import { Suspense } from 'react'

@@ -7,7 +7,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { SquaresFour, Warning, X } from '@phosphor-icons/react'
+import { ArrowLeft, CaretRight, ChatsTeardrop, SquaresFour, Warning, X } from '@phosphor-icons/react'
 import { DemoProvider, useDemoContext } from './(components)/context/DemoContext'
 import { DemoErrorBoundary } from './(components)/DemoErrorBoundary'
 import { DemoDashboardSidebar } from './(components)/DemoDashboardSidebar'
@@ -18,9 +18,11 @@ import { DemoHomePage } from './(components)/pages/DemoHomePage'
 import { DemoConnectionsPage } from './(components)/pages/DemoConnectionsPage'
 import { DemoTimelinePage } from './(components)/pages/DemoTimelinePage'
 import { DemoProjectPageHeader } from './(components)/DemoProjectPageHeader'
+import { DemoDashboardHeader } from './(components)/DemoDashboardHeader'
 import { DemoCreateViewModal } from './(components)/DemoCreateViewModal'
 import { DemoSelectProjectHint } from './(components)/DemoSelectProjectHint'
 import { demoProjectLabel } from './(components)/demoProjectUtils'
+import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 
 const DEMO_UNSUPPORTED_NOTICE = "This feature isn't available in the demo."
 const NOTICE_DURATION_MS = 3500
@@ -45,6 +47,7 @@ const DemoContent = () => {
     goToPage,
     renameProject,
     deleteProject,
+    clearChat,
   } = useDemoContext()
   const project = currentProjectId
     ? projects.find(p => p.id === currentProjectId) ?? null
@@ -131,6 +134,66 @@ const DemoContent = () => {
                 ) : (
                   <DemoMobileTopBar variant="page" title="Ask agent" />
                 )}
+                <DemoDashboardHeader
+                  breadcrumbs={
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => goToPage('home')}
+                        className="shrink-0 cursor-pointer text-subtle transition-colors hover:text-muted-foreground"
+                        aria-label="Home"
+                      >
+                        <ArrowLeft size={16} weight="regular" />
+                      </button>
+                      <span className="h-4 w-px shrink-0 bg-stroke" aria-hidden="true" />
+                      {project ? (
+                        <>
+                          <div className="flex min-w-0 items-center gap-2" aria-hidden="true">
+                            <ProjectIcon
+                              websiteUrl={project.websiteUrl}
+                              logoSrc={project.logoSrc}
+                              size={20}
+                              pill={false}
+                            />
+                            <span className="truncate text-sm font-semibold text-foreground">
+                              {demoProjectLabel(project)}
+                            </span>
+                          </div>
+                          <CaretRight
+                            size={10}
+                            weight="bold"
+                            className="shrink-0 text-subtle"
+                            aria-hidden="true"
+                          />
+                          <div className="flex min-w-0 items-center gap-2" aria-hidden="true">
+                            <ChatsTeardrop
+                              size={16}
+                              weight="bold"
+                              className="shrink-0 text-foreground"
+                            />
+                            <span className="truncate text-sm font-semibold text-foreground">
+                              Ask agent
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex min-w-0 items-center gap-2">
+                          <ChatsTeardrop
+                            size={16}
+                            weight="bold"
+                            className="shrink-0 text-foreground"
+                          />
+                          <span className="truncate text-sm font-semibold text-foreground">
+                            Ask agent
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  }
+                  showDateSelect={false}
+                  showNewChatButton
+                  onNewChat={clearChat}
+                />
                 <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
                   <DemoAgentBody />
                 </div>
