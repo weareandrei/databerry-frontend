@@ -69,6 +69,7 @@ export function DemoMobileTopBar(props: Variant) {
     Boolean(currentProjectId) &&
     (props.variant === 'project' ||
       pageOpen === 'overview' ||
+      pageOpen === 'timeline' ||
       pageOpen === 'agent' ||
       (pageOpen === 'connections' && Boolean(currentProjectId)))
 
@@ -176,15 +177,8 @@ export function DemoMobileTopBar(props: Variant) {
                   <DemoNavLink
                     label="Timeline"
                     icon={<TimelineNavIcon />}
-                    onClick={() => {
-                      navigate('overview', currentProjectId)
-                      requestAnimationFrame(() => {
-                        document.getElementById('project-timeline')?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'start',
-                        })
-                      })
-                    }}
+                    active={pageOpen === 'timeline'}
+                    onClick={() => navigate('timeline', currentProjectId)}
                   />
                   <DemoNavLink
                     label="Ask agent"

@@ -11,6 +11,11 @@ import { COMPARISON_LINKS } from '@/app/compare/comparisons'
 
 const CORNER_PATH = 'M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z'
 
+const NAV_LINKS = [
+  { label: 'Pricing', href: '/#pricing' },
+  { label: 'FAQ', href: '/#faq' },
+] as const
+
 /**
  * The white "notch" bar hanging from the top edge — flipped corner
  * SVGs + rounded-bottom white pill. Extracted so every surface that
@@ -69,7 +74,7 @@ function CompareDropdown() {
     <div className="relative group">
       <button
         type="button"
-        className="flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors group-hover:text-black cursor-pointer"
+        className="flex items-center gap-1 text-sm font-medium text-foreground transition-colors group-hover:text-black cursor-pointer"
       >
         Compare
         <CaretDown
@@ -80,8 +85,14 @@ function CompareDropdown() {
       </button>
       {/* `pt-3` is a transparent hover-bridge so moving from the trigger
           into the panel doesn't break the `group-hover`. */}
-      <div className="absolute left-1/2 top-full -translate-x-1/2 pt-3 opacity-0 invisible translate-y-1 transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
+      <div className="absolute left-0 top-full pt-3 opacity-0 invisible translate-y-1 transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
         <div className="min-w-[230px] rounded-2xl border border-black/10 bg-white p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.16)]">
+          <Link
+            href="/compare"
+            className="block rounded-xl px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface hover:text-black"
+          >
+            All comparisons
+          </Link>
           {COMPARISON_LINKS.map(c => (
             <Link
               key={c.slug}
@@ -97,20 +108,51 @@ function CompareDropdown() {
   )
 }
 
+function AuthCta({
+  signedIn,
+  className,
+  onNavigate,
+}: {
+  signedIn: boolean | null
+  className?: string
+  onNavigate?: () => void
+}) {
+  if (signedIn === null) {
+    return (
+      <span
+        aria-hidden
+        className={`invisible rounded-full bg-black px-5 py-2 text-sm font-medium ${className ?? ''}`}
+      >
+        Get started
+      </span>
+    )
+  }
+
+  if (signedIn) {
+    return (
+      <Link
+        href="/hub/home"
+        onClick={onNavigate}
+        className={`rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75 ${className ?? ''}`}
+      >
+        Dashboard
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      href="/signup"
+      onClick={onNavigate}
+      className={`rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75 ${className ?? ''}`}
+    >
+      Get started
+    </Link>
+  )
+}
+
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false)
-
-  // Auth state for the single CTA: signed-in users see "Dashboard"
-  // (one click into `/hub/home`); everyone else sees "Get started"
-  // pointing at signup.
-  //
-  // `null` is the third state — "we haven't checked yet". It exists
-  // so the first paint isn't a misleading "Get started" for a user
-  // who's actually logged in (which would flicker to "Dashboard"
-  // 50ms later). Rendering the button only after the check
-  // resolves keeps SSR deterministic and avoids the flicker. The
-  // `onAuthStateChange` subscription updates the state if the user
-  // signs out from another tab while the landing page is open.
   const [signedIn, setSignedIn] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -133,14 +175,30 @@ const Navbar = () => {
     }
   }, [])
 
+  // Lock body scroll while the mobile menu is open.
+  useEffect(() => {
+    if (!menuOpen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [menuOpen])
+
+  const closeMenu = () => setMenuOpen(false)
+
   return (
     <>
-      {/* Mobile burger/close — commented out for now
+      {/* Mobile burger — sits outside the white notch, over the hero.
+          White when closed; switches to black when the full-screen
+          white menu is open so the X stays visible. */}
       <button
-        className="md:hidden fixed top-3 z-[101] flex items-center justify-center w-15 h-15 rounded-full hover:bg-white/10 transition-colors"
-        style={{ right: 'calc(11.25vw - 30px)' }}
+        type="button"
+        className="md:hidden fixed top-3 z-[101] flex items-center justify-center w-12 h-12 rounded-full transition-colors"
+        style={{ right: 'calc(11.25vw - 24px)' }}
         onClick={() => setMenuOpen(v => !v)}
         aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+        aria-expanded={menuOpen}
       >
         <AnimatePresence mode="wait" initial={false}>
           {menuOpen ? (
@@ -150,8 +208,9 @@ const Navbar = () => {
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: 90, opacity: 0 }}
               transition={{ duration: 0.15 }}
+              className="text-black"
             >
-              <X size={30} weight="bold" />
+              <X size={28} weight="bold" />
             </motion.span>
           ) : (
             <motion.span
@@ -160,18 +219,30 @@ const Navbar = () => {
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: -90, opacity: 0 }}
               transition={{ duration: 0.15 }}
+              className="text-white"
             >
-              <List size={30} weight="bold" />
+              <List size={28} weight="bold" />
             </motion.span>
           )}
         </AnimatePresence>
       </button>
-      */}
 
-      <NotchBar>
-        {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 md:gap-1.5 mx-auto md:mx-0">
-            <Image src={DATABERRY_LOGO_PATH} alt="Databerry" width={24} height={24} className="md:w-[28px] md:h-[28px] rounded-md" />
+      <NotchBar widthClassName="w-[70%] md:w-[720px] lg:w-[780px]">
+        {/* Left cluster — logo + desktop nav. On mobile the logo
+            centers in the notch; desktop aligns left next to the links. */}
+        <div className="flex w-full md:w-auto items-center justify-center md:justify-start gap-6 min-w-0">
+          <Link
+            href="/"
+            className="flex items-center gap-2 md:gap-1.5"
+            onClick={closeMenu}
+          >
+            <Image
+              src={DATABERRY_LOGO_PATH}
+              alt="Databerry"
+              width={24}
+              height={24}
+              className="md:w-[28px] md:h-[28px] rounded-md"
+            />
             <span
               className="text-lg md:text-[20px] font-bold text-secondary"
               style={{ fontFamily: 'var(--font-bricolage)', letterSpacing: '-0.01em' }}
@@ -180,48 +251,27 @@ const Navbar = () => {
             </span>
           </Link>
 
-          {/* Single CTA — flips on auth state.
-                  signedIn == null  → still resolving the session;
-                                       render an invisible placeholder
-                                       so the layout doesn't reflow
-                                       once we know.
-                  signedIn === true → "Dashboard" → /hub/home
-                  signedIn === false → "Get started" → /signup
-              The login page is still reachable directly at /login for
-              returning users who type the URL or land via password
-              recovery; we just don't surface it in the marketing nav. */}
-          <div className="hidden md:flex items-center gap-5">
-            {/* Compare dropdown — sits to the LEFT of the auth CTA. */}
+          <nav className="hidden md:flex items-center gap-5" aria-label="Primary">
             <CompareDropdown />
-            {signedIn === null ? (
-              // Reserve the same width as the resolved button so the
-              // navbar doesn't shift when auth state lands. `invisible`
-              // (vs hidden/display:none) keeps it in the layout flow.
-              <span
-                aria-hidden
-                className="invisible rounded-full bg-black px-5 py-2 text-sm font-medium"
-              >
-                Get started
-              </span>
-            ) : signedIn ? (
+            {NAV_LINKS.map(link => (
               <Link
-                href="/hub/home"
-                className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
+                key={link.href}
+                href={link.href}
+                className="text-sm font-medium text-foreground transition-colors hover:text-black"
               >
-                Dashboard
+                {link.label}
               </Link>
-            ) : (
-              <Link
-                href="/signup"
-                className="rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75"
-              >
-                Get started
-              </Link>
-            )}
-          </div>
+            ))}
+          </nav>
+        </div>
+
+        {/* Desktop CTA — flips on auth state. */}
+        <div className="hidden md:flex items-center">
+          <AuthCta signedIn={signedIn} />
+        </div>
       </NotchBar>
 
-      {/* Mobile full-screen menu — commented out for now
+      {/* Mobile full-screen menu — same links as desktop + auth CTA. */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
@@ -232,23 +282,46 @@ const Navbar = () => {
             transition={{ duration: 0.2, ease: 'easeOut' }}
             className="fixed inset-0 z-[99] bg-white flex flex-col md:hidden"
           >
-            <div className="flex flex-col flex-1 px-8 pt-24 gap-6">
+            <div className="flex flex-col flex-1 px-8 pt-24 gap-1">
               <Link
-                href="/signup"
-                onClick={() => setMenuOpen(false)}
-                className="text-3xl font-semibold text-foreground hover:text-secondary transition-colors"
+                href="/compare"
+                onClick={closeMenu}
+                className="py-3 text-3xl font-semibold text-foreground hover:text-secondary transition-colors"
                 style={{ fontFamily: 'var(--font-bricolage)' }}
               >
-                Start
+                Compare
               </Link>
-              <Link
-                href="/login"
-                onClick={() => setMenuOpen(false)}
-                className="text-2xl font-medium text-muted-foreground hover:text-secondary transition-colors"
-                style={{ fontFamily: 'var(--font-bricolage)' }}
-              >
-                Log in
-              </Link>
+              {NAV_LINKS.map(link => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={closeMenu}
+                  className="py-3 text-3xl font-semibold text-foreground hover:text-secondary transition-colors"
+                  style={{ fontFamily: 'var(--font-bricolage)' }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+
+              <div className="mt-8">
+                {signedIn === null ? null : signedIn ? (
+                  <Link
+                    href="/hub/home"
+                    onClick={closeMenu}
+                    className="inline-flex rounded-full bg-black px-6 py-3 text-base font-medium text-white"
+                  >
+                    Dashboard
+                  </Link>
+                ) : (
+                  <Link
+                    href="/signup"
+                    onClick={closeMenu}
+                    className="inline-flex rounded-full bg-black px-6 py-3 text-base font-medium text-white"
+                  >
+                    Get started
+                  </Link>
+                )}
+              </div>
             </div>
 
             <div className="px-8 pb-10 text-sm text-subtle">
@@ -257,7 +330,6 @@ const Navbar = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      */}
     </>
   )
 }

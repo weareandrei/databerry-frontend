@@ -16,6 +16,8 @@ interface DemoProjectPageHeaderProps {
   onCreateView: () => void
   onEditProject: () => void
   onDeleteProject: () => void
+  /** Hide the Create view button (e.g. Timeline page). Default true. */
+  showCreateViewButton?: boolean
 }
 
 export function DemoProjectPageHeader({
@@ -26,6 +28,7 @@ export function DemoProjectPageHeader({
   onCreateView,
   onEditProject,
   onDeleteProject,
+  showCreateViewButton = true,
 }: DemoProjectPageHeaderProps) {
   return (
     <header className="hidden lg:flex shrink-0 items-center gap-3 border-b border-stroke bg-white px-6 py-3">
@@ -71,14 +74,16 @@ export function DemoProjectPageHeader({
       <span className="h-6 w-px shrink-0 bg-stroke" aria-hidden="true" />
 
       <div className="flex shrink-0 items-center gap-3">
-        <button
-          type="button"
-          onClick={onCreateView}
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/90 lg:h-10 lg:px-4 lg:text-sm"
-        >
-          <Plus size={14} weight="bold" />
-          Create view
-        </button>
+        {showCreateViewButton && (
+          <button
+            type="button"
+            onClick={onCreateView}
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg bg-secondary px-3 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/90 lg:h-10 lg:px-4 lg:text-sm"
+          >
+            <Plus size={14} weight="bold" />
+            Create view
+          </button>
+        )}
 
         <ProjectMenu
           onRefreshAll={() => {}}

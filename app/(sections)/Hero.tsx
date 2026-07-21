@@ -204,7 +204,7 @@ function FoundersJoinedBadge() {
               className="bg-green-500 relative z-10 h-1.5 w-1.5 rounded-full"
             />
           </span>
-          <span className="font-semibold tabular-nums">
+          <span className="tabular-nums">
             {count == null ? '…' : count}
           </span>
           <span>founders joined this month</span>

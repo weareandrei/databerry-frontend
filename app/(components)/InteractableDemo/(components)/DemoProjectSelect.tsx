@@ -47,11 +47,13 @@ export function DemoProjectSelect() {
   const pageSubtitle =
     pageOpen === 'overview'
       ? 'Overview'
-      : pageOpen === 'connections'
-        ? 'Connections'
-        : pageOpen === 'agent'
-          ? 'Ask agent'
-          : null
+      : pageOpen === 'timeline'
+        ? 'Timeline'
+        : pageOpen === 'connections'
+          ? 'Connections'
+          : pageOpen === 'agent'
+            ? 'Ask agent'
+            : null
 
   return (
     <DropdownMenu>

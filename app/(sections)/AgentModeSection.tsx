@@ -36,7 +36,7 @@ function AgentModeBadge() {
   return (
     <span className="inline-flex items-center rounded-full bg-white/25 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)] p-1">
       <span className="rounded-full bg-white px-4 py-1 text-xs font-light text-black whitespace-nowrap">
-        Agent mode
+        /agent-mode
       </span>
     </span>
   )

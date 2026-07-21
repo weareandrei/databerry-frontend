@@ -16,6 +16,7 @@ import { DemoAgentBody } from './(components)/DemoAgentBody'
 import { DemoProjectView } from './(components)/projects/DemoProjectView'
 import { DemoHomePage } from './(components)/pages/DemoHomePage'
 import { DemoConnectionsPage } from './(components)/pages/DemoConnectionsPage'
+import { DemoTimelinePage } from './(components)/pages/DemoTimelinePage'
 import { DemoProjectPageHeader } from './(components)/DemoProjectPageHeader'
 import { DemoCreateViewModal } from './(components)/DemoCreateViewModal'
 import { DemoSelectProjectHint } from './(components)/DemoSelectProjectHint'
@@ -52,7 +53,7 @@ const DemoContent = () => {
   const [hasInteracted, setHasInteracted] = useState(false)
 
   useEffect(() => {
-    if (pageOpen === 'overview' && !project) {
+    if ((pageOpen === 'overview' || pageOpen === 'timeline') && !project) {
       goToPage('home')
     }
   }, [pageOpen, project, goToPage])
@@ -115,6 +116,8 @@ const DemoContent = () => {
                 />
               </>
             )}
+
+            {pageOpen === 'timeline' && project && <DemoTimelinePage project={project} />}
 
             {pageOpen === 'agent' && (
               <>

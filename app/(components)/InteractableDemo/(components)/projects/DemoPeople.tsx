@@ -19,25 +19,7 @@ import { CountryFlag } from '@/components/CountryFlag'
 import { SearchBar } from '@/components/SearchBar'
 import type { PersonEvent, PersonRow } from '@/lib/api'
 import { useDemoContext } from '../context/DemoContext'
-
-interface DemoPerson {
-  id: string
-  name: string | null
-  email: string | null
-  /** Referrer source — a domain (favicon) or 'direct'. */
-  source: string
-  /** ISO 3166-1 alpha-2. */
-  country: string
-  lastSeen: string
-}
-
-const DEMO_PEOPLE: DemoPerson[] = [
-  { id: 'p-1', name: 'Alice Johnson', email: 'alice@acme.dev', source: 'google.com', country: 'US', lastSeen: '2026-04-08T14:12:00Z' },
-  { id: 'p-2', name: null, email: 'bob@startup.io', source: 'direct', country: 'GB', lastSeen: '2026-04-07T18:40:00Z' },
-  { id: 'p-3', name: 'Carol White', email: 'carol@studio.com', source: 'reddit.com', country: 'DE', lastSeen: '2026-06-12T09:30:00Z' },
-  { id: 'p-4', name: null, email: 'dev@tinylaunch.com', source: 'producthunt.com', country: 'CA', lastSeen: '2026-06-11T16:05:00Z' },
-  { id: 'p-5', name: 'Evan Lee', email: 'evan@example.com', source: 't.co', country: 'AU', lastSeen: '2026-06-09T11:48:00Z' },
-]
+import { DEMO_PEOPLE, type DemoPerson, toDemoPersonRow } from '../demoPeopleData'
 
 const COUNTRY: Record<string, string> = {
   US: 'United States',
@@ -171,20 +153,7 @@ export function DemoPeople() {
   // Project the selected demo person into the real `PersonRow` shape
   // the sheet's header reads (id / displayName / primaryEmail).
   const personRow: PersonRow | null = useMemo(
-    () =>
-      selected
-        ? {
-            id: selected.id,
-            projectId: 'demo',
-            displayName: selected.name,
-            primaryEmail: selected.email,
-            country: selected.country,
-            initialSource: selected.source,
-            lastSeenAt: null,
-            createdAt: '',
-            updatedAt: '',
-          }
-        : null,
+    () => (selected ? toDemoPersonRow(selected, 'demo') : null),
     [selected],
   )
   const events = useMemo(

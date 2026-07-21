@@ -7,6 +7,7 @@ import ConnectSection from '@/app/(sections)/ConnectSection'
 import VideoSection from '@/app/(sections)/VideoSection'
 import AgentModeSection from '@/app/(sections)/AgentModeSection'
 import MergedUsersSection from '@/app/(sections)/MergedUsersSection'
+import TimelineSection from '@/app/(sections)/TimelineSection'
 import Pricing from '@/app/(sections)/Pricing'
 import FAQ from '@/app/(sections)/FAQ'
 import Contact from '@/app/(sections)/Contact'
@@ -125,6 +126,7 @@ const LandingPage = () => {
       <ConnectSection />
       <VideoSection />
       <MergedUsersSection />
+      <TimelineSection />
       <FeaturesSection />
       <AgentModeSection />
       <Pricing />

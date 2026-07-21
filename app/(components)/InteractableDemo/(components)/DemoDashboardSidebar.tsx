@@ -173,23 +173,6 @@ export function DemoDashboardSidebar() {
   const isProjectPage = (page: DemoPage) =>
     pageOpen === page && currentProjectId === project?.id
 
-  const scrollToTimeline = () => {
-    if (pageOpen !== 'overview' || !project) {
-      goToPage('overview', project?.id ?? null)
-      requestAnimationFrame(() => {
-        document.getElementById('project-timeline')?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start',
-        })
-      })
-      return
-    }
-    document.getElementById('project-timeline')?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start',
-    })
-  }
-
   // Home uses the icon-rail mini sidebar (same as hub `/hub/home`).
   if (pageOpen === 'home') {
     return (
@@ -277,8 +260,8 @@ export function DemoDashboardSidebar() {
                 label="Connections"
               />
               <NavRow
-                active={false}
-                onClick={scrollToTimeline}
+                active={isProjectPage('timeline')}
+                onClick={() => goToPage('timeline', project.id)}
                 icon={<TimelineNavIcon />}
                 label="Timeline"
               />

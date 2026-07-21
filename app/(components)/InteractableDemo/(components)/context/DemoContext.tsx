@@ -84,7 +84,7 @@ type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : n
  *   - `overview` / `agent` (and project-scoped `connections`)
  *     use the unified demo sidebar + page headers.
  */
-export type DemoPage = 'home' | 'overview' | 'agent' | 'connections'
+export type DemoPage = 'home' | 'overview' | 'timeline' | 'agent' | 'connections'
 
 export interface DemoChatMessage {
   id: string
