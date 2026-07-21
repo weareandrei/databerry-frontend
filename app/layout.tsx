@@ -70,7 +70,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               var s=e.createElement('script'); s.async=1; s.crossOrigin='anonymous';
               s.src='https://betterstack.net/b.js?t='+r;
               (e.head||e.getElementsByTagName('head')[0]).appendChild(s);
-            }(window,document,'betterstack','4cxYURU9RZKiXLXyG5cvc3DE');
+            }(window,document,'betterstack','YgQ7XT8PzQohuFDippNCkLmT');
             betterstack('init', { environment: '${process.env.NODE_ENV === 'production' ? 'production' : 'development'}' });
           `}
         </Script>
