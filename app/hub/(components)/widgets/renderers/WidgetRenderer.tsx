@@ -101,9 +101,10 @@ interface WidgetRendererProps {
    *  hooks so day-bucketing math runs in wall-clock time. Read once at
    *  the top of `useProjectView` from `state.ui.globalTimeZone`. */
   tz: string | null
-  onUntrack: (id: string) => void
+  /** Omit on home pins — Unpin replaces Untrack there. */
+  onUntrack?: (id: string) => void
   onPin: (viewId: string) => void
-  onConnectionAssigned: (updated: Widget) => void
+  onConnectionAssigned?: (updated: Widget) => void
   /**
    * When true, the picked `<LiveValueWidget*>` renders without its own
    * border + shadow chrome (via `<BaseWidget variant="borderless">`).
@@ -111,6 +112,11 @@ interface WidgetRendererProps {
    * outer white card. Default false → desktop behaviour, no change.
    */
   chromeless?: boolean
+  /**
+   * Force the pin affordance on (home pinned lane). Defaults to
+   * `view.isPinned` so project pages keep working unchanged.
+   */
+  forcePinned?: boolean
 }
 
 function WidgetRendererImpl({
@@ -124,6 +130,7 @@ function WidgetRendererImpl({
   onPin,
   onConnectionAssigned,
   chromeless = false,
+  forcePinned,
 }: WidgetRendererProps) {
   const live = useWidgetLiveValue(view, { dateFrom, dateTo, tz })
   const stripeChart = useStripeChart(view, { dateFrom, dateTo, mode, tz })
@@ -154,12 +161,13 @@ function WidgetRendererImpl({
     : undefined
 
   const handlePin = () => onPin(view.id)
+  const isPinned = forcePinned ?? view.isPinned
   const sharedCardProps = {
     view,
     onUntrack,
     onConnectionAssigned,
     onPin: handlePin,
-    isPinned: view.isPinned,
+    isPinned,
     historical: isRange,
     chromeless,
   }
@@ -217,7 +225,7 @@ function WidgetRendererImpl({
         error={funnel.error}
         onUntrack={onUntrack}
         onPin={handlePin}
-        isPinned={view.isPinned}
+        isPinned={isPinned}
         onRefresh={funnel.refresh}
         refreshing={funnel.loading}
         onConnectionAssigned={onConnectionAssigned}
@@ -256,7 +264,7 @@ function WidgetRendererImpl({
         }}
         onUntrack={onUntrack}
         onPin={handlePin}
-        isPinned={view.isPinned}
+        isPinned={isPinned}
         onRefresh={sentry.refresh}
         refreshing={sentry.loading}
         onConnectionAssigned={onConnectionAssigned}
@@ -298,7 +306,7 @@ function WidgetRendererImpl({
       onRefresh={live.refresh}
       refreshing={live.liveLoading}
       onPin={handlePin}
-      isPinned={view.isPinned}
+      isPinned={isPinned}
       onConnectionAssigned={onConnectionAssigned}
       dateRangeLabel={dateRangeLabel}
       chromeless={chromeless}

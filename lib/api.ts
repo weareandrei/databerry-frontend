@@ -1087,6 +1087,12 @@ export interface OverviewChartResponse {
   trafficProvider: 'google_analytics' | 'posthog' | null
 }
 
+/** Hub home greeting — all-projects visitors + revenue for the range. */
+export interface WorkspaceTotalsResponse {
+  totalVisitors: number
+  totalRevenue: number
+}
+
 export interface OverviewSource {
   source: string
   label: string
@@ -1155,6 +1161,13 @@ export interface OverviewPagesResponse {
 }
 
 export const PROJECT_OVERVIEW = {
+  getWorkspaceTotals: (dateFrom: string, dateTo: string) => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+    return apiFetch<WorkspaceTotalsResponse>(
+      `/project-overview/workspace-totals?dateFrom=${dateFrom}&dateTo=${dateTo}&tz=${encodeURIComponent(tz)}`,
+    )
+  },
+
   getChart: (
     projectId: string,
     dateFrom: string,

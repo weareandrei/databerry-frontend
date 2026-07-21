@@ -7,78 +7,21 @@ import { ProjectIcon } from '@/app/hub/(components)/icons/ProjectIcon'
 import { ViewWrapper } from '@/app/hub/(components)/views/ViewWrapper'
 import { getHomeProjectSections } from '@/app/hub/home/(components)/homeProjectSections'
 import { projectDisplayLabel } from '@/app/hub/project/(components)/projectViewUtils'
-import { LiveValueWidget } from '@/app/hub/(components)/widgets/live-value/LiveValueWidget'
 import { OverviewChartWidgetConnected } from '@/app/hub/(components)/widgets/overview/OverviewChartWidgetConnected'
 import { OverviewSourcesWidgetConnected } from '@/app/hub/(components)/widgets/overview/OverviewSourcesWidgetConnected'
 import {
   WidePosthogWidgetRenderer,
   isWidePosthogView,
 } from '@/app/hub/(components)/widgets/renderers/WidePosthogWidgetRenderer'
-import { useWidgetLiveValue } from '@/app/hub/(components)/widgets/data'
+import { WidgetRenderer } from '@/app/hub/(components)/widgets/renderers/WidgetRenderer'
 import { useStripeSyncOnMount } from '@/lib/hooks/useStripeSyncOnMount'
-import { formatIsoDateRange } from '@/utils/dateHelpers'
+import {
+  cellSpanClasses,
+  getViewSizing,
+} from '@/constants/viewSizing'
 import type { RootState } from '@/store'
 import type { Widget } from '@/types/widget'
 import type { Project } from '@/types/project'
-
-// Same caption ruleset as ProjectView's dispatcher. Lives in the
-// CALLER (here / `ProjectView`) — `LiveValueWidget` itself stays
-// provider-free so it can be rendered on the marketing landing page.
-const DATE_RANGE_CAPTION_TYPES = new Set(['stripe_mrr'])
-
-// ── Pinned tile (regular grid) ─────────────────────────────────────────────
-
-interface PinnedLiveValueWidgetProps {
-  view: Widget
-  projectName?: string
-  dateFrom: string
-  dateTo: string
-  /** User's currently-selected timezone, threaded into `useWidgetLiveValue`
-   *  so day-bucketing matches the rest of the dashboard. Read once at
-   *  the top of `PinnedViews` and passed in. */
-  tz: string | null
-  onUnpin: (id: string) => void
-  onConnectionAssigned?: (updated: Widget) => void
-}
-
-function PinnedLiveValueWidget({
-  view,
-  projectName,
-  dateFrom,
-  dateTo,
-  tz,
-  onUnpin,
-  onConnectionAssigned,
-}: PinnedLiveValueWidgetProps) {
-  const { liveValue, liveLoading, liveError, refresh } = useWidgetLiveValue(view, {
-    dateFrom,
-    dateTo,
-    tz,
-  })
-
-  // Same caption logic as the project view's dispatcher — pinned MRR
-  // tiles also benefit from showing the date range under their value.
-  const dateRangeLabel = DATE_RANGE_CAPTION_TYPES.has(view.type)
-    ? formatIsoDateRange(dateFrom, dateTo) ?? undefined
-    : undefined
-
-  return (
-    <LiveValueWidget
-      view={view}
-      projectName={projectName}
-      liveValue={liveValue}
-      liveLoading={liveLoading}
-      liveError={liveError}
-      onRefresh={refresh}
-      refreshing={liveLoading}
-      onPin={() => onUnpin(view.id)}
-      isPinned={true}
-      onConnectionAssigned={onConnectionAssigned}
-      dateRangeLabel={dateRangeLabel}
-      // No onUntrack — hides the "Untrack" (delete) item; "Unpin" replaces it.
-    />
-  )
-}
 
 // ── Composite lane (project_overview + project_overview_sources) ───────────
 
@@ -209,6 +152,12 @@ function partitionPins(pins: Widget[]): PinPartition {
   return { composites, customCharts, widePosthog, regular }
 }
 
+function pinnedTileWrapperClass(view: Widget, stackTiles: boolean): string {
+  if (stackTiles) return ''
+  const displayMode = (view.config as { displayMode?: string } | null)?.displayMode
+  return cellSpanClasses(getViewSizing(view.type, displayMode))
+}
+
 // ── Main component ────────────────────────────────────────────────────────
 
 interface PinnedWidgetsGridProps {
@@ -232,13 +181,14 @@ export function PinnedWidgetsGrid({
   const dateFrom = useSelector((s: RootState) => s.ui.globalDateFrom)
   const dateTo = useSelector((s: RootState) => s.ui.globalDateTo)
   const mode = useSelector((s: RootState) => s.ui.globalDateMode)
-  // Read once here, pass as prop to children (PinnedLiveValueWidget, the
+  // Read once here, pass as prop to children (WidgetRenderer, the
   // overview-chart / sources lanes). Keeps low-level view components
   // provider-free.
   const tz = useSelector((s: RootState) => s.ui.globalTimeZone)
 
   const { composites, customCharts, widePosthog, regular } = partitionPins(pins)
   const projectNameOf = (pin: Widget) => projects.find(p => p.id === pin.projectId)?.name
+  const isRange = dateFrom !== dateTo
 
   // Live-on-mount sync — `pins` may include Stripe tiles. Pinned cards are
   // a primary surface (top of /hub/home), so they especially benefit from
@@ -307,8 +257,8 @@ export function PinnedWidgetsGrid({
         <div
           // Mobile (`singleColumn`): vertical stack with a tighter gap
           // and no fixed-height grid rows — each tile sizes to its
-          // content. Desktop unchanged: same `grid-cols-2 lg:cols-3 …`
-          // grid with 140 px rows.
+          // content. Desktop: same dense grid as the project page,
+          // with chart-mode tiles spanning 2×2 via getViewSizing.
           className={
             stackTiles
               ? 'flex flex-col gap-3'
@@ -317,16 +267,19 @@ export function PinnedWidgetsGrid({
           style={stackTiles ? undefined : { gridAutoRows: '140px' }}
         >
           {regular.map(pin => (
-            <PinnedLiveValueWidget
-              key={pin.id}
-              view={pin}
-              projectName={projectNameOf(pin)}
-              dateFrom={dateFrom}
-              dateTo={dateTo}
-              tz={tz}
-              onUnpin={unpinView}
-              onConnectionAssigned={onConnectionAssigned}
-            />
+            <div key={pin.id} className={pinnedTileWrapperClass(pin, stackTiles)}>
+              <WidgetRenderer
+                view={pin}
+                isRange={isRange}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                mode={mode}
+                tz={tz}
+                onPin={unpinView}
+                onConnectionAssigned={onConnectionAssigned}
+                forcePinned
+              />
+            </div>
           ))}
         </div>
       )}
