@@ -1541,7 +1541,10 @@ export function CreateViewModal() {
                   type="button"
                   onClick={() => {
                     widgets.closeModal()
-                    connections.openModal(widgets.createViewFolderId)
+                    connections.openModal(
+                      widgets.createViewFolderId,
+                      widgets.createViewProjectId,
+                    )
                   }}
                   className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-stroke bg-white px-3 py-1.5 text-[12px] font-medium text-foreground shadow-sm transition-colors hover:bg-hover-fill"
                 >

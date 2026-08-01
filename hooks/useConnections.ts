@@ -21,6 +21,9 @@ export function useConnections() {
   const createConnectionFolderId = useSelector(
     (state: RootState) => state.ui.createConnectionFolderId,
   )
+  const createConnectionProjectId = useSelector(
+    (state: RootState) => state.ui.createConnectionProjectId,
+  )
 
   const loadConnections = async () => {
     dispatch(setLoading(true))
@@ -138,13 +141,15 @@ export function useConnections() {
     loading,
     isModalOpen,
     createConnectionFolderId,
+    createConnectionProjectId,
     loadConnections,
     getConnectionsByType,
     createConnection,
     reassignProject,
     deleteConnection,
     reloadStripe,
-    openModal: (folderId: string | null = null) => dispatch(openCreateConnectionModal(folderId)),
+    openModal: (folderId: string | null = null, projectId: string | null = null) =>
+      dispatch(openCreateConnectionModal({ folderId, projectId })),
     closeModal: () => dispatch(closeCreateConnectionModal()),
   }
 }

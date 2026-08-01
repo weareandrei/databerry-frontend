@@ -135,7 +135,12 @@ export function StripeProductPicker() {
     setAllProducts(true)
     setBackfillStatus(null)
     setBackfillError(null)
-    window.history.replaceState({}, '', '/hub/connections')
+    // Strip the picker query params but keep the current path — the
+    // create flow may have landed here from a project-scoped
+    // connections page (`/hub/project/:id/connections`), not only
+    // from the global `/hub/connections` list.
+    const path = window.location.pathname
+    window.history.replaceState({}, '', path)
   }
 
   /**

@@ -43,6 +43,7 @@ interface UiState {
   createFolderProjectId: string | null
   createConnectionModalOpen: boolean
   createConnectionFolderId: string | null
+  createConnectionProjectId: string | null
   createViewModalOpen: boolean
   createViewFolderId: string | null
   createViewProjectId: string | null
@@ -65,6 +66,7 @@ const initialState: UiState = {
   createFolderProjectId: null,
   createConnectionModalOpen: false,
   createConnectionFolderId: null,
+  createConnectionProjectId: null,
   createViewModalOpen: false,
   createViewFolderId: null,
   createViewProjectId: null,
@@ -133,13 +135,18 @@ const uiSlice = createSlice({
       state.createFolderParentId = null
       state.createFolderProjectId = null
     },
-    openCreateConnectionModal(state, action: PayloadAction<string | null>) {
+    openCreateConnectionModal(
+      state,
+      action: PayloadAction<{ folderId: string | null; projectId?: string | null }>,
+    ) {
       state.createConnectionModalOpen = true
-      state.createConnectionFolderId = action.payload
+      state.createConnectionFolderId = action.payload.folderId
+      state.createConnectionProjectId = action.payload.projectId ?? null
     },
     closeCreateConnectionModal(state) {
       state.createConnectionModalOpen = false
       state.createConnectionFolderId = null
+      state.createConnectionProjectId = null
     },
     openCreateViewModal(state, action: PayloadAction<{ folderId: string | null; projectId: string }>) {
       state.createViewModalOpen = true

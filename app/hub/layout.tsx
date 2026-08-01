@@ -12,6 +12,8 @@ import { OnboardingGate } from '@/app/hub/(components)/gates/OnboardingGate'
 import { TrialKickoff } from '@/app/hub/(components)/gates/TrialKickoff'
 import { SubscriptionGate } from '@/app/hub/(components)/gates/SubscriptionGate'
 import { ServerStatusGate } from '@/app/hub/(components)/gates/ServerStatusGate'
+import { Suspense } from 'react'
+import { StripeProductPicker } from '@/app/hub/connections/(components)/StripeProductPicker'
 
 export default function HubLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -36,6 +38,13 @@ export default function HubLayout({ children }: { children: React.ReactNode }) {
             <CreateFolderModal />
             <CreateConnectionModal />
             <CreateViewModal />
+            {/* Lives in the hub layout (not just `/hub/connections`) so
+                project-scoped create flows can land on
+                `/hub/project/:id/connections?stripe=select-products…`
+                and still open the picker. */}
+            <Suspense>
+              <StripeProductPicker />
+            </Suspense>
             <BillingReturnHandler />
             <FeedbackWidget />
             <OnboardingGate />

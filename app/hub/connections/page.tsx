@@ -20,7 +20,6 @@ import { MobileTopBar } from '@/app/hub/(components)/mobile/MobileTopBar/MobileT
 import { useOAuthCallback } from '@/hooks/useOAuthCallback'
 import { CONNECTION_DISPLAY_NAMES } from '@/constants/connectionLabels'
 import { ConnectionDetailModal } from '@/app/hub/(components)/modals/ConnectionDetailModal'
-import { StripeProductPicker } from '@/app/hub/connections/(components)/StripeProductPicker'
 import { AddMcpConnectionModal } from '@/app/hub/connections/(components)/AddMcpConnectionModal'
 import { ProjectScopePill } from '@/app/hub/connections/(components)/ProjectScopePill'
 import { Cpu } from '@phosphor-icons/react'
@@ -245,7 +244,6 @@ export default function ConnectionsPage() {
       <Suspense>
         <OAuthCallbacks />
         <GoogleAnalyticsPropertyPicker />
-        <StripeProductPicker />
       </Suspense>
 
       <ConnectionDetailModal

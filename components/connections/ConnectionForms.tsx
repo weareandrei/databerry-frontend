@@ -150,7 +150,9 @@ export function PostHogForm({
         <ul className="mt-1 list-disc pl-5 text-sm text-foreground space-y-1">
           <li>
             <span className="font-semibold">Read</span> access to Project,
-            Query, and Event definition.
+            Query, Event definition, and Person (
+            <code className="bg-muted px-1 rounded">person:read</code>) —
+            required to sync people.
           </li>
           <li>
             <span className="font-semibold">Write</span> access to Hog function

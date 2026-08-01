@@ -42,7 +42,7 @@ export default function ProjectConnectionsPage() {
       pageIcon={CardsThree}
       showCreateViewButton={false}
       showCreateConnectionButton
-      onCreateConnection={() => connections.openModal(null)}
+      onCreateConnection={() => connections.openModal(null, projectId)}
       showDateSelect={false}
       showProjectMenu={false}
     >

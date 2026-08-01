@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Copy, Check, Info, Warning, Cube, CaretDown } from '@phosphor-icons/react'
 import { toast } from 'sonner'
@@ -311,6 +311,15 @@ export function CreateConnectionModal() {
   const [projectId, setProjectId] = useState<string | null>(null)
   const [webhookCreated, setWebhookCreated] = useState<WebhookCreatedInfo | null>(null)
 
+  // Pre-select the project when the modal was opened from a project
+  // workspace (mirrors CreateViewModal + `createViewProjectId`). Opening
+  // from the global connections page leaves this null → Common.
+  useEffect(() => {
+    if (connections.isModalOpen) {
+      setProjectId(connections.createConnectionProjectId)
+    }
+  }, [connections.isModalOpen, connections.createConnectionProjectId])
+
   // Form state lifted from each `*Form` component so the modal can render
   // a top-right Save/Cancel cluster instead of the old bottom-wide button.
   // See the `*Form` components above and the `<HeaderSaveCancel>` props
@@ -553,9 +562,14 @@ export function CreateConnectionModal() {
       resetFormState()
       // Hop to the connections page with the picker query params. The
       // picker reads `?stripe=select-products&connectionId=…` and opens
-      // itself.
+      // itself. Stay in the project workspace when the connection was
+      // scoped to a project — dumping onto `/hub/connections` would
+      // drop the project filter and show every connection.
+      const connectionsBase = projectId
+        ? `/hub/project/${projectId}/connections`
+        : '/hub/connections'
       router.push(
-        `/hub/connections?stripe=select-products&connectionId=${created.id}`,
+        `${connectionsBase}?stripe=select-products&connectionId=${created.id}`,
       )
     } catch (err) {
       // Backend (after step 8 lands its pre-flight `/v1/account`
