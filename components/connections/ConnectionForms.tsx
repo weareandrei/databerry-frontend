@@ -169,10 +169,14 @@ export function PostHogForm({
 
       <SetupStep n={2} title="Paste your API key below">
         <Input
+          type="password"
           placeholder="phx_xxxxxxxxxxxxxxxxxxxx"
           value={apiKey}
           onChange={e => onApiKeyChange(e.target.value)}
           autoFocus
+          spellCheck={false}
+          autoCapitalize="off"
+          autoComplete="off"
         />
       </SetupStep>
 
@@ -303,10 +307,14 @@ export function StripeManualForm({
 
       <SetupStep n={2} title="Paste your Restricted Key below">
         <Input
+          type="password"
           placeholder="rk_live_xxxxxxxxxxxxxxxxxxxx"
           value={apiKey}
           onChange={e => onApiKeyChange(e.target.value)}
           autoFocus
+          spellCheck={false}
+          autoCapitalize="off"
+          autoComplete="off"
         />
       </SetupStep>
 
@@ -372,10 +380,14 @@ export function VercelTokenForm({
 
       <SetupStep n={2} title="Paste your token below">
         <Input
+          type="password"
           placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
           value={token}
           onChange={e => onTokenChange(e.target.value)}
           autoFocus
+          spellCheck={false}
+          autoCapitalize="off"
+          autoComplete="off"
         />
       </SetupStep>
 
