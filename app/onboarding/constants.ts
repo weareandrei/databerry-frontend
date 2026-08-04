@@ -5,10 +5,14 @@
  * onboarding tree without risking a cycle.
  */
 
-export type Step = 'welcome' | 'tools' | 'connecting' | 'views'
+export type Step = 'welcome' | 'project' | 'tools' | 'connecting' | 'views'
 
-export const STEPS: { id: 'welcome' | 'tools' | 'views'; label: string }[] = [
+export const STEPS: {
+  id: 'welcome' | 'project' | 'tools' | 'views'
+  label: string
+}[] = [
   { id: 'welcome', label: 'Welcome' },
+  { id: 'project', label: 'Your project' },
   { id: 'tools', label: 'Connect your tools' },
   { id: 'views', label: 'Create data views' },
 ]
@@ -17,8 +21,9 @@ export const STEPS: { id: 'welcome' | 'tools' | 'views'; label: string }[] = [
  *  sequence is part of "Connect your tools". */
 export function activeStepIndex(step: Step): number {
   if (step === 'welcome') return 0
-  if (step === 'views') return 2
-  return 1
+  if (step === 'project') return 1
+  if (step === 'views') return 3
+  return 2
 }
 
 /** Tools offered on step 2, in queue order. `oauth` tools redirect

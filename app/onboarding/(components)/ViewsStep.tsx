@@ -1,6 +1,6 @@
 'use client'
 
-// ── Step 3: Create data views ───────────────────────────────────────────────
+// ── Step 4: Create data views ───────────────────────────────────────────────
 
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { SelectableRow, PrimaryCta, SkipLink } from './OnboardingControls'

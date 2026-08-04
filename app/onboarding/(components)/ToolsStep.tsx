@@ -1,6 +1,6 @@
 'use client'
 
-// ── Step 2: Connect your tools ──────────────────────────────────────────────
+// ── Step 3: Connect your tools ──────────────────────────────────────────────
 
 import { TOOLS } from '../constants'
 import { PrimaryCta, SkipLink, SelectableRow } from './OnboardingControls'

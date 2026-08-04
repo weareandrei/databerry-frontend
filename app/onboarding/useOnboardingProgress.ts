@@ -30,10 +30,15 @@ export interface SavedProgress {
   queue: string[]
   queueIndex: number
   oauthPending: string | null
-  /** The "New Project" created when the connect sequence started —
-   *  persisted so the OAuth round-trip doesn't lose it and
-   *  connections/views keep landing in the SAME project. */
+  /** The project created on the "Your project" step — persisted so
+   *  the OAuth round-trip doesn't lose it and connections/views keep
+   *  landing in the SAME project. */
   projectId?: string | null
+  /** Draft name/website from the project step — kept so a mid-flow
+   *  reload still shows what the user typed before Continue created
+   *  (or updated) the project. */
+  projectName?: string
+  projectWebsiteUrl?: string
   /** Event picked for the "Track event" view — persisted so an
    *  OAuth round-trip (or tab close) on the views step doesn't
    *  silently fall back to $pageview. */
@@ -80,11 +85,15 @@ export function useOnboardingProgress() {
   // one the user is currently connecting.
   const [queue, setQueue] = useState<string[]>([])
   const [queueIndex, setQueueIndex] = useState(0)
-  // The onboarding project ("New Project") every connection + view
-  // gets assigned to. Created lazily when the connect sequence
-  // starts (or at Finish for users who skip connecting); persisted
-  // in SavedProgress so the OAuth round-trip keeps the same one.
+  // The onboarding project every connection + view gets assigned to.
+  // Created on the "Your project" step (or lazily at Finish / tools
+  // continue for older in-flight progress); persisted in SavedProgress
+  // so the OAuth round-trip keeps the same one.
   const [onbProjectId, setOnbProjectId] = useState<string | null>(null)
+  // Draft name + website from the project step (persisted so a reload
+  // mid-step doesn't wipe the form).
+  const [projectName, setProjectName] = useState('')
+  const [projectWebsiteUrl, setProjectWebsiteUrl] = useState('')
   // Event picked for the "Track event" view; persisted so the OAuth
   // round-trip (or a tab close) on the views step doesn't lose it.
   const [pickedEventName, setPickedEventName] = useState<string | null>(null)
@@ -117,6 +126,8 @@ export function useOnboardingProgress() {
       setSelectedViews(new Set(saved.selectedViews))
       setQueue(saved.queue)
       setOnbProjectId(saved.projectId ?? null)
+      setProjectName(saved.projectName ?? '')
+      setProjectWebsiteUrl(saved.projectWebsiteUrl ?? '')
       setPickedEventName(saved.posthogEventName ?? null)
 
       if (saved.oauthPending) {
@@ -178,9 +189,21 @@ export function useOnboardingProgress() {
       queueIndex,
       oauthPending: null,
       projectId: onbProjectId,
+      projectName,
+      projectWebsiteUrl,
       posthogEventName: pickedEventName,
     })
-  }, [step, selectedTools, selectedViews, queue, queueIndex, onbProjectId, pickedEventName])
+  }, [
+    step,
+    selectedTools,
+    selectedViews,
+    queue,
+    queueIndex,
+    onbProjectId,
+    projectName,
+    projectWebsiteUrl,
+    pickedEventName,
+  ])
 
   return {
     step,
@@ -196,6 +219,10 @@ export function useOnboardingProgress() {
     setQueueIndex,
     onbProjectId,
     setOnbProjectId,
+    projectName,
+    setProjectName,
+    projectWebsiteUrl,
+    setProjectWebsiteUrl,
     pickedEventName,
     setPickedEventName,
   }

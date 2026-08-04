@@ -32,6 +32,11 @@
  *     above modals (`z-50`), the feedback widget (`z-40`), the
  *     onboarding gate (`z-[90]`) and the sidebar. The whole
  *     dashboard becomes uninteractive while this is mounted.
+ *   - While the subscription picker is open we UNMOUNT the gate
+ *     chrome (not just lower its opacity). `TierPickerSheet` uses
+ *     `BottomDialog` at `z-50`; leaving the gate up would paint over
+ *     the sheet and make "See subscription plans" look dead. Closing
+ *     the picker without buying remounts the gate.
  *   - Fades in over 1 s from opacity 0 → 100 once it decides to
  *     show. The two-RAF dance below ensures the initial opacity-0
  *     state actually paints to the DOM before we flip the flag, so
@@ -59,6 +64,7 @@ import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { PhoneBezel } from '@/app/(components)/PhoneBezel'
 import { TierPickerSheet } from '@/app/hub/(components)/navigation/(components)/TierPickerSheet'
 import { useAccount } from '@/hooks/useAccount'
+import { useAuth } from '@/contexts/AuthContext'
 import { trackEvent, EVENT } from '@/lib/posthog'
 
 /** Duration of the opacity 0 → 100 fade-in, in milliseconds. */
@@ -77,6 +83,7 @@ export function SubscriptionGate() {
   const [faded, setFaded] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
   const { planId, rawPlanId, trialEndsAt, loading } = useAccount()
+  const { signOut } = useAuth()
 
   // Re-evaluated every minute (and on every account change) so a
   // session that outlives its trial gets gated without a reload —
@@ -102,7 +109,10 @@ export function SubscriptionGate() {
             requestAnimationFrame(() => setFaded(true))
           })
         }
-        if (!expired && prev) setFaded(false)
+        if (!expired && prev) {
+          setFaded(false)
+          setPickerOpen(false)
+        }
         return expired
       })
     }
@@ -115,82 +125,82 @@ export function SubscriptionGate() {
   if (!mounted) return null
 
   return (
-    // `z-[100]` sits above EVERY other layer:
-    //   - `z-50` dashboard modals
-    //   - `z-40` feedback widget
-    //   - `z-[90]` onboarding gate
-    //   - Sidebar (no explicit z, but inside layout flow)
-    // `inset-0` pins it to all four viewport edges; `fixed`
-    // means scrolling the body underneath has no effect.
-    // `pointer-events-auto` is implicit but worth noting — clicks
-    // hit this overlay, not the dashboard underneath.
-    <div
-      className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
-      style={{
-        opacity: faded ? 1 : 0,
-        transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
-      }}
-      aria-modal="true"
-      role="dialog"
-      aria-labelledby="subscription-gate-title"
-    >
-      <CanvasBackground />
-      <PhoneBezel />
+    <>
+      {/* Gate chrome stays down while the plans sheet is open —
+          `BottomDialog` portals at `z-50`, and this overlay is
+          `z-[100]`, so leaving it up would cover the sheet. */}
+      {!pickerOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+          style={{
+            opacity: faded ? 1 : 0,
+            transition: `opacity ${FADE_DURATION_MS}ms ease-in-out`,
+          }}
+          aria-modal="true"
+          role="dialog"
+          aria-labelledby="subscription-gate-title"
+        >
+          <CanvasBackground />
+          <PhoneBezel />
 
-      {/* Centred card — same chrome as `/signup` and `/login` so the
-          user reads "this is a billing gate, not an error". */}
-      <div className="relative z-10 flex flex-1 items-center justify-center px-4 md:px-6 min-h-screen">
-        <div className="rounded-2xl border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] overflow-hidden w-full max-w-md">
-          {/* Outer semi-transparent wrapper (glassmorphism). */}
-          <div className="bg-white/35 backdrop-blur-sm p-3 md:p-4">
-            {/* Inner fully white surface. */}
-            <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
-              <div className="flex flex-col items-center text-center">
-                {/* Soft brand-orange tile with the hourglass glyph —
-                    mirrors the `📩` envelope tile on the signup
-                    "check your email" success state so the visual
-                    grammar carries across both onboarding moments. */}
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                  <span className="text-2xl">⏳</span>
+          {/* Centred card — same chrome as `/signup` and `/login` so the
+              user reads "this is a billing gate, not an error". */}
+          <div className="relative z-10 flex flex-1 items-center justify-center px-4 md:px-6 min-h-screen">
+            <div className="rounded-2xl border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)] overflow-hidden w-full max-w-md">
+              {/* Outer semi-transparent wrapper (glassmorphism). */}
+              <div className="bg-white/35 backdrop-blur-sm p-3 md:p-4">
+                {/* Inner fully white surface. */}
+                <div className="bg-white rounded-xl px-5 md:px-8 py-7 md:py-10">
+                  <div className="flex flex-col items-center text-center">
+                    {/* Soft brand-orange tile with the hourglass glyph —
+                        mirrors the `📩` envelope tile on the signup
+                        "check your email" success state so the visual
+                        grammar carries across both onboarding moments. */}
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                      <span className="text-2xl">⏳</span>
+                    </div>
+
+                    <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
+                      Trial ended
+                    </p>
+                    <h2
+                      id="subscription-gate-title"
+                      className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground leading-[1.1] mb-3"
+                    >
+                      Oups. It seems your free trial has finished.
+                    </h2>
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-xs">
+                      If you&apos;d like to continue using Databerry, please
+                      purchase a subscription.
+                    </p>
+
+                    <Button
+                      onClick={() => setPickerOpen(true)}
+                      className="w-full rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium py-5 cursor-pointer shadow-none"
+                    >
+                      See subscription plans
+                    </Button>
+
+                    <button
+                      type="button"
+                      onClick={() => void signOut()}
+                      className="mt-4 text-sm font-medium text-muted-foreground hover:text-foreground hover:underline underline-offset-2 transition-colors cursor-pointer"
+                    >
+                      Sign out
+                    </button>
+                  </div>
                 </div>
-
-                <p className="text-xs font-medium text-primary uppercase tracking-widest mb-2">
-                  Trial ended
-                </p>
-                <h2
-                  id="subscription-gate-title"
-                  className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground leading-[1.1] mb-3"
-                >
-                  Oups. It seems your free trial has finished.
-                </h2>
-                <p className="text-sm text-muted-foreground leading-relaxed mb-6 max-w-xs">
-                  If you&apos;d like to continue using Databerry, please
-                  purchase a subscription.
-                </p>
-
-                <Button
-                  onClick={() => setPickerOpen(true)}
-                  className="w-full rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-medium py-5 cursor-pointer shadow-none"
-                >
-                  See subscription plans
-                </Button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* The picker sheet renders on top of the gate when opened.
-          `BottomDialog`'s own `z-50` would sit BELOW our `z-[100]`
-          overlay otherwise, but the picker is rendered into a portal
-          at the document root so its stacking context is independent
-          of ours — it lays itself on top regardless of this overlay's
-          z-index. */}
       <TierPickerSheet
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         currentPlanId={planId}
       />
-    </div>
+    </>
   )
 }

@@ -4,10 +4,12 @@
  * /onboarding — the first-run flow for fresh accounts.
  *
  *   1. Welcome              — set expectations ("under 5 minutes").
- *   2. Connect your tools   — multi-select, then a per-tool
+ *   2. Your project         — name + optional website URL; creates
+ *      the project everything else gets assigned to.
+ *   3. Connect your tools   — multi-select, then a per-tool
  *      "Connecting <tool>" sequence using the SHARED connection
  *      forms + flows (same code as the dashboard modal).
- *   3. Add data views       — multi-select starter views.
+ *   4. Add data views       — multi-select starter views.
  *
  * Lives OUTSIDE /hub on purpose: the hub layout brings the sidebar,
  * cream background and dashboard providers — none of which belong
@@ -26,20 +28,20 @@
  * (API keys) are intentionally NOT persisted — only flow position.
  * See `useOnboardingProgress` for the persistence + verified-resume.
  *
- * PROJECT: when the connect sequence starts (or at Finish, whichever
- * comes first) we ensure a project named "New Project" exists and
- * assign EVERYTHING to it — manual connections (PostHog/Stripe) are
- * created project-scoped directly; OAuth ones (GA/Sentry) land as
- * Common in the server callback and get re-scoped at Finish; all
- * created views live in it. Plan limits are NOT enforced in
- * onboarding (fresh accounts, nothing to abuse — the dashboard
- * modal still enforces for everyone after).
+ * PROJECT: created on the "Your project" step with the name +
+ * website the user typed (or lazily at tools-continue / Finish for
+ * older in-flight progress). EVERYTHING is assigned to it — manual
+ * connections (PostHog/Stripe) are created project-scoped directly;
+ * OAuth ones (GA/Sentry) land as Common in the server callback and
+ * get re-scoped at Finish; all created views live in it. Plan limits
+ * are NOT enforced in onboarding (fresh accounts, nothing to abuse —
+ * the dashboard modal still enforces for everyone after).
  *
  * Exit paths (both mark `onboarding_complete = true` in the DB):
  *   - "Skip onboarding" → ONBOARDING_SKIPPED { step } → /hub/home
  *   - "Finish"          → creates every selected view (ensuring a
- *     project exists first — fresh accounts get "My project"), then
- *     ONBOARDING_FINISHED { tools, views, viewsCreated } → /hub/home.
+ *     project exists first), then ONBOARDING_FINISHED
+ *     { tools, views, viewsCreated } → /hub/home.
  *     See `handleFinish` for the failure stance: view-creation
  *     errors toast and proceed; they never trap the user here.
  */
@@ -82,6 +84,7 @@ import {
   clearProgress,
 } from './useOnboardingProgress'
 import { WelcomeStep } from './(components)/WelcomeStep'
+import { ProjectStep } from './(components)/ProjectStep'
 import { ToolsStep } from './(components)/ToolsStep'
 import { ConnectingStep } from './(components)/ConnectingStep'
 import { ViewsStep } from './(components)/ViewsStep'
@@ -115,6 +118,10 @@ export default function OnboardingPage() {
     setQueueIndex,
     onbProjectId,
     setOnbProjectId,
+    projectName,
+    setProjectName,
+    projectWebsiteUrl,
+    setProjectWebsiteUrl,
     pickedEventName,
     setPickedEventName,
   } = useOnboardingProgress()
@@ -149,24 +156,59 @@ export default function OnboardingPage() {
   }, [authLoading, user, router])
 
   /**
-   * Resolve (or create) the onboarding project — "New Project" —
-   * that every connection + view gets assigned to. Reuses an
-   * existing project when one exists (idempotent across re-entries
-   * and the OAuth round-trip); caches the id in state + SavedProgress.
+   * Resolve (or create) the onboarding project that every connection
+   * + view gets assigned to. Prefers the name/website from the
+   * "Your project" step; falls back to "New Project" only for older
+   * in-flight progress that never hit that step. Reuses
+   * `onbProjectId` when already created (idempotent across re-entries
+   * and the OAuth round-trip).
    */
   const ensureProject = useCallback(async (): Promise<string> => {
-    if (onbProjectId) return onbProjectId
+    const name = projectName.trim() || 'New Project'
+    const trimmedUrl = projectWebsiteUrl.trim()
+    const websiteUrl = trimmedUrl ? trimmedUrl : null
+
+    if (onbProjectId) {
+      // Resume path: project already exists — sync name/website in
+      // case the user edited the draft before Continuing again.
+      try {
+        await ALGORITHM.updateProject(onbProjectId, { name, websiteUrl })
+      } catch {
+        // Non-fatal — connections/views can still use the existing id.
+      }
+      return onbProjectId
+    }
+
     const projects = await ALGORITHM.getProjects()
-    const project =
-      projects[0] ?? (await ALGORITHM.createProject({ name: 'New Project' }))
+    if (projects[0]) {
+      setOnbProjectId(projects[0].id)
+      try {
+        await ALGORITHM.updateProject(projects[0].id, { name, websiteUrl })
+      } catch {
+        /* non-fatal */
+      }
+      return projects[0].id
+    }
+
+    const project = await ALGORITHM.createProject({ name, websiteUrl })
     setOnbProjectId(project.id)
     return project.id
-  }, [onbProjectId, setOnbProjectId])
+  }, [
+    onbProjectId,
+    projectName,
+    projectWebsiteUrl,
+    setOnbProjectId,
+  ])
 
   /**
    * Exit tail shared by skip + finish: write the DB flag FIRST, then
    * navigate — else the hub's OnboardingGate races a stale `false`
    * and bounces straight back here.
+   *
+   * Also fires a one-shot setup toast here (not in the hub). That
+   * keeps it tied to "just left onboarding" rather than
+   * `onboarding_complete === true`, which would re-fire on every
+   * later login.
    */
   const markCompleteAndExit = async (
     event: typeof EVENT.ONBOARDING_SKIPPED | typeof EVENT.ONBOARDING_FINISHED,
@@ -176,6 +218,10 @@ export default function OnboardingPage() {
       await ALGORITHM.completeOnboarding()
       trackEvent(event, props)
       clearProgress()
+      toast.info(
+        "Your account is still setting up — this usually takes a few minutes. Feel free to look around while we finish.",
+        { duration: 10_000 },
+      )
       router.replace('/hub/home')
       return true
     } catch (err) {
@@ -200,9 +246,9 @@ export default function OnboardingPage() {
    * complete and enter the dashboard.
    *
    * Order of operations and failure stance:
-   *   1. Ensure a project exists — fresh accounts have none, and
-   *      views are project-scoped. First existing project wins;
-   *      otherwise we create "My project" (renameable later).
+   *   1. Ensure a project exists — usually already created on the
+   *      "Your project" step; otherwise create from the saved name
+   *      (or "New Project" for older in-flight progress).
    *   2. Resolve connections FRESH from the API (not component
    *      state) — the OAuth detour (GA/Sentry) remounts the page, so
    *      anything created earlier in the sequence only reliably
@@ -222,9 +268,8 @@ export default function OnboardingPage() {
 
     try {
       // EVERY onboarded user gets the project — even with zero views
-      // selected, landing on a dashboard with "New Project" ready
-      // beats landing on an empty state. (No-op when it already
-      // exists from the connect sequence.)
+      // selected. Usually already created on the project step; this
+      // is a no-op then.
       const projectId = await ensureProject()
 
       const conns: Connection[] = await ALGORITHM.getConnections()
@@ -344,7 +389,25 @@ export default function OnboardingPage() {
 
   const handleStart = () => {
     trackEvent(EVENT.ONBOARDING_STARTED)
-    setStep('tools')
+    setStep('project')
+  }
+
+  /**
+   * Project step → create (or update) the named project, then
+   * advance to tools. Failures stay on this step so the user can
+   * retry without losing the draft.
+   */
+  const handleProjectContinue = async () => {
+    if (busy || !projectName.trim()) return
+    setBusy(true)
+    try {
+      await ensureProject()
+      setBusy(false)
+      setStep('tools')
+    } catch {
+      toast.error("Couldn't set up your project. Please try again.")
+      setBusy(false)
+    }
   }
 
   const resetToolForms = useCallback(() => {
@@ -360,10 +423,10 @@ export default function OnboardingPage() {
   }, [])
 
   /** Tools step → start the per-tool connecting sequence (or jump
-   *  straight to views when nothing was selected). The "New Project"
-   *  is created HERE — before any connection exists — so every
-   *  manual connect can scope to it directly and the project id
-   *  survives the OAuth round-trip via SavedProgress. */
+   *  straight to views when nothing was selected). The project is
+   *  usually already created on the previous step; `ensureProject`
+   *  is still called here as a safety net for older in-flight
+   *  progress that skipped the project step. */
   const handleToolsContinue = async () => {
     if (busy) return
     const q = TOOLS.filter(t => selectedTools.has(t.type)).map(t => t.type)
@@ -616,7 +679,7 @@ export default function OnboardingPage() {
       {/* ── Top bar — the landing page's notch, same component
             (`NotchBar` from navbar.tsx), wider to fit the step
             indicators. Content: logo · steps · sign out. ───────── */}
-      <NotchBar widthClassName="w-[95%] md:w-[780px]">
+      <NotchBar widthClassName="w-[95%] md:w-[920px]">
         <Image
           src={DATABERRY_LOGO_PATH}
           alt="Databerry"
@@ -698,6 +761,19 @@ export default function OnboardingPage() {
                   onStart={handleStart}
                   onSkip={() => void handleSkip()}
                   submitting={submitting}
+                />
+              )}
+
+              {!restoring && step === 'project' && (
+                <ProjectStep
+                  name={projectName}
+                  websiteUrl={projectWebsiteUrl}
+                  onNameChange={setProjectName}
+                  onWebsiteUrlChange={setProjectWebsiteUrl}
+                  busy={busy}
+                  submitting={submitting}
+                  onContinue={() => void handleProjectContinue()}
+                  onSkip={() => void handleSkip()}
                 />
               )}
 

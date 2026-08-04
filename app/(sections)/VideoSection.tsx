@@ -33,7 +33,7 @@ const VideoSection = () => {
         <div className="mx-auto w-full max-w-5xl">
           <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border shadow-[0_8px_40px_rgba(0,0,0,0.12)]">
             <iframe
-              src="https://www.youtube.com/embed/YptDji8Wc5A"
+              src="https://www.youtube.com/embed/ayl8BK_mi1s"
               title="Databerry demo"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               referrerPolicy="strict-origin-when-cross-origin"
