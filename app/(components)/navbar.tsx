@@ -34,7 +34,12 @@ export function NotchBar({
   widthClassName?: string
 }) {
   return (
-    <div className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center">
+    // `data-notch-bar` lets page content measure where the bar ends (the
+    // landing demo centers itself in the space below it).
+    <div
+      data-notch-bar
+      className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center"
+    >
       <svg
         className="-scale-x-100 -scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]"
         viewBox="0 0 50 50"
