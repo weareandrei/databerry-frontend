@@ -46,7 +46,12 @@ function ensureAccountRow(userId: string): void {
     // failure might be a transient network blip.
     ensuredForUserId = null
     captureError(EVENT.ACCOUNT_ENSURE_FAILED, err, { userId })
-    console.error('[auth] Failed to ensure accounts row:', err)
+    // "Failed to fetch" means the API couldn't be reached at all — in local
+    // dev, usually just a backend that isn't running. Still reported above,
+    // but as a warning here so it doesn't raise Next.js's error badge.
+    const unreachable = err instanceof TypeError
+    const log = unreachable ? console.warn : console.error
+    log('[auth] Failed to ensure accounts row:', err)
   })
 }
 
