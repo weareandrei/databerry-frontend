@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { XLogo } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
+import { CtaButton } from '@/components/ui/CtaButton'
 import { EVENT, trackEvent } from '@/lib/posthog'
 
 export const Footer = () => {
@@ -22,7 +23,7 @@ export const Footer = () => {
     })
 
   return (
-    <footer className="relative px-[10vw] pt-20 pb-0 overflow-hidden">
+    <footer data-canvas-window className="relative px-[10vw] pt-20 pb-0 overflow-hidden">
       {/* Main grid */}
       <div className="relative z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-10 pb-12 border-t border-white/20 pt-10">
 
@@ -31,7 +32,7 @@ export const Footer = () => {
           <div className="flex flex-col gap-3">
             <span className="text-xl font-bold tracking-tight text-white">Databerry</span>
             <span className="text-sm text-white/70">All your business data in one place.</span>
-            <Link
+            <CtaButton
               href="/signup"
               onClick={() =>
                 trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
@@ -40,10 +41,11 @@ export const Footer = () => {
                   location: 'footer',
                 })
               }
-              className="mt-1 self-start text-sm font-medium bg-white text-black px-5 py-2.5 rounded-lg hover:bg-white/90 transition-colors"
+              tone="white"
+              className="mt-1 self-start"
             >
               Get started
-            </Link>
+            </CtaButton>
           </div>
         </RevealOnScroll>
 

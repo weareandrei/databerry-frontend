@@ -1,493 +1,475 @@
 'use client'
-import { useRef, useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
-import { LiveValueWidget } from '@/app/hub/(components)/widgets/live-value/LiveValueWidget'
-import { ChartWidget } from '@/app/hub/(components)/widgets/chart/ChartWidget'
-import { CheckCircle, ArrowRight } from '@phosphor-icons/react'
-import type { Widget } from '@/types/widget'
+import { ArrowRight, Check } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
+import { ChartWidget } from '@/app/hub/(components)/widgets/chart/ChartWidget'
+import { SentryIssuesWidget } from '@/app/hub/(components)/widgets/sentry/SentryIssuesWidget'
+import { MOCK_SENTRY_ISSUES_ACME } from '@/app/(components)/InteractableDemo/(components)/demoMocks'
+import {
+  DemoTile,
+  demoWidget,
+  GA_WEEK,
+  GA_WEEK_TOTAL,
+  SHOWCASE_WIDGETS,
+  STRIPE_DAY,
+  STRIPE_DAY_TOTAL,
+  STRIPE_WEEK,
+  STRIPE_WEEK_TOTAL,
+  useNearViewport,
+} from '@/app/(components)/landingWidgets'
 
-// ─── fake data helpers ────────────────────────────────────────────────────────
-
-function fakeView(
-  id: string,
-  name: string,
-  connectionType: string,
-  value: string,
-  type = 'custom',
-): Widget {
-  return {
-    id,
-    name,
-    projectId: 'id1',
-    folderId: '',
-    connectionId: 'preview',
-    connectionType,
-    type,
-    config: {},
-    value,
-    isPinned: false,
-    userId: 'preview',
-    createdAt: '',
-  }
-}
-
-const STRIPE_POINTS = [
-  { label: 'Mon', value: 580000 },
-  { label: 'Tue', value: 720000 },
-  { label: 'Wed', value: 610000 },
-  { label: 'Thu', value: 890000 },
-  { label: 'Fri', value: 1040000 },
-  { label: 'Sat', value: 480000 },
-  { label: 'Sun', value: 500000 },
-]
-
-const UPTIME_PRODUCTS = [
-  { name: 'Main App', status: 'operational', uptime: '99.98%', color: '#10b981' },
-  { name: 'API Gateway', status: 'operational', uptime: '99.95%', color: '#10b981' },
-  { name: 'Auth Service', status: 'degraded', uptime: '98.21%', color: '#f59e0b' },
-  { name: 'Billing', status: 'operational', uptime: '100%', color: '#10b981' },
-]
-
-// ─── feature previews ─────────────────────────────────────────────────────────
-
-function MarketingPreview() {
-  return (
-    <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '110px' }}>
-      <LiveValueWidget view={fakeView('ph1', 'user_signed_up', 'posthog', '2841')} onUntrack={() => {}} />
-      <LiveValueWidget view={fakeView('ph2', 'trial_started', 'posthog', '619')} onUntrack={() => {}} />
-      <LiveValueWidget view={fakeView('ph3', 'conversion_rate', 'posthog', '22')} onUntrack={() => {}} />
-      <LiveValueWidget
-        view={fakeView('ph4', 'churn_this_month', 'posthog', '14')}
-        onUntrack={() => {}}
-      />
-    </div>
-  )
-}
-
-function SalesPreview() {
-  return (
-    <div className="flex flex-col gap-3">
-      <div style={{ height: '220px' }}>
-        <ChartWidget
-          view={{
-            ...fakeView('s1', 'This Week Gross Volume', 'stripe_manual', '4820000'),
-            type: 'stripe_gross_week',
-          }}
-          onUntrack={() => {}}
-          points={STRIPE_POINTS}
-          total={4820000}
-          loading={false}
-          error={null}
-        />
-      </div>
-      {/* Cards size to their natural height now (no `gridAutoRows` forcing
-          90 px) — LiveValueWidget expects header (~50 px) + value (~50 px) +
-          its own `px-4 pb-4` padding to all coexist, so any rigid sub-
-          100 px row clips the value text against the bottom edge. */}
-      <div className="grid grid-cols-2 gap-3">
-        <LiveValueWidget
-          view={fakeView('s2', 'New Customers', 'stripe_manual', '38')}
-          onUntrack={() => {}}
-        />
-        <LiveValueWidget
-          view={fakeView('s3', "Today's Revenue", 'stripe_manual', '284000', 'stripe_gross')}
-          onUntrack={() => {}}
-        />
-      </div>
-    </div>
-  )
-}
-
-function ProductPreview() {
-  return (
-    <div className="flex flex-col gap-2">
-      {UPTIME_PRODUCTS.map(p => (
-        <div
-          key={p.name}
-          className="flex items-center justify-between rounded-xl border bg-card px-4 py-3"
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-2 h-2 rounded-full shrink-0"
-              style={{ background: p.color }}
-            />
-            <span className="text-sm font-medium">{p.name}</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span
-              className="text-xs font-medium px-2 py-0.5 rounded-full"
-              style={{ background: p.color + '18', color: p.color }}
-            >
-              {p.status}
-            </span>
-            <span className="text-xs text-muted-foreground tabular-nums">{p.uptime}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function HistoryPreview() {
-  const days = ['Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8', 'Apr 9']
-  const activeDay = 5
+/**
+ * "All in one platform" — four things the dashboard does, one per row.
+ *
+ * Desktop: the rows scroll on the left while one dashboard preview stays
+ * pinned on the right and swaps to match the row being read. Below `lg`
+ * there is no room for two columns, so each row carries its own preview.
+ */
+const FeaturesSection = () => {
+  const sectionRef = useRef<HTMLElement>(null)
+  const isDesktop = useIsDesktop()
+  const widgetsReady = useNearViewport(sectionRef)
+  const { activeIndex, anchorRefs, scrollToFeature } = useActiveFeature()
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex gap-1.5">
-        {days.map((day, i) => (
-          <button
-            key={day}
-            className={`flex-1 rounded-lg py-2 text-center transition-colors ${
-              i === activeDay
-                ? 'bg-foreground text-background'
-                : i === days.length - 1
-                  ? 'bg-card border text-muted-foreground'
-                  : 'bg-card border hover:bg-accent/40'
-            }`}
-          >
-            <span className="text-[10px] font-medium block">{day}</span>
-          </button>
-        ))}
-      </div>
-      <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '100px' }}>
-        <LiveValueWidget
-          view={fakeView('h1', 'Gross Volume', 'stripe_manual', '1042000', 'stripe_gross')}
-          onUntrack={() => {}}
-        />
-        <LiveValueWidget
-          view={fakeView('h2', 'New Customers', 'stripe_manual', '28')}
-          onUntrack={() => {}}
-        />
-        <LiveValueWidget
-          view={fakeView('h3', 'user_signed_up', 'posthog', '194')}
-          onUntrack={() => {}}
-        />
-        <LiveValueWidget
-          view={fakeView('h4', 'trial_started', 'posthog', '51')}
-          onUntrack={() => {}}
-        />
-      </div>
-      <p className="text-xs text-muted-foreground text-center">Viewing Apr 8 snapshot</p>
-    </div>
-  )
-}
-
-// ─── feature definitions ──────────────────────────────────────────────────────
-
-interface Bullet { text: string }
-
-const FEATURES: {
-  badge: string
-  tagline: string
-  header: string
-  sub: string
-  bullets: Bullet[]
-  cta: string
-  Preview: React.FC
-}[] = [
-  {
-    badge: 'Marketing',
-    tagline: 'for marketing teams',
-    header: 'Transform raw analytics data into decisions that move the needle',
-    sub: 'Stop bouncing between PostHog, Mixpanel, and spreadsheets. Pull every metric that matters onto a single page — and act on it before the day ends.',
-    bullets: [
-      { text: 'Track only the metrics you care about — no dashboard bloat' },
-      { text: 'See live event counts update as users interact with your product' },
-      { text: 'Spot drop-offs and conversion trends without writing a single query' },
-    ],
-    cta: 'Start organising your data',
-    Preview: MarketingPreview,
-  },
-  {
-    badge: 'Sales',
-    tagline: 'for sales and finance',
-    header: 'Import your financial data to track revenue in real time',
-    sub: 'Connect Stripe and get a live pulse on your business — daily charts, new customer counts, and running totals, always current.',
-    bullets: [
-      { text: 'Weekly and daily revenue charts, updated automatically' },
-      { text: 'New customer counts so you know exactly how fast you\'re growing' },
-      { text: 'MRR, balance, and gross volume — all in one view' },
-    ],
-    cta: 'Be aware of your finance',
-    Preview: SalesPreview,
-  },
-  {
-    badge: 'Product',
-    tagline: 'for product teams',
-    header: 'Monitor all your products and services from one screen',
-    sub: 'Keep track of uptime, error rates, and performance across every service you run — without setting up a separate monitoring dashboard.',
-    bullets: [
-      { text: 'All products\' uptime and health status in a single view' },
-      { text: 'Connect Sentry and GitHub to surface errors and open issues instantly' },
-      { text: 'Get notified before your users do when something goes wrong' },
-    ],
-    cta: 'See everything in real time',
-    Preview: ProductPreview,
-  },
-  {
-    badge: 'Time Travel',
-    tagline: 'for every team',
-    header: 'Go back in time to any day since you started using Databerry',
-    sub: 'Every metric you track is snapshotted daily. Navigate to any past date and see exactly what your numbers looked like — revenue, signups, events, all of it.',
-    bullets: [
-      { text: 'Daily snapshots stored automatically for every view you create' },
-      { text: 'Navigate to any historical date with a single click' },
-      { text: 'Compare periods and catch trends you would have otherwise missed' },
-    ],
-    cta: 'Become a time traveller',
-    Preview: HistoryPreview,
-  },
-]
-
-// ─── components ───────────────────────────────────────────────────────────────
-
-interface FeatureItemProps {
-  index: number
-  badge: string
-  header: string
-  sub: string
-  bullets: Bullet[]
-  cta: string
-  active: boolean
-  innerRef: (el: HTMLDivElement | null) => void
-  divider: boolean
-  onScrollTo: () => void
-  Preview: React.FC
-}
-
-function FeatureItem({
-  badge,
-  header,
-  sub,
-  bullets,
-  cta,
-  active,
-  innerRef,
-  divider,
-  onScrollTo,
-  Preview,
-}: FeatureItemProps) {
-  return (
-    <div>
-      <button onClick={onScrollTo} className="w-full text-left group">
-        <div ref={innerRef} className="py-10">
-          <span
-            className={`inline-block text-xs font-semibold uppercase tracking-widest px-2.5 py-1 rounded-full transition-colors duration-300 ${
-              active
-                ? 'bg-secondary text-white'
-                : 'bg-muted text-subtle group-hover:bg-secondary group-hover:text-white'
-            }`}
-          >
-            {badge}
-          </span>
-          <h3
-            className={`mt-4 text-2xl font-semibold tracking-tight leading-[1.2] transition-colors duration-300 ${active ? 'text-foreground' : 'text-gray-300 group-hover:text-subtle'}`}
+    <section
+      ref={sectionRef}
+      id="features-section"
+      className="relative bg-gradient-to-b from-white via-surface to-white px-4 py-24 md:px-[10vw] md:py-32"
+    >
+      {/* Header cluster — same centred H2 + subhead as the Merged users,
+          Timeline and Agent mode sections. */}
+      <div className="mx-auto flex max-w-3xl flex-col items-center text-center">
+        <RevealOnScroll delay={0} y={16}>
+          <h2
+            className="text-4xl font-semibold tracking-tight text-foreground md:text-5xl"
             style={{ fontFamily: 'var(--font-bricolage)' }}
           >
-            {header}
-          </h3>
-          <p
-            className={`mt-3 text-base leading-relaxed transition-colors duration-300 ${active ? 'text-muted-foreground' : 'text-gray-300 group-hover:text-subtle'}`}
-          >
-            {sub}
+            All in one platform
+          </h2>
+        </RevealOnScroll>
+        <RevealOnScroll delay={0.05} y={16}>
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground">
+            For marketing, sales, finance and product teams — every metric that matters on a single
+            page.
           </p>
-          <ul className="mt-4 flex flex-col gap-2">
-            {bullets.map((b, i) => (
-              <li
-                key={i}
-                className={`flex items-start gap-2.5 text-sm transition-colors duration-300 ${active ? 'text-muted-foreground' : 'text-gray-300 group-hover:text-subtle'}`}
-              >
-                <CheckCircle
-                  size={16}
-                  weight="fill"
-                  className={`shrink-0 mt-0.5 transition-colors duration-300 ${active ? 'text-secondary' : 'text-gray-200 group-hover:text-secondary/60'}`}
-                />
-                {b.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </button>
-
-      {/* Mobile inline preview */}
-      <div className="dashboard md:hidden rounded-2xl border bg-card p-4 mb-6">
-        <Preview />
+        </RevealOnScroll>
       </div>
 
-      <Link
-        href="/signup"
-        className="inline-flex items-center gap-1.5 mt-1 mb-8 text-sm font-medium text-secondary hover:text-secondary/90 transition-colors group/cta"
-        onClick={e => e.stopPropagation()}
-      >
-        {cta}
-        <ArrowRight
-          size={14}
-          weight="bold"
-          className="transition-transform duration-200 group-hover/cta:translate-x-0.5"
-        />
-      </Link>
-      {divider && <div className="h-px bg-border" />}
-    </div>
-  )
-}
-
-const FeaturesSection = () => {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const featureRefs = useRef<(HTMLDivElement | null)[]>([])
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const idx = featureRefs.current.indexOf(entry.target as HTMLDivElement)
-            if (idx !== -1) setActiveIndex(idx)
-          }
-        })
-      },
-      { rootMargin: '-20% 0px -50% 0px' },
-    )
-    featureRefs.current.forEach(ref => {
-      if (ref) observer.observe(ref)
-    })
-    return () => observer.disconnect()
-  }, [])
-
-  function scrollToFeature(i: number) {
-    featureRefs.current[i]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }
-
-  const ActivePreview = FEATURES[activeIndex].Preview
-
-  return (
-    <section id="features-section" className="relative px-8 md:px-[10vw] flex flex-col bg-white">
-      {/*
-        Inner wrapper acts as the sticky header's *containing block* —
-        sticky releases when this wrapper's bottom edge reaches the
-        viewport top. To make the header un-stick 200 px early
-        (without shrinking the section as a whole), the feature-list
-        below carries a `-mb-[200px]` negative margin: that shrinks
-        the wrapper's flex-computed height by 200 px while keeping the
-        feature-list's content visually the same. The 200 px tail
-        sibling sits in the gap so the section's overall height —
-        and the start of the next section — is unchanged.
-      */}
-      <div className="flex flex-col">
-        {/* Sticky header */}
-        <div className="sticky top-0 z-30 bg-white pt-24 md:pt-20 pb-8 overflow-visible">
-          <RevealOnScroll delay={0} y={16}>
-            <p className="text-xs font-medium text-secondary uppercase tracking-widest">Features</p>
-            <h2
-              className="mt-2 text-4xl font-semibold tracking-tight text-foreground"
-              style={{ fontFamily: 'var(--font-bricolage)' }}
-            >
-              All in one platform
-            </h2>
-          </RevealOnScroll>
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={activeIndex}
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.2 }}
-              className="mt-1.5 text-base text-subtle"
-            >
-              {FEATURES[activeIndex].tagline}
-            </motion.p>
-          </AnimatePresence>
-          <div className="absolute bottom-0 left-0 right-0 h-[50px] translate-y-full bg-gradient-to-b from-white to-transparent pointer-events-none" />
+      <div className="mt-10 flex items-start gap-16 lg:mt-16">
+        <div className="w-full min-w-0 lg:w-[42%]">
+          {FEATURES.map((feature, index) => (
+            <FeatureRow
+              key={feature.title}
+              feature={feature}
+              active={index === activeIndex}
+              anchorRef={el => {
+                anchorRefs.current[index] = el
+              }}
+              onSelect={() => scrollToFeature(index)}
+              // Until the viewport is known both layouts render and CSS
+              // picks one; after that only the one in use stays mounted.
+              showPreview={isDesktop !== true}
+              widgetsReady={widgetsReady}
+            />
+          ))}
         </div>
 
-        {/*
-          Feature list + sticky preview.
-          `-mb-[200px]` is what actually makes the header un-stick early.
-          In a flex column, a child's outer-size = content + margins
-          (incl. negative margins). With this −200 mb, the wrapper above
-          treats this child as 200 px shorter, so its flex-computed
-          height — and thus its bottom edge in the document, which is
-          the sticky's release point — comes up 200 px. The visible
-          content below is unchanged; the 200 px tail sibling occupies
-          the same Y range that gets reclaimed here, keeping the
-          section's overall height (and the next section's start
-          position) constant.
-        */}
-        <div className="flex flex-row pb-32 pt-6 gap-16 items-start -mb-[200px]">
-          {/* Left: feature text */}
-          <div className="flex flex-col w-full md:w-[45%]">
-            {FEATURES.map((feature, i) => (
-              <RevealOnScroll key={i} delay={0} y={20}>
-                <FeatureItem
-                  index={i}
-                  badge={feature.badge}
-                  header={feature.header}
-                  sub={feature.sub}
-                  bullets={feature.bullets}
-                  cta={feature.cta}
-                  active={activeIndex === i}
-                  divider={i < FEATURES.length - 1}
-                  innerRef={el => {
-                    featureRefs.current[i] = el
-                  }}
-                  onScrollTo={() => scrollToFeature(i)}
-                  Preview={feature.Preview}
-                />
-              </RevealOnScroll>
-            ))}
-          </div>
-
-          {/* Right: sticky preview panel — desktop only.
-              The card sizes to its current preview's NATURAL height
-              (no fixed `h-…`, no min-height, no flex centering — those
-              all forced previews of different heights into the same
-              box and clipped the bigger ones like Sales, which is 220 px
-              chart + 12 px gap + 90 px tile row = 322 px content).
-              `motion.div layout` on the wrapper tweens its height
-              between previews. `AnimatePresence mode="popLayout"` pulls
-              the exiting child out of the layout flow (position:
-              absolute) the moment a new one enters, so the wrapper's
-              height collapses to the new child's natural size instead
-              of summing both during the cross-fade. The new child's
-              own `layout` lets it animate into its natural size while
-              the wrapper tweens to match. */}
-          <div className="hidden md:block flex-1 sticky top-[30vh]">
+        {isDesktop !== false && (
+          <div className="sticky top-[max(6rem,calc(50vh-15rem))] hidden min-w-0 flex-1 lg:block">
             <RevealOnScroll delay={0.1} y={20}>
-            <motion.div
-              layout
-              transition={{ layout: { duration: 0.4, ease: [0.22, 1, 0.36, 1] } }}
-              className="dashboard rounded-2xl border bg-card p-5 shadow-sm overflow-hidden"
-            >
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key={activeIndex}
-                  layout
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                >
-                  <ActivePreview />
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
+              <ShowcaseFrame>
+                <div className="relative h-[420px]">
+                  {FEATURES.map((feature, index) => {
+                    const active = index === activeIndex
+
+                    return (
+                      <div
+                        key={feature.title}
+                        data-active={active}
+                        inert={!active}
+                        // All four previews stay mounted, stacked in one
+                        // fixed box; a swap is a cross-fade. Out is quick
+                        // (150ms), in takes a beat longer (300ms).
+                        className="invisible absolute inset-0 translate-y-2 p-4 opacity-0 transition-[opacity,translate,visibility] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] data-[active=true]:visible data-[active=true]:translate-y-0 data-[active=true]:opacity-100 data-[active=true]:duration-300 motion-reduce:translate-y-0"
+                      >
+                        {widgetsReady && <feature.Preview />}
+                      </div>
+                    )
+                  })}
+                </div>
+              </ShowcaseFrame>
             </RevealOnScroll>
           </div>
-        </div>
+        )}
       </div>
-
-      {/*
-        200 px tail. Lives outside the wrapper above so the sticky
-        header's containing block doesn't include it — meaning the
-        header releases when the wrapper ends and this region scrolls
-        without it. `aria-hidden` because there's no semantic content
-        here; it's purely a layout buffer.
-      */}
-      <div aria-hidden className="h-[200px]" />
     </section>
   )
 }
 
 export default FeaturesSection
+
+interface FeatureRowProps {
+  feature: Feature
+  active: boolean
+  anchorRef: (el: HTMLElement | null) => void
+  onSelect: () => void
+  showPreview: boolean
+  /** Widgets mount once the section is nearly on screen — see `useNearViewport`. */
+  widgetsReady: boolean
+}
+
+/**
+ * One feature: who it is for (the heading), what it does for them (one
+ * line), and three specifics. On desktop the row being read is at full
+ * strength and the others step back — but stay readable.
+ */
+const FeatureRow = ({
+  feature,
+  active,
+  anchorRef,
+  onSelect,
+  showPreview,
+  widgetsReady,
+}: FeatureRowProps) => {
+  return (
+    <div
+      data-active={active}
+      className="group/row border-t border-stroke py-10 first:border-t-0 first:pt-0 lg:py-14"
+    >
+      <h3
+        ref={anchorRef}
+        className="text-3xl font-semibold tracking-tight text-foreground transition-colors duration-300 lg:group-data-[active=false]/row:text-foreground/50"
+        style={{ fontFamily: 'var(--font-bricolage)' }}
+      >
+        <button
+          type="button"
+          onClick={onSelect}
+          className="rounded-sm text-left outline-offset-4 focus-visible:outline-2 focus-visible:outline-ring"
+        >
+          {feature.title}
+        </button>
+      </h3>
+
+      <p className="mt-3 max-w-[36ch] text-pretty text-lg leading-snug text-foreground/80 transition-colors duration-300 lg:group-data-[active=false]/row:text-muted-foreground">
+        {feature.pitch}
+      </p>
+
+      <ul className="mt-6 flex flex-col gap-2.5">
+        {feature.facts.map(fact => (
+          <li
+            key={fact}
+            className="flex items-start gap-2.5 text-sm leading-snug text-foreground/70 transition-colors duration-300 lg:group-data-[active=false]/row:text-muted-foreground"
+          >
+            <Check
+              size={14}
+              weight="bold"
+              aria-hidden
+              className="mt-[3px] shrink-0 text-secondary transition-colors duration-300 lg:group-data-[active=false]/row:text-subtle"
+            />
+            {fact}
+          </li>
+        ))}
+      </ul>
+
+      {showPreview && (
+        <div className="mt-8 lg:hidden">
+          <ShowcaseFrame>
+            <div className="h-[420px] p-3">{widgetsReady && <feature.Preview />}</div>
+          </ShowcaseFrame>
+        </div>
+      )}
+
+      <Link
+        href="/signup"
+        className="group/cta mt-7 inline-flex items-center gap-1.5 text-sm font-medium text-secondary transition-colors hover:text-secondary/80"
+      >
+        {feature.cta}
+        <ArrowRight
+          size={14}
+          weight="bold"
+          aria-hidden
+          className="transition-transform duration-200 ease-out group-hover/cta:translate-x-0.5"
+        />
+      </Link>
+    </div>
+  )
+}
+
+/**
+ * The white-rimmed frame with a route chip that every showcase on the page
+ * sits in (Merged users, Timeline, Agent mode). The screen inside uses the
+ * dashboard's own grey surface, so the widgets read as cards on it.
+ */
+const ShowcaseFrame = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <div className="rounded-2xl border-2 border-white shadow-[0_0_48px_8px_rgba(0,0,0,0.08)]">
+      <div className="overflow-hidden rounded-2xl bg-white/35">
+        <div className="flex justify-center py-3">
+          <span className="inline-flex items-center rounded-full bg-white/25 p-1 shadow-[0_0_12px_4px_rgba(0,0,0,0.08)]">
+            <span className="whitespace-nowrap rounded-full bg-white px-4 py-1 text-xs font-light text-black">
+              /dashboard
+            </span>
+          </span>
+        </div>
+
+        <div
+          className={`${SHOWCASE_WIDGETS} mx-3 mb-3 overflow-hidden rounded-xl border border-stroke bg-surface text-left shadow-card`}
+        >
+          {children}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Which row is being read: the one whose heading sits in a band across the
+ * middle of the screen. Watching the headings (not the whole rows) means at
+ * most one is in the band at a time, so the preview never flickers between
+ * two candidates.
+ */
+const useActiveFeature = () => {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const anchorRefs = useRef<(HTMLElement | null)[]>([])
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue
+          const index = anchorRefs.current.indexOf(entry.target as HTMLElement)
+          if (index !== -1) setActiveIndex(index)
+        }
+      },
+      { rootMargin: '-25% 0px -50% 0px' },
+    )
+    anchorRefs.current.forEach(el => el && observer.observe(el))
+    return () => observer.disconnect()
+  }, [])
+
+  const scrollToFeature = (index: number) => {
+    anchorRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  return { activeIndex, anchorRefs, scrollToFeature }
+}
+
+const DESKTOP_QUERY = '(min-width: 1024px)'
+
+/** `undefined` on the server and during hydration, then the real answer. */
+const useIsDesktop = () => {
+  return useSyncExternalStore<boolean | undefined>(
+    onChange => {
+      const query = window.matchMedia(DESKTOP_QUERY)
+      query.addEventListener('change', onChange)
+      return () => query.removeEventListener('change', onChange)
+    },
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+    () => undefined,
+  )
+}
+
+// ─── previews ─────────────────────────────────────────────────────────────────
+//
+// Each one fills the same fixed screen: something tall on top, a 104px row
+// underneath. Memoised — they take no props, so switching the active row
+// never re-renders a chart.
+
+const TILE_ROW = 'grid h-[104px] shrink-0 grid-cols-2 gap-3'
+
+const MarketingPreview = memo(function MarketingPreview() {
+  return (
+    <div className="flex h-full flex-col gap-3">
+      <div className="min-h-0 flex-1">
+        <ChartWidget
+          view={demoWidget('Sessions this week', 'google_analytics', 'ga_sessions_week')}
+          points={GA_WEEK}
+          total={GA_WEEK_TOTAL}
+          loading={false}
+          error={null}
+          dense
+        />
+      </div>
+      <div className={TILE_ROW}>
+        <DemoTile view={demoWidget('Signed up', 'posthog', 'daily_counter', '2841')} />
+        <DemoTile view={demoWidget('Trials', 'posthog', 'daily_counter', '619')} />
+      </div>
+    </div>
+  )
+})
+
+const SalesPreview = memo(function SalesPreview() {
+  return (
+    <div className="flex h-full flex-col gap-3">
+      <div className="min-h-0 flex-1">
+        <ChartWidget
+          view={demoWidget('This Week Gross Volume', 'stripe_manual', 'stripe_gross_week')}
+          points={STRIPE_WEEK}
+          total={STRIPE_WEEK_TOTAL}
+          loading={false}
+          error={null}
+          dense
+        />
+      </div>
+      <div className={TILE_ROW}>
+        <DemoTile view={demoWidget('Active subs', 'stripe_manual', 'stripe_active_subs', '214')} />
+        <DemoTile view={demoWidget('Churn Rate', 'stripe_manual', 'stripe_churn_rate', '2.4')} />
+      </div>
+    </div>
+  )
+})
+
+const SERVICES = [
+  { name: 'Main App', uptime: '99.98%', degraded: false },
+  { name: 'API Gateway', uptime: '99.95%', degraded: false },
+  { name: 'Auth Service', uptime: '98.21%', degraded: true },
+  { name: 'Billing', uptime: '100%', degraded: false },
+]
+
+const ProductPreview = memo(function ProductPreview() {
+  return (
+    <div className="flex h-full flex-col gap-3">
+      <div className="min-h-0 flex-1">
+        <SentryIssuesWidget
+          view={demoWidget('Errors', 'sentry', 'sentry_issues_list')}
+          onUntrack={() => {}}
+          onPin={() => {}}
+          isPinned={false}
+          issues={MOCK_SENTRY_ISSUES_ACME.slice(0, 3)}
+          loading={false}
+          error={null}
+          period="7d"
+          sort="frequent"
+        />
+      </div>
+
+      <ul className="grid h-[104px] shrink-0 grid-cols-1 content-center gap-x-6 gap-y-1 rounded-xl border border-stroke bg-white px-4 shadow-card sm:grid-cols-2 sm:gap-y-3">
+        {SERVICES.map(service => (
+          <li key={service.name} className="flex min-w-0 items-center gap-2 text-sm">
+            <span
+              className={`size-2 shrink-0 rounded-full ${service.degraded ? 'bg-amber-500' : 'bg-emerald-500'}`}
+            />
+            <span className="min-w-0 truncate font-medium text-foreground">{service.name}</span>
+            <span className="sr-only">{service.degraded ? 'degraded' : 'operational'}</span>
+            <span
+              className={`ml-auto shrink-0 text-xs tabular-nums ${service.degraded ? 'font-medium text-amber-600' : 'text-muted-foreground'}`}
+            >
+              {service.uptime}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+})
+
+const SNAPSHOT_DAYS = ['Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8', 'Apr 9']
+const SNAPSHOT_DAY = 'Apr 8'
+
+const TimeTravelPreview = memo(function TimeTravelPreview() {
+  return (
+    <div className="flex h-full flex-col gap-3">
+      {/* A picture of the date control, not a control: nothing here is
+          clickable, so nothing is a button. */}
+      <ol aria-label={`Viewing the ${SNAPSHOT_DAY} snapshot`} className="flex shrink-0 gap-1.5">
+        {SNAPSHOT_DAYS.map((day, index) => {
+          const selected = day === SNAPSHOT_DAY
+          const upcoming = index > SNAPSHOT_DAYS.indexOf(SNAPSHOT_DAY)
+
+          return (
+            <li
+              key={day}
+              aria-current={selected ? 'date' : undefined}
+              className={`flex-1 rounded-lg border py-2 text-center text-[11px] font-medium leading-none ${
+                selected
+                  ? 'border-foreground bg-foreground text-background'
+                  : upcoming
+                    ? 'border-stroke bg-white text-subtle'
+                    : 'border-stroke bg-white text-foreground/70'
+              }`}
+            >
+              {day}
+            </li>
+          )
+        })}
+      </ol>
+
+      <div className="min-h-0 flex-1">
+        <ChartWidget
+          view={demoWidget('Gross Volume', 'stripe_manual', 'stripe_gross')}
+          points={STRIPE_DAY}
+          total={STRIPE_DAY_TOTAL}
+          loading={false}
+          error={null}
+          dense
+        />
+      </div>
+      <div className={TILE_ROW}>
+        <DemoTile view={demoWidget('Active subs', 'stripe_manual', 'stripe_active_subs', '208')} />
+        <DemoTile view={demoWidget('Signed up', 'posthog', 'daily_counter', '194')} />
+      </div>
+    </div>
+  )
+})
+
+// ─── content ──────────────────────────────────────────────────────────────────
+
+interface Feature {
+  /** Who the row is for — the row's heading. */
+  title: string
+  /** What the dashboard does for them, in one line. */
+  pitch: string
+  facts: string[]
+  cta: string
+  Preview: React.FC
+}
+
+const FEATURES: Feature[] = [
+  {
+    title: 'Marketing',
+    pitch: 'Transform raw analytics data into decisions that move the needle.',
+    facts: [
+      'Track only the metrics you care about — no dashboard bloat',
+      'See live event counts update as users interact with your product',
+      'Spot drop-offs and conversion trends without writing a single query',
+    ],
+    cta: 'Start organising your data',
+    Preview: MarketingPreview,
+  },
+  {
+    title: 'Sales',
+    pitch: 'Import your financial data to track revenue in real time.',
+    facts: [
+      'Weekly and daily revenue charts, updated automatically',
+      "New customer counts so you know exactly how fast you're growing",
+      'MRR, balance, and gross volume — all in one view',
+    ],
+    cta: 'Be aware of your finance',
+    Preview: SalesPreview,
+  },
+  {
+    title: 'Product',
+    pitch: 'Monitor all your products and services from one screen.',
+    facts: [
+      "All products' uptime and health status in a single view",
+      'Connect Sentry and GitHub to surface errors and open issues instantly',
+      'Get notified before your users do when something goes wrong',
+    ],
+    cta: 'See everything in real time',
+    Preview: ProductPreview,
+  },
+  {
+    title: 'Time travel',
+    pitch: 'Go back in time to any day since you started using Databerry.',
+    facts: [
+      'Daily snapshots stored automatically for every view you create',
+      'Navigate to any historical date with a single click',
+      'Compare periods and catch trends you would have otherwise missed',
+    ],
+    cta: 'Become a time traveller',
+    Preview: TimeTravelPreview,
+  },
+]

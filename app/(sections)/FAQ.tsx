@@ -41,8 +41,9 @@
  */
 
 import type { ReactNode } from 'react'
-import { QuestionMark, ArrowRight } from '@phosphor-icons/react'
+import { QuestionMark } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
+import { CtaButton } from '@/components/ui/CtaButton'
 
 /**
  * Inline anchor used inside FAQ answers. The default state is orange
@@ -266,29 +267,9 @@ export default function FAQ() {
           </p>
         </RevealOnScroll>
         <RevealOnScroll delay={0.15} y={16}>
-          {/*
-            Ring-in-ring CTA. The pale `bg-secondary/10` outer span acts
-            as a visible halo around the saturated orange button, same
-            pattern as the demo badge in `DemoSection` (light wrapper
-            + saturated inner pill, both `rounded-full`). The ring is
-            thicker than the FAQ icon's (`p-1.5` vs `p-1.5` icon — same)
-            and the inner button itself is sized up — `text-base`
-            instead of `text-sm`, `px-7 py-3` — so the cluster reads
-            as a primary CTA, not a chip.
-          */}
-          <span className="mt-7 inline-flex rounded-full bg-secondary/25 p-1.5 shadow-sm">
-            <a
-              href="#contact"
-              className="inline-flex items-center gap-2 rounded-full bg-secondary px-7 py-3 text-base font-semibold text-white hover:bg-secondary/90 transition-colors"
-            >
-              Ask a question
-              <ArrowRight
-                size={16}
-                weight="bold"
-                className="transition-transform duration-200 group-hover:translate-x-0.5"
-              />
-            </a>
-          </span>
+          <CtaButton href="#contact" tone="brand" className="mt-7">
+            Ask a question
+          </CtaButton>
         </RevealOnScroll>
       </div>
 

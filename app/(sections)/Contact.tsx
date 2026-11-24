@@ -26,6 +26,7 @@
 import { useState, type FormEvent } from 'react'
 import { PaperPlaneTilt } from '@phosphor-icons/react'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
+import { CtaButton } from '@/components/ui/CtaButton'
 import { EVENT, trackEvent } from '@/lib/posthog'
 
 const CONTACT_EMAIL = 'team@heavenmade.org'
@@ -223,16 +224,18 @@ export default function Contact() {
             </p>
           )}
 
-          <button
+          <CtaButton
             type="submit"
+            tone="brand"
             disabled={status.kind === 'submitting'}
-            className="inline-flex items-center justify-center gap-2 mt-2 rounded-full bg-secondary px-6 py-3 text-sm font-medium text-white shadow-sm hover:bg-secondary/90 transition-colors disabled:opacity-60 disabled:hover:bg-secondary"
+            fullWidth
+            icon={
+              status.kind === 'submitting' ? null : <PaperPlaneTilt size={18} weight="bold" />
+            }
+            className="mt-2"
           >
             {status.kind === 'submitting' ? 'Sending…' : 'Send message'}
-            {status.kind !== 'submitting' && (
-              <PaperPlaneTilt size={14} weight="bold" />
-            )}
-          </button>
+          </CtaButton>
 
           {status.kind === 'sent' && (
             <p

@@ -82,6 +82,84 @@
 }
 
 /*
+  Text morph — see `app/(components)/TextMorph.tsx`. Each item blurs in
+  from small and blurs out growing; the component's goo filter fuses the
+  overlap. Blur is in `em`, so the effect reads the same at any text size
+  (0.16em ≈ the original's 20px blur on 120px type).
+*/
+@keyframes text-morph-in {
+  from {
+    opacity: 0;
+    filter: blur(0.16em);
+    transform: scale(0.8);
+  }
+}
+
+@keyframes text-morph-out {
+  to {
+    opacity: 0;
+    filter: blur(0.16em);
+    transform: scale(1.2);
+  }
+}
+
+@keyframes text-morph-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes text-morph-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.morph-item {
+  grid-area: 1 / 1;
+  animation:
+    text-morph-in var(--tm-duration) cubic-bezier(0.65, 0, 0.35, 1) var(--tm-in) backwards,
+    text-morph-out var(--tm-duration) cubic-bezier(0.65, 0, 0.35, 1) var(--tm-out) forwards;
+}
+
+.morph-item.morph-last {
+  animation: text-morph-in var(--tm-duration) cubic-bezier(0.65, 0, 0.35, 1) var(--tm-in) backwards;
+}
+
+[data-morph-paused] > .morph-item {
+  animation-play-state: paused;
+}
+
+/* Same timing, no blur or scaling — the words just swap. */
+@media (prefers-reduced-motion: reduce) {
+  .morph-item {
+    animation-name: text-morph-fade-in, text-morph-fade-out;
+  }
+  .morph-item.morph-last {
+    animation-name: text-morph-fade-in;
+  }
+}
+
+/* The loading screen's logo: a short rise into place, in CSS so it plays
+   from the first paint rather than after hydration. */
+@keyframes loading-logo-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.loading-logo-in {
+  animation: loading-logo-in 0.5s cubic-bezier(0.23, 1, 0.32, 1) 0.05s backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-logo-in {
+    animation-name: text-morph-fade-in;
+  }
+}
+
+/*
   Smooth-scroll for hash navigation. Affects in-page links like
   `<a href="#contact">` (FAQ → contact form on the landing page) and
   any `scrollIntoView()` calls that don't pass `behavior` explicitly.

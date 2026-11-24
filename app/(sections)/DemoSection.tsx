@@ -2,8 +2,7 @@
 import { useRef, useEffect, useState } from 'react'
 import { motion, useScroll, useTransform, easeOut } from 'framer-motion'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Play } from '@phosphor-icons/react'
+import { CtaButton } from '@/components/ui/CtaButton'
 import InteractableDemo from '@/app/(components)/InteractableDemo/InteractableDemo'
 
 /** Scale the card settles at once docked — the demo runs slightly under
@@ -15,24 +14,26 @@ const SETTLED_SCALE = 0.9
 const START_SCALE = { desktop: 0.783, mobile: 0.833 }
 /** Closest the docked card may sit to the navbar on very short viewports. */
 const MIN_DOCK_GAP = 16
+/** Least white space kept above and below the card inside this section —
+ *  only reached when the window is too short for the section's own height. */
+const MIN_FRAME_GAP = 24
 
 const DemoSection = () => {
   const stickyRef = useRef<HTMLDivElement>(null)
   const layout = useDemoLayout(stickyRef)
 
   return (
+    // The section is the white frame the demo comes to rest in. Its height
+    // is one screen less the navbar (66px / 77px — `NotchBar`'s bottom edge)
+    // and a 2.25rem margin at each end, so that when the card lets go the
+    // frame sits centered on screen with the hero's edge just showing above
+    // it and the next section's just showing below. The card itself is
+    // absolutely positioned (see `DemoCard`), so nothing in here is in flow.
     <section
       id="second-section"
-      className="relative flex flex-col items-center text-center bg-white px-4 py-12 md:px-12 md:py-24 overflow-x-clip"
+      className="relative text-center bg-white overflow-x-clip h-[calc(100vh-66px-4.5rem)] md:h-[calc(100vh-77px-4.5rem)]"
+      style={{ minHeight: layout.minFrameHeight }}
     >
-      {/* This spacer sets the section's height — the track the sticky card
-          rides in. Whatever is left of that track once the card has docked
-          is how far the page scrolls with the demo held in place before
-          carrying it away, so this is purely a "how long does it stay put"
-          knob; the scale animation is independent of it (see
-          `useDemoCardScale`). */}
-      <div className="h-[550px] md:h-[600px] xl:h-[80vh] py-24" />
-
       <DemoCard stickyRef={stickyRef} layout={layout} />
     </section>
   )
@@ -46,6 +47,11 @@ interface DemoLayout {
   topOffset: number
   /** Viewport Y the card's top edge docks at while it is held in place. */
   stickyTop: number
+  /** Height of the sticky box: the settled card plus the white space kept
+   *  beneath it. `null` until measured. */
+  stickyHeight: number | null
+  /** Floor for the section's height, so the card always fits inside it. */
+  minFrameHeight: number
   /** Page scroll positions the card grows between — from its top edge
    *  first showing on screen to that edge reaching `stickyTop`. */
   growFrom: number
@@ -74,10 +80,15 @@ const DemoCard = ({ stickyRef, layout }: DemoCardProps) => {
             - xl+   `w-[59vw]`   (wide-screen breathing room)
             - 3xl+  `w-[72rem]`  (caps growth on huge displays; ≈1152px)
           Custom `3xl` breakpoint lives in `globals.css`. */}
+      {/* The explicit height is what decides where the card comes to rest:
+          the box stops when its bottom edge meets the section's, so it ends
+          exactly as far below the settled card as the card then sits below
+          the section's top. (The card's unscaled layout box is taller than
+          this and simply overflows it, invisibly.) */}
       <div
         ref={stickyRef}
-        className="sticky z-[20] mx-auto w-[85vw] lg:w-[78vw] xl:w-[80vw] 3xl:w-[75rem] pb-24"
-        style={{ top: layout.stickyTop }}
+        className="sticky z-[20] mx-auto w-[85vw] lg:w-[78vw] xl:w-[80vw] 3xl:w-[75rem]"
+        style={{ top: layout.stickyTop, height: layout.stickyHeight ?? undefined }}
       >
         {/* ── Mobile (<md): screenshot teaser → `/demo`. Same window chrome
             as desktop (hover-fill + p-2 → bordered frame → traffic-light
@@ -101,15 +112,9 @@ const DemoCard = ({ stickyRef, layout }: DemoCardProps) => {
                   className="object-cover scale-105 blur-[3px]"
                 />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/15">
-                  <span className="inline-flex items-center rounded-full bg-white/25 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
-                    <Link
-                      href="/demo"
-                      className="inline-flex items-center gap-2 rounded-full bg-secondary px-6 py-2.5 text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-                    >
-                      <Play size={16} weight="fill" />
-                      See demo
-                    </Link>
-                  </span>
+                  <CtaButton href="/demo" tone="brand">
+                    See demo
+                  </CtaButton>
                 </div>
               </div>
             </div>
@@ -183,7 +188,14 @@ const useDemoCardScale = (growFrom: number, growTo: number) => {
   }
 }
 
-const INITIAL_LAYOUT: DemoLayout = { topOffset: 250, stickyTop: 200, growFrom: 0, growTo: 1 }
+const INITIAL_LAYOUT: DemoLayout = {
+  topOffset: 250,
+  stickyTop: 200,
+  stickyHeight: null,
+  minFrameHeight: 0,
+  growFrom: 0,
+  growTo: 1,
+}
 
 const useDemoLayout = (stickyRef: React.RefObject<HTMLDivElement | null>) => {
   const [layout, setLayout] = useState(INITIAL_LAYOUT)
@@ -223,7 +235,21 @@ const useDemoLayout = (stickyRef: React.RefObject<HTMLDivElement | null>) => {
       // …until the page has carried that edge up to its docking line.
       const growTo = Math.max(growFrom + 1, anchorY - stickyTop)
 
-      const next = { topOffset: layoutTop(section) - anchorY, stickyTop, growFrom, growTo }
+      // The card comes to rest when the sticky box's bottom edge meets the
+      // section's. Sizing that box to the midpoint of "section" and "card"
+      // leaves the same white space under the card as above it.
+      const minFrameHeight = Math.ceil(settledHeight + 2 * MIN_FRAME_GAP)
+      const frameHeight = Math.max(section.offsetHeight, minFrameHeight)
+      const stickyHeight = (frameHeight + settledHeight) / 2
+
+      const next: DemoLayout = {
+        topOffset: layoutTop(section) - anchorY,
+        stickyTop,
+        stickyHeight,
+        minFrameHeight,
+        growFrom,
+        growTo,
+      }
       setLayout(prev => (isSameLayout(prev, next) ? prev : next))
     }
 
@@ -236,8 +262,12 @@ const useDemoLayout = (stickyRef: React.RefObject<HTMLDivElement | null>) => {
     void document.fonts.ready.then(calculate)
 
     const hero = document.querySelector<HTMLElement>('section')
+    const frame = document.getElementById('second-section')
     const ro = new ResizeObserver(calculate)
     if (hero) ro.observe(hero)
+    // The frame's own height feeds `stickyHeight`, and it changes when the
+    // `minFrameHeight` floor computed above takes effect.
+    if (frame) ro.observe(frame)
 
     return () => {
       disposed = true
@@ -253,6 +283,8 @@ const useDemoLayout = (stickyRef: React.RefObject<HTMLDivElement | null>) => {
 const isSameLayout = (a: DemoLayout, b: DemoLayout) =>
   a.topOffset === b.topOffset &&
   a.stickyTop === b.stickyTop &&
+  a.stickyHeight === b.stickyHeight &&
+  a.minFrameHeight === b.minFrameHeight &&
   a.growFrom === b.growFrom &&
   a.growTo === b.growTo
 
