@@ -1,7 +1,9 @@
 /**
- * Map people + their events into project-wide session timeline nodes.
- * Pairs pageview/pageleave dwell sessions where possible; falls back to
- * a point node at last-seen when no session detail exists in range.
+ * Map people + their events into project-wide timeline nodes: every
+ * event each person triggered across the connected tools (payments,
+ * sign-ups, logins, …), with pageview/pageleave pairs folded into one
+ * page-visit node. Falls back to a point node at last-seen when a person
+ * has no events in range.
  */
 
 import type { PersonEvent, PersonRow } from '@/lib/api'
@@ -14,6 +16,7 @@ import {
 
 export type ProjectSessionNodeData =
   | { kind: 'session'; person: PersonRow; session: PageDwellSession }
+  | { kind: 'event'; person: PersonRow; event: PersonEvent }
   | { kind: 'visit'; person: PersonRow }
 
 const MAX_PEOPLE = 75
@@ -77,13 +80,13 @@ export function personSessionsToTimelineNodes(
   const nodes: TimelineNode<ProjectSessionNodeData>[] = []
 
   for (const n of mapped) {
-    if (isPageDwell(n.data)) {
-      nodes.push({
-        id: `${person.id}-${n.id}`,
-        at: n.at,
-        data: { kind: 'session', person, session: n.data },
-      })
-    }
+    nodes.push({
+      id: `${person.id}-${n.id}`,
+      at: n.at,
+      data: isPageDwell(n.data)
+        ? { kind: 'session', person, session: n.data }
+        : { kind: 'event', person, event: n.data.event },
+    })
   }
 
   if (

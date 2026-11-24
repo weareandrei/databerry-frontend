@@ -37,12 +37,13 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { ArrowRight, ArrowsClockwise, CheckCircle } from '@phosphor-icons/react'
+import { ArrowsClockwise, CheckCircle } from '@phosphor-icons/react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { formatPrice, type Plan, type PlanId } from '@/constants/plans'
 import { usePlans } from '@/hooks/usePlans'
 import { EVENT, trackEvent } from '@/lib/posthog'
+import { CtaButton } from '@/components/ui/CtaButton'
 import { RollingNumber } from './(components)/RollingNumber'
 import { EventVolumeSlider, EVENT_TIERS } from './(components)/EventVolumeSlider'
 
@@ -494,7 +495,7 @@ function PlanCta({
       // less visually noisy than the previous inside-the-button
       // subline. Same promise, calmer placement.
       <div>
-        <Link
+        <CtaButton
           href="/signup"
           onClick={() =>
             trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
@@ -503,26 +504,11 @@ function PlanCta({
               location: 'landing_pricing',
             })
           }
-          // Single-line CTA. `group` so the arrow can react to
-          // hover on the whole button. Neutral-black drop shadow
-          // (low alpha, generous blur) — reads as the button being
-          // lifted off the surface rather than glowing orange.
-          // No hover state on the button itself — bg stays brand,
-          // shadow stays put. The only hover motion is the arrow
-          // nudge (handled via `group-hover` on the icon below),
-          // which is enough to signal interactivity without the
-          // button visibly "twitching" on cursor entry.
-          className="group flex items-center justify-center w-full rounded-full h-11 md:h-12 px-5 gap-1.5 cursor-pointer bg-secondary text-white shadow-[0_14px_32px_-8px_rgba(0,0,0,0.25)]"
+          tone="brand"
+          fullWidth
         >
-          <span className="text-sm md:text-base font-semibold">
-            Start 7-day free trial
-          </span>
-          <ArrowRight
-            size={16}
-            weight="bold"
-            className="transition-transform group-hover:translate-x-0.5"
-          />
-        </Link>
+          Start 7-day free trial
+        </CtaButton>
         {/* Reassurance caption — answers "do I need to enter my
             card?" right under the action so the user sees it
             before they click. Outside the button so it doesn't

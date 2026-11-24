@@ -1,13 +1,13 @@
 'use client'
 import { useEffect, useId, useRef, useState } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import Xarrow from 'react-xarrows'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight } from '@phosphor-icons/react'
 import { CanvasBackground } from '@/app/(components)/CanvasBackground'
 import { FeaturedBadges } from '@/app/(components)/FeaturedBadges'
 import { EVENT, trackEvent } from '@/lib/posthog'
+import { INTEGRATION_LOGOS } from '@/constants/integrationLogos'
+import { CtaButton } from '@/components/ui/CtaButton'
 
 // Shared variant factory — hero elements animate in on mount, staggered
 const heroFade = (delay: number) => ({
@@ -16,15 +16,7 @@ const heroFade = (delay: number) => ({
   transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] as const, delay },
 })
 
-const LOGOS = [
-  { src: '/landing/logos/stripe_logo.png', alt: 'Stripe' },
-  { src: '/connections/datafast_icon.png', alt: 'Datafast' },
-  { src: '/landing/logos/posthog_logo.png', alt: 'PostHog' },
-  { src: '/landing/logos/ga4_logo.png', alt: 'Google Analytics' },
-  { src: '/landing/logos/gmail_logo.png', alt: 'Gmail' },
-  { src: '/landing/logos/sentry_logo.png', alt: 'Sentry' },
-  { src: '/landing/logos/notion_logo.png', alt: 'Notion' },
-]
+const LOGOS = INTEGRATION_LOGOS
 
 /**
  * Inline square app icon that advances every 2s — same assets as the
@@ -216,7 +208,7 @@ function FoundersJoinedBadge() {
 
 export const Hero = () => {
   return (
-    <section className="relative w-full md:h-screen">
+    <section data-canvas-window className="relative w-full md:h-screen">
       <CanvasBackground />
 
       {/* Bottom fade to white */}
@@ -255,39 +247,25 @@ export const Hero = () => {
           the rest of your stack. All metrics that matter, side by side.
         </motion.p>
 
-        {/* CTA — black solid pill wrapped in a 25 %-opacity black
-            halo pill, the same "double pill" treatment the
-            `DemoBadge` ("Interactable demo") uses with white. The
-            outer ring softens the boundary against the saturated
-            orange hero and gives the CTA visual weight without a
-            heavy hard-edged shadow.
-            Shadow lives on the INNER pill, not the wrapper —
-            otherwise the shadow's dark spill sits behind the
-            halo and they merge into one indistinct dark blob.
-            Anchoring the shadow on the inner pill makes the halo
-            read as a clean ring with its own outline against the
-            shadow that radiates outward beyond it. */}
+        {/* The page's call-to-action button — every CTA on the landing page
+            is this same component. */}
         <motion.div {...heroFade(1.35)} className="mt-8">
-          <span className="inline-flex items-center rounded-2xl bg-black/25 p-1">
-            <Link
-              href="/signup"
-              onClick={() =>
-                // No specific tier here — the hero CTA is the top-of-funnel
-                // "see what this is about" click. Use `tier: 'unspecified'`
-                // so it groups separately from the pricing-table tier
-                // clicks in PostHog Insights.
-                trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
-                  tier: 'unspecified',
-                  destination: 'signup',
-                  location: 'hero',
-                })
-              }
-              className="inline-flex items-center gap-3 rounded-2xl bg-black px-16 py-3 text-base font-medium text-white shadow-[0_10px_30px_-8px_rgba(0,0,0,0.45)] hover:opacity-90 transition-opacity"
-            >
-              Get started
-              <ArrowRight size={18} weight="bold" />
-            </Link>
-          </span>
+          <CtaButton
+            href="/signup"
+            onClick={() =>
+              // No specific tier here — the hero CTA is the top-of-funnel
+              // "see what this is about" click. Use `tier: 'unspecified'`
+              // so it groups separately from the pricing-table tier
+              // clicks in PostHog Insights.
+              trackEvent(EVENT.LANDING_TIER_CTA_CLICKED, {
+                tier: 'unspecified',
+                destination: 'signup',
+                location: 'hero',
+              })
+            }
+          >
+            Get started
+          </CtaButton>
         </motion.div>
 
         <motion.div {...heroFade(1.5)} className="w-full flex flex-col items-center">

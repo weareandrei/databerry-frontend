@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { AnimatePresence, motion } from 'framer-motion'
+import { Clock } from '@phosphor-icons/react'
+import { useReducedMotion } from 'framer-motion'
 import { RevealOnScroll } from '@/app/(components)/RevealOnScroll'
-import { LiveValueWidget } from '@/app/hub/(components)/widgets/live-value/LiveValueWidget'
+import { CtaButton } from '@/components/ui/CtaButton'
 import { ChartWidget } from '@/app/hub/(components)/widgets/chart/ChartWidget'
 import { ListWidget } from '@/app/hub/(components)/widgets/list/ListWidget'
 import { FunnelWidget } from '@/app/hub/(components)/widgets/funnel/FunnelWidget'
@@ -14,36 +14,328 @@ import {
   MOCK_POSTHOG_FUNNEL,
   MOCK_SENTRY_ISSUES_ACME,
 } from '@/app/(components)/InteractableDemo/(components)/demoMocks'
-import type { Widget } from '@/types/widget'
+import {
+  DemoTile,
+  demoWidget,
+  GA_WEEK,
+  GA_WEEK_TOTAL,
+  SHOWCASE_WIDGETS,
+  STRIPE_WEEK,
+  STRIPE_WEEK_TOTAL,
+  useNearViewport,
+} from '@/app/(components)/landingWidgets'
 import type { CalendlyMeeting } from '@/lib/api'
 
-const LOGOS = [
-  { src: '/landing/logos/stripe_logo.png', alt: 'Stripe', comingSoon: false },
-  { src: '/landing/logos/posthog_logo.png', alt: 'PostHog', comingSoon: false },
-  { src: '/landing/logos/calendly_logo.png', alt: 'Calendly', comingSoon: false },
-  { src: '/landing/logos/ga4_logo.png', alt: 'Google Analytics', comingSoon: false },
-  { src: '/landing/logos/gmail_logo.png', alt: 'Gmail', comingSoon: true },
-  { src: '/landing/logos/sentry_logo.png', alt: 'Sentry', comingSoon: false },
-  { src: '/landing/logos/notion_logo.png', alt: 'Notion', comingSoon: true },
-  { src: '/connections/datafast_icon.png', alt: 'Datafast', comingSoon: true },
-]
+/** How long each integration stays on stage before the next one takes over. */
+const ADVANCE_MS = 4500
 
-function fakeView(id: string, name: string, connectionType: string, value: string | null): Widget {
-  return {
-    id,
-    name,
-    projectId: 'id1',
-    folderId: '',
-    connectionId: 'preview',
-    connectionType,
-    type: 'custom',
-    config: {},
-    value,
-    isPinned: false,
-    userId: 'preview',
-    createdAt: '',
-  }
+const ConnectSection = () => {
+  const sectionRef = useRef<HTMLElement>(null)
+  const { activeIndex, select, setHovering } = useShowcaseRotation(sectionRef)
+  const widgetsReady = useNearViewport(sectionRef)
+
+  return (
+    <section
+      ref={sectionRef}
+      data-canvas-window
+      className="relative z-30 flex min-h-screen items-center px-6 py-24 md:px-[10vw]"
+    >
+      <div className="flex w-full flex-col gap-10 lg:flex-row lg:items-center lg:gap-16">
+        <div className="flex flex-col gap-6 lg:w-[45%]">
+          {/* Same ink-and-white pairing as the hero: black sets the line
+              up, white lands it. */}
+          <RevealOnScroll delay={0}>
+            <h2
+              className="text-balance text-4xl font-bold leading-[1.1] tracking-[-0.04em] text-black md:text-5xl md:leading-[1.05] xl:text-6xl"
+              style={{ fontFamily: 'var(--font-bricolage)' }}
+            >
+              Connect your <br className="hidden md:block" />
+              <span className="text-white">business systems</span>
+            </h2>
+          </RevealOnScroll>
+
+          <RevealOnScroll delay={0.1}>
+            <p className="max-w-md text-base leading-[1.45] text-black md:text-lg">
+              Integrate business data from any platform you work with into a single page. See only
+              data that matters.
+            </p>
+          </RevealOnScroll>
+
+          <RevealOnScroll delay={0.18}>
+            <CtaButton href="/hub/connections">View connections</CtaButton>
+          </RevealOnScroll>
+
+          <RevealOnScroll delay={0.26}>
+            <IntegrationPicker activeIndex={activeIndex} onSelect={select} />
+          </RevealOnScroll>
+        </div>
+
+        <RevealOnScroll delay={0.18} className="min-w-0 lg:flex-1">
+          <IntegrationStage
+            activeIndex={activeIndex}
+            onHoverChange={setHovering}
+            ready={widgetsReady}
+          />
+        </RevealOnScroll>
+      </div>
+    </section>
+  )
 }
+
+export default ConnectSection
+
+interface IntegrationPickerProps {
+  activeIndex: number
+  onSelect: (index: number) => void
+}
+
+const IntegrationPicker = ({ activeIndex, onSelect }: IntegrationPickerProps) => {
+  return (
+    <div className="mt-2 grid w-fit grid-cols-4 gap-4 md:gap-6">
+      {INTEGRATIONS.map((integration, index) => {
+        const active = index === activeIndex
+        const planned = integration.planned != null
+
+        return (
+          <button
+            key={integration.name}
+            type="button"
+            onClick={() => onSelect(index)}
+            aria-pressed={active}
+            aria-label={planned ? `${integration.name} (coming soon)` : integration.name}
+            // The selected logo is simply bigger and at full strength; the
+            // rest sit back at 70% until hovered.
+            className={`relative rounded-[18px] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.15)] outline-offset-[3px] transition-all duration-200 focus-visible:outline-2 focus-visible:outline-white ${
+              active ? 'scale-110' : 'opacity-70 hover:scale-105 hover:opacity-100'
+            }`}
+          >
+            <Image
+              src={integration.logo}
+              alt=""
+              width={64}
+              height={64}
+              className="rounded-[14px]"
+            />
+            {planned && (
+              <span className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-black text-white shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+                <Clock size={12} weight="bold" aria-hidden />
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+interface IntegrationStageProps {
+  activeIndex: number
+  onHoverChange: (hovering: boolean) => void
+  /** Widgets mount once the section is nearly on screen — see `useNearViewport`. */
+  ready: boolean
+}
+
+/**
+ * Every integration's widgets stay mounted and stacked in the same box; only
+ * the active one is shown. Swapping is then a cross-fade of things that
+ * already exist — no charts are torn down and rebuilt on each turn, and the
+ * box never changes size under the page (it holds its height while empty,
+ * too, before the widgets mount).
+ */
+const IntegrationStage = ({ activeIndex, onHoverChange, ready }: IntegrationStageProps) => {
+  return (
+    <div
+      className={`${SHOWCASE_WIDGETS} relative mx-auto h-[392px] w-full max-w-[600px] lg:h-[496px] xl:h-[452px]`}
+      onPointerEnter={e => {
+        // Touch has no "leave", so only a mouse can hold the rotation.
+        if (e.pointerType === 'mouse') onHoverChange(true)
+      }}
+      onPointerLeave={() => onHoverChange(false)}
+    >
+      {ready &&
+        INTEGRATIONS.map((integration, index) => {
+          const active = index === activeIndex
+
+          return (
+            <div
+              key={integration.name}
+              data-active={active}
+              inert={!active}
+              className="group/slide invisible absolute inset-0 opacity-0 transition-[opacity,visibility] duration-150 ease-out data-[active=true]:visible data-[active=true]:opacity-100"
+            >
+              {integration.planned ? (
+                <PlannedIntegration integration={integration} />
+              ) : (
+                integration.widgets
+              )}
+            </div>
+          )
+        })}
+    </div>
+  )
+}
+
+/**
+ * Shared by every piece on the stage: resting state is slightly low, small
+ * and transparent; when its slide becomes active it rises into place. Leaving
+ * is quick (150ms), arriving takes its time (500ms) — and each piece adds
+ * its own delay so a cluster lands as a sequence, not a block.
+ */
+const PIECE =
+  'opacity-0 translate-y-3 scale-[0.97] transition-[opacity,translate,scale] duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] ' +
+  'group-data-[active=true]/slide:opacity-100 group-data-[active=true]/slide:translate-y-0 group-data-[active=true]/slide:scale-100 group-data-[active=true]/slide:duration-500 ' +
+  'motion-reduce:translate-y-0 motion-reduce:scale-100'
+
+interface WidgetClusterProps {
+  main: React.ReactNode
+  /** Small tiles that overlap the main card's corners. Omit for a card that
+   *  stands alone. */
+  corners?: [React.ReactNode, React.ReactNode]
+}
+
+/**
+ * One main widget with two tilted tiles hanging off opposite corners — the
+ * same loose stack of cards the product video opens on. On narrow screens the
+ * tiles sit side by side along the bottom edge instead.
+ *
+ * How far the top tile bites into the main card depends on the room: on a
+ * small laptop (`lg`) the stage is narrow enough that a deep overlap would
+ * cover the card's title, so the tile only clips its top edge; from `xl` it
+ * sits well into the corner.
+ */
+const WidgetCluster = ({ main, corners }: WidgetClusterProps) => {
+  if (!corners) {
+    return (
+      <div
+        className={`${PIECE} h-[368px] group-data-[active=true]/slide:delay-[40ms] lg:absolute lg:inset-x-[3%] lg:inset-y-0 lg:my-auto lg:h-[380px]`}
+      >
+        {main}
+      </div>
+    )
+  }
+
+  const [topRight, bottomLeft] = corners
+
+  return (
+    <>
+      <div
+        className={`${PIECE} h-[284px] group-data-[active=true]/slide:delay-[40ms] lg:absolute lg:inset-x-[7%] lg:top-[96px] lg:h-[312px] xl:top-[52px]`}
+      >
+        {main}
+      </div>
+
+      <div className="relative z-10 -mt-3 grid grid-cols-2 gap-3 px-2 lg:contents">
+        <div
+          className={`${PIECE} z-10 h-[104px] rotate-[-2deg] group-data-[active=true]/slide:delay-[110ms] lg:absolute lg:right-0 lg:top-0 lg:w-[38%] lg:min-w-[184px] lg:rotate-[3deg]`}
+        >
+          {topRight}
+        </div>
+        <div
+          className={`${PIECE} z-10 h-[104px] rotate-[2deg] group-data-[active=true]/slide:delay-[170ms] lg:absolute lg:bottom-0 lg:left-0 lg:w-[38%] lg:min-w-[184px] lg:rotate-[-2.5deg]`}
+        >
+          {bottomLeft}
+        </div>
+      </div>
+    </>
+  )
+}
+
+/**
+ * An integration that isn't built yet. Dashed outline instead of a solid
+ * card, and the widgets it will bring listed by name with no numbers — a
+ * plan, not a preview of data that doesn't exist.
+ */
+const PlannedIntegration = ({ integration }: { integration: Integration }) => {
+  return (
+    <div className="flex h-full items-start justify-center pt-6 lg:items-center lg:pt-0">
+      <div
+        className={`${PIECE} relative w-full max-w-[440px] rounded-2xl border-2 border-dashed border-white/80 bg-white/10 p-7 group-data-[active=true]/slide:delay-[40ms]`}
+      >
+        <span
+          className={`${PIECE} absolute -top-4 right-5 rotate-[-6deg] whitespace-nowrap rounded-xl bg-white px-4 py-2 text-sm font-bold text-secondary shadow-[0_8px_20px_rgba(0,0,0,0.2)] group-data-[active=true]/slide:delay-[160ms]`}
+        >
+          Coming soon
+        </span>
+
+        <div className="flex items-center gap-4">
+          <span className="shrink-0 rounded-[16px] bg-white shadow-[0_8px_24px_rgba(0,0,0,0.16)]">
+            <Image
+              src={integration.logo}
+              alt=""
+              width={56}
+              height={56}
+              className="rounded-[12px]"
+            />
+          </span>
+          <div>
+            <h3
+              className="text-2xl font-semibold leading-tight tracking-tight text-white"
+              style={{ fontFamily: 'var(--font-bricolage)' }}
+            >
+              {integration.name}
+            </h3>
+            <p className="mt-0.5 text-sm text-black">Integration is on the way</p>
+          </div>
+        </div>
+
+        <ul className="mt-6 border-t border-dashed border-white/60">
+          {integration.planned?.map(name => (
+            <li
+              key={name}
+              className="flex items-center justify-between border-b border-dashed border-white/60 py-3 text-sm font-medium text-black"
+            >
+              {name}
+              {/* Where the number will be. */}
+              <span aria-hidden className="h-0.5 w-6 rounded-full bg-black/60" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Turns the stage to the next integration every few seconds. The turn waits
+ * while the section is off screen, while a mouse is over the stage (so a
+ * funnel step or a chart bar can be inspected), and for visitors who ask for
+ * reduced motion — they switch by clicking a logo instead.
+ */
+const useShowcaseRotation = (sectionRef: React.RefObject<HTMLElement | null>) => {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [hovering, setHovering] = useState(false)
+  const [inView, setInView] = useState(false)
+  const reducedMotion = useReducedMotion()
+
+  useEffect(() => {
+    const section = sectionRef.current
+    if (!section) return
+
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting), {
+      threshold: 0.25,
+    })
+    observer.observe(section)
+    return () => observer.disconnect()
+  }, [sectionRef])
+
+  const paused = !inView || hovering || reducedMotion
+
+  // `activeIndex` is a dependency on purpose: picking a logo by hand
+  // restarts the wait, so the choice gets its full time on stage.
+  useEffect(() => {
+    if (paused) return
+
+    const timer = window.setTimeout(
+      () => setActiveIndex(index => (index + 1) % INTEGRATIONS.length),
+      ADVANCE_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [paused, activeIndex])
+
+  return { activeIndex, select: setActiveIndex, setHovering }
+}
+
+// ─── demo data ────────────────────────────────────────────────────────────────
 
 const TODAY = '2026-04-08'
 
@@ -74,380 +366,160 @@ const CALENDLY_MEETINGS: CalendlyMeeting[] = [
   },
 ]
 
-const STRIPE_CHART_POINTS = [
-  { label: 'Mon', value: 580000 },
-  { label: 'Tue', value: 720000 },
-  { label: 'Wed', value: 610000 },
-  { label: 'Thu', value: 890000 },
-  { label: 'Fri', value: 1040000 },
-  { label: 'Sat', value: 480000 },
-  { label: 'Sun', value: 500000 },
-]
-
-// GA "Sessions this week" — a real analytics chart (amber GA bars) that
-// sums to the 14,820 headline. `ga_sessions_week` isn't a money view-type,
-// so the header + tooltip format as a plain count.
-const GA_SESSION_POINTS = [
-  { label: 'Mon', value: 1820 },
-  { label: 'Tue', value: 2140 },
-  { label: 'Wed', value: 2390 },
-  { label: 'Thu', value: 2610 },
-  { label: 'Fri', value: 2980 },
-  { label: 'Sat', value: 1520 },
-  { label: 'Sun', value: 1360 },
-]
-
-function StripePreview() {
-  return (
-    <div style={{ height: '300px' }}>
-      <ChartWidget
-        view={{
-          ...fakeView('s1', 'This Week Gross Volume', 'stripe_manual', '4820000'),
-          type: 'stripe_gross_week',
-        }}
-        onUntrack={() => {}}
-        points={STRIPE_CHART_POINTS}
-        total={4820000}
-        loading={false}
-        error={null}
-      />
-    </div>
-  )
+interface Integration {
+  name: string
+  logo: string
+  /** Live integrations: the widgets shown on stage. */
+  widgets?: React.ReactNode
+  /** Integrations still being built: the widgets they will bring. */
+  planned?: string[]
 }
 
-function PostHogPreview() {
-  // A real PostHog funnel — far more representative of what users actually
-  // wire up than four flat event counters. The funnel's `<ViewWrapper>` is
-  // `h-full`, so a fixed-height parent makes it STRETCH to fill the showcase
-  // slot instead of sitting at its `dense` min-height floor with dead space
-  // around it. Heights are kept under each breakpoint's slot so nothing
-  // clips (mobile slot ≈ 316px content, desktop ≈ 396px).
-  return (
-    <div className="h-[300px] md:h-[390px]">
-      <FunnelWidget
-        view={{ ...fakeView('ph-funnel', 'Sign-up funnel', 'posthog', null), type: 'posthog_funnel' }}
-        onUntrack={() => {}}
-        onPin={() => {}}
-        isPinned={false}
-        steps={MOCK_POSTHOG_FUNNEL}
-        loading={false}
-        error={null}
-        dense
-      />
-    </div>
-  )
-}
-
-function CalendlyPreview() {
-  return (
-    <div style={{ height: '300px' }}>
-      <ListWidget
-        view={{
-          ...fakeView('c1', "Today's Calls", 'calendly', null),
-          type: 'calendly_meetings_list',
-        }}
-        onUntrack={() => {}}
-        meetings={CALENDLY_MEETINGS}
-        loading={false}
-        error={null}
-      />
-    </div>
-  )
-}
-
-function GoogleAnalyticsPreview() {
-  // Real GA sessions chart (amber bars) instead of flat stat tiles.
-  return (
-    <div style={{ height: '300px' }}>
-      <ChartWidget
-        view={{
-          ...fakeView('ga1', 'Sessions this week', 'google_analytics', '14820'),
-          type: 'ga_sessions_week',
-        }}
-        onUntrack={() => {}}
-        points={GA_SESSION_POINTS}
-        total={14820}
-        loading={false}
-        error={null}
-      />
-    </div>
-  )
-}
-
-function SentryPreview() {
-  // Real Sentry issues list (reuses the interactive demo's mock issues)
-  // instead of flat error counters — levels, event counts and "last seen"
-  // exactly as the live view renders them.
-  return (
-    <div style={{ height: '340px' }}>
-      <SentryIssuesWidget
-        view={{
-          ...fakeView('se1', 'Errors', 'sentry', null),
-          type: 'sentry_issues_list',
-        }}
-        onUntrack={() => {}}
-        onPin={() => {}}
-        isPinned={false}
-        issues={MOCK_SENTRY_ISSUES_ACME}
-        loading={false}
-        error={null}
-        period="7d"
-        sort="frequent"
-      />
-    </div>
-  )
-}
-
-function SimpleStatsPreview({
-  connectionType,
-  stats,
-}: {
-  connectionType: string
-  stats: { name: string; value: string }[]
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-3" style={{ gridAutoRows: '120px' }}>
-      {stats.map(s => (
-        <LiveValueWidget
-          key={s.name}
-          view={fakeView(s.name, s.name, connectionType, s.value)}
-          onUntrack={() => {}}
-        />
-      ))}
-    </div>
-  )
-}
-
-const PREVIEWS: React.FC[] = [
-  StripePreview,
-  PostHogPreview,
-  CalendlyPreview,
-  GoogleAnalyticsPreview,
-  () => (
-    <SimpleStatsPreview
-      connectionType="gmail"
-      stats={[
-        { name: 'Received Today', value: '47' },
-        { name: 'Unread', value: '12' },
-      ]}
-    />
-  ),
-  SentryPreview,
-  () => (
-    <SimpleStatsPreview
-      connectionType="custom"
-      stats={[
-        { name: 'Pages', value: '312' },
-        { name: 'Edits Today', value: '28' },
-      ]}
-    />
-  ),
-  () => (
-    // Datafast — privacy-first web analytics (coming soon), so the
-    // preview is the same flat stat-tile placeholder Gmail / Notion use.
-    <SimpleStatsPreview
-      connectionType="custom"
-      stats={[
-        { name: 'Visitors', value: '6210' },
-        { name: 'Page views', value: '18430' },
-      ]}
-    />
-  ),
-]
-
-const ConnectSection = () => {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  const startInterval = useCallback(() => {
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    intervalRef.current = setInterval(() => {
-      setActiveIndex(prev => (prev + 1) % LOGOS.length)
-    }, 2000)
-  }, [])
-
-  // Pause the carousel while the visitor is hovering the preview slot, so
-  // they can inspect / interact with the sample (e.g. hover funnel steps)
-  // without the slide swapping under them. Resumes on mouse-leave.
-  const stopInterval = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current)
-      intervalRef.current = null
-    }
-  }, [])
-
-  useEffect(() => {
-    startInterval()
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [startInterval])
-
-  function handleLogoClick(index: number) {
-    setActiveIndex(index)
-    startInterval()
-  }
-
-  const PreviewComponent = PREVIEWS[activeIndex]
-  const isComingSoon = LOGOS[activeIndex].comingSoon
-
-  const LogoGrid = (
-    <div className="grid grid-cols-4 gap-4 md:gap-6 w-fit">
-      {LOGOS.map((logo, index) => (
-        <button
-          key={logo.alt}
-          onClick={() => handleLogoClick(index)}
-          className={`rounded-[18px] bg-white shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-all duration-200 ${
-            activeIndex === index ? 'scale-110' : 'opacity-70 hover:opacity-100 hover:scale-105'
-          }`}
-        >
-          <Image
-            src={logo.src}
-            alt={logo.alt}
-            width={64}
-            height={64}
-            className="rounded-[14px]"
+// Every widget below is a view type the product really offers for that
+// integration (see `constants/viewOptions.ts`). Sentry has one — the issues
+// list — so it takes the stage alone.
+const INTEGRATIONS: Integration[] = [
+  {
+    name: 'Stripe',
+    logo: '/landing/logos/stripe_logo.png',
+    widgets: (
+      <WidgetCluster
+        main={
+          <ChartWidget
+            view={demoWidget('This Week Gross Volume', 'stripe_manual', 'stripe_gross_week')}
+            points={STRIPE_WEEK}
+            total={STRIPE_WEEK_TOTAL}
+            loading={false}
+            error={null}
           />
-        </button>
-      ))}
-    </div>
-  )
-
-  const PreviewCard = (
-    <div
-      className="dashboard w-full rounded-2xl border-2 border-white/50 bg-white/10 backdrop-blur-sm overflow-hidden p-4"
-      onMouseEnter={stopInterval}
-      onMouseLeave={startInterval}
-    >
-      {/* Mobile: FIXED height (`h-[340px]`) rather than `min-h`, so
-          the auto-cycling carousel can't resize this box as slides of
-          different heights swap in — without it the tallest slide
-          (the "coming soon" badge + 4-tile grid ≈ 336px incl. padding)
-          grew the container past the 300px floor every couple seconds,
-          shoving everything below up and down. 340px clears the
-          tallest slide so nothing clips. Desktop is unchanged:
-          `md:h-auto` drops the fixed height and `md:min-h-[420px]`
-          restores the original floor-only behaviour (it was already
-          stable there). Content stays vertically centred via the
-          flex utilities, so shorter slides sit nicely in the fixed
-          box. */}
-      <div className="w-full h-[340px] md:h-auto md:min-h-[420px] rounded-xl overflow-hidden p-3 flex items-center justify-center">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeIndex}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="w-full"
-          >
-            {isComingSoon && (
-              <div className="flex flex-col items-center gap-1.5 mb-4">
-                <div className="rounded-full border border-white/20 bg-white/10 px-3 py-1">
-                  <span className="text-xs font-medium tracking-widest text-white/60 uppercase">
-                    Coming soon
-                  </span>
-                </div>
-                <p className="text-xs text-white/40">
-                  {LOGOS[activeIndex].alt} integration is on the way
-                </p>
-              </div>
-            )}
-            <PreviewComponent />
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </div>
-  )
-
-  return (
-    <section className="relative z-30 px-[10vw] py-24 min-h-screen flex items-center">
-
-      {/* Desktop layout */}
-      <div className="hidden md:flex flex-row items-center gap-16 w-full">
-        <div className="flex flex-col w-[45%] gap-6">
-          <RevealOnScroll delay={0}>
-            <h2
-              className="text-6xl font-bold leading-[1.05] tracking-[-0.04em]"
-              style={{ fontFamily: 'var(--font-bricolage)' }}
-            >
-              <span className="text-white">Connect your</span>
-              <br />
-              <span className="text-white">business systems</span>
-            </h2>
-          </RevealOnScroll>
-          <RevealOnScroll delay={0.12}>
-            <p className="text-base text-white/70 leading-relaxed max-w-sm">
-              Integrate business data from any platform you work with into a single page. See only data that matters.
-            </p>
-          </RevealOnScroll>
-          <RevealOnScroll delay={0.22}>
-            {/*
-              Translucent-white halo around the white button — same
-              ring-in-ring pattern as the FAQ "Ask a question" CTA, just
-              with the colours inverted for the dark backdrop. `bg-white/25`
-              is the wrapper tint; the inner stays solid white so the
-              button itself stays high-contrast against the section's
-              dark background. `rounded-[18px]` = inner `rounded-xl`
-              (12 px) + outer `p-1.5` (6 px); using `rounded-2xl` (16 px)
-              would leave the corners slightly off-concentric.
-              `w-fit` + `shadow-sm` move from the Link to this wrapper
-              so the button + halo cluster reads as one element with one
-              drop shadow.
-            */}
-            <span className="inline-flex w-fit rounded-[18px] bg-white/25 p-1.5 shadow-sm">
-              <Link
-                href="/hub/connections"
-                className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-foreground hover:bg-white/90 transition-colors"
-              >
-                View connections
-              </Link>
-            </span>
-          </RevealOnScroll>
-          <RevealOnScroll delay={0.32}>
-            <div className="mt-4">{LogoGrid}</div>
-          </RevealOnScroll>
-        </div>
-        <RevealOnScroll delay={0.18} className="flex-1 self-stretch flex items-center">
-          {PreviewCard}
-        </RevealOnScroll>
-      </div>
-
-      {/* Mobile layout: stacked */}
-      <div className="md:hidden flex flex-col gap-8 w-full">
-        <RevealOnScroll delay={0}>
-          <h2
-            className="text-4xl font-bold leading-[1.1] tracking-[-0.04em] text-white"
-            style={{ fontFamily: 'var(--font-bricolage)' }}
-          >
-            Connect your business systems
-          </h2>
-        </RevealOnScroll>
-        <RevealOnScroll delay={0.1}>
-          <p className="text-base text-white/70 leading-relaxed">
-            Integrate business data from any platform you work with into a single page. See only data that matters.
-          </p>
-        </RevealOnScroll>
-        <RevealOnScroll delay={0.18}>
-          {/* Mobile mirror of the desktop halo wrapper above — see
-              that block for the rationale on the radius math
-              (`rounded-[18px]` outer + `rounded-xl` inner) and why
-              `shadow-sm` lives on the wrapper. */}
-          <span className="inline-flex w-fit rounded-[18px] bg-white/25 p-1.5 shadow-sm">
-            <Link
-              href="/hub/connections"
-              className="rounded-xl bg-white px-6 py-3 text-sm font-medium text-foreground hover:bg-white/90 transition-colors"
-            >
-              View connections
-            </Link>
-          </span>
-        </RevealOnScroll>
-        <RevealOnScroll delay={0.26}>{LogoGrid}</RevealOnScroll>
-        <RevealOnScroll delay={0.34}>{PreviewCard}</RevealOnScroll>
-      </div>
-
-    </section>
-  )
-}
-
-export default ConnectSection
+        }
+        corners={[
+          <DemoTile
+            key="subs"
+            view={demoWidget('Active subs', 'stripe_manual', 'stripe_active_subs', '214')}
+          />,
+          <DemoTile
+            key="churn"
+            view={demoWidget('Churn Rate', 'stripe_manual', 'stripe_churn_rate', '2.4')}
+          />,
+        ]}
+      />
+    ),
+  },
+  {
+    name: 'PostHog',
+    logo: '/landing/logos/posthog_logo.png',
+    widgets: (
+      <WidgetCluster
+        main={
+          <FunnelWidget
+            view={demoWidget('Sign-up funnel', 'posthog', 'posthog_funnel')}
+            onUntrack={() => {}}
+            onPin={() => {}}
+            isPinned={false}
+            steps={MOCK_POSTHOG_FUNNEL}
+            loading={false}
+            error={null}
+            dense
+          />
+        }
+        corners={[
+          <DemoTile
+            key="signed-up"
+            view={demoWidget('Signed up', 'posthog', 'daily_counter', '128')}
+          />,
+          <DemoTile key="trials" view={demoWidget('Trials', 'posthog', 'daily_counter', '31')} />,
+        ]}
+      />
+    ),
+  },
+  {
+    name: 'Calendly',
+    logo: '/landing/logos/calendly_logo.png',
+    widgets: (
+      <WidgetCluster
+        main={
+          <ListWidget
+            view={demoWidget("Today's Calls", 'calendly', 'calendly_meetings_list')}
+            meetings={CALENDLY_MEETINGS}
+            loading={false}
+            error={null}
+          />
+        }
+        corners={[
+          <DemoTile
+            key="today"
+            view={demoWidget('Meetings', 'calendly', 'calendly_meetings_today', '3')}
+          />,
+          <DemoTile
+            key="week"
+            view={demoWidget('This week', 'calendly', 'calendly_meetings_today', '14')}
+          />,
+        ]}
+      />
+    ),
+  },
+  {
+    name: 'Google Analytics',
+    logo: '/landing/logos/ga4_logo.png',
+    widgets: (
+      <WidgetCluster
+        main={
+          <ChartWidget
+            view={demoWidget('Sessions this week', 'google_analytics', 'ga_sessions_week')}
+            points={GA_WEEK}
+            total={GA_WEEK_TOTAL}
+            loading={false}
+            error={null}
+          />
+        }
+        corners={[
+          <DemoTile
+            key="active"
+            view={demoWidget('Active now', 'google_analytics', 'ga_active_users', '42')}
+          />,
+          <DemoTile
+            key="pageviews"
+            view={demoWidget('Pageviews', 'google_analytics', 'ga_pageviews_today', '18430')}
+          />,
+        ]}
+      />
+    ),
+  },
+  {
+    name: 'Gmail',
+    logo: '/landing/logos/gmail_logo.png',
+    planned: ['Received today', 'Unread'],
+  },
+  {
+    name: 'Sentry',
+    logo: '/landing/logos/sentry_logo.png',
+    widgets: (
+      <WidgetCluster
+        main={
+          <SentryIssuesWidget
+            view={demoWidget('Errors', 'sentry', 'sentry_issues_list')}
+            onUntrack={() => {}}
+            onPin={() => {}}
+            isPinned={false}
+            issues={MOCK_SENTRY_ISSUES_ACME}
+            loading={false}
+            error={null}
+            period="7d"
+            sort="frequent"
+          />
+        }
+      />
+    ),
+  },
+  {
+    name: 'Notion',
+    logo: '/landing/logos/notion_logo.png',
+    planned: ['Pages', 'Edits today'],
+  },
+  {
+    name: 'Datafast',
+    logo: '/connections/datafast_icon.png',
+    planned: ['Visitors', 'Page views'],
+  },
+]

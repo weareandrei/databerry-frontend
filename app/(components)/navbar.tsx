@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { List, X, CaretDown } from '@phosphor-icons/react'
 import { createClient } from '@/lib/supabase/client'
 import { COMPARISON_LINKS } from '@/app/compare/comparisons'
+import { CtaButton } from '@/components/ui/CtaButton'
 
 const CORNER_PATH = 'M5.50871e-06 0C-0.00788227 37.3001 8.99616 50.0116 50 50H5.50871e-06V0Z'
 
@@ -34,7 +35,12 @@ export function NotchBar({
   widthClassName?: string
 }) {
   return (
-    <div className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center">
+    // `data-notch-bar` lets page content measure where the bar ends (the
+    // landing demo centers itself in the space below it).
+    <div
+      data-notch-bar
+      className="fixed z-[100] top-3 left-0 w-full flex flex-row justify-center"
+    >
       <svg
         className="-scale-x-100 -scale-y-100 w-[24px] h-[24px] md:w-[36px] md:h-[36px]"
         viewBox="0 0 50 50"
@@ -117,37 +123,27 @@ function AuthCta({
   className?: string
   onNavigate?: () => void
 }) {
+  // Before auth resolves, hold the button's space without showing either
+  // label, so the bar doesn't shift when it lands.
   if (signedIn === null) {
     return (
-      <span
-        aria-hidden
-        className={`invisible rounded-full bg-black px-5 py-2 text-sm font-medium ${className ?? ''}`}
-      >
-        Get started
+      <span aria-hidden className={`invisible ${className ?? ''}`}>
+        <CtaButton href="/signup" size="sm">
+          Get started
+        </CtaButton>
       </span>
     )
   }
 
-  if (signedIn) {
-    return (
-      <Link
-        href="/hub/home"
-        onClick={onNavigate}
-        className={`rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75 ${className ?? ''}`}
-      >
-        Dashboard
-      </Link>
-    )
-  }
-
   return (
-    <Link
-      href="/signup"
+    <CtaButton
+      href={signedIn ? '/hub/home' : '/signup'}
       onClick={onNavigate}
-      className={`rounded-full bg-black px-5 py-2 text-sm font-medium text-white transition-opacity hover:opacity-75 ${className ?? ''}`}
+      size="sm"
+      className={className}
     >
-      Get started
-    </Link>
+      {signedIn ? 'Dashboard' : 'Get started'}
+    </CtaButton>
   )
 }
 
@@ -304,22 +300,10 @@ const Navbar = () => {
               ))}
 
               <div className="mt-8">
-                {signedIn === null ? null : signedIn ? (
-                  <Link
-                    href="/hub/home"
-                    onClick={closeMenu}
-                    className="inline-flex rounded-full bg-black px-6 py-3 text-base font-medium text-white"
-                  >
-                    Dashboard
-                  </Link>
-                ) : (
-                  <Link
-                    href="/signup"
-                    onClick={closeMenu}
-                    className="inline-flex rounded-full bg-black px-6 py-3 text-base font-medium text-white"
-                  >
-                    Get started
-                  </Link>
+                {signedIn === null ? null : (
+                  <CtaButton href={signedIn ? '/hub/home' : '/signup'} onClick={closeMenu}>
+                    {signedIn ? 'Dashboard' : 'Get started'}
+                  </CtaButton>
                 )}
               </div>
             </div>

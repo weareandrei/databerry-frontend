@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import { ShaderGradientCanvas, ShaderGradient } from '@shadergradient/react'
 
 const GradientProps = {
@@ -42,12 +43,55 @@ const GradientProps = {
   wireframe: false,
 } as any
 
+/**
+ * Sections that let this fixed backdrop show through mark themselves with
+ * this attribute. The shader redraws the whole screen every frame, so it
+ * only runs while one of them is on (or about to come on) screen — behind
+ * the white sections it is invisible and was pure GPU cost.
+ */
+const WINDOW_SELECTOR = '[data-canvas-window]'
+/** Start the shader one screen early so it is already running on arrival. */
+const WARM_UP_MARGIN = '100% 0px'
+
 export function CanvasBackground() {
+  const visible = useCanvasVisible()
+
   return (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-      <ShaderGradientCanvas style={{ width: '100%', height: '100%' }} pixelDensity={1.5} fov={45}>
-        <ShaderGradient {...GradientProps} />
-      </ShaderGradientCanvas>
+    // The static gradient is what shows while the shader is stopped or
+    // still starting up — same three colours, so the swap is not a flash.
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[linear-gradient(135deg,#ff6a1a_0%,#FD4912_55%,#c73c00_100%)]">
+      {visible && (
+        <ShaderGradientCanvas style={{ width: '100%', height: '100%' }} pixelDensity={1.5} fov={45}>
+          <ShaderGradient {...GradientProps} />
+        </ShaderGradientCanvas>
+      )}
     </div>
   )
+}
+
+const useCanvasVisible = () => {
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const windows = document.querySelectorAll(WINDOW_SELECTOR)
+    // A page with no marked sections (e.g. the auth screens) shows the
+    // backdrop everywhere — leave it running.
+    if (windows.length === 0) return
+
+    const onScreen = new Set<Element>()
+    const observer = new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) onScreen.add(entry.target)
+          else onScreen.delete(entry.target)
+        }
+        setVisible(onScreen.size > 0)
+      },
+      { rootMargin: WARM_UP_MARGIN },
+    )
+    windows.forEach(el => observer.observe(el))
+    return () => observer.disconnect()
+  }, [])
+
+  return visible
 }

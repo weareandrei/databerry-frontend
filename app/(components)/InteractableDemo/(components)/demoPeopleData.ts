@@ -129,13 +129,39 @@ function makeSessionNode(
   }
 }
 
+function makeEventNode(
+  person: PersonRow,
+  opts: {
+    id: string
+    source: string
+    eventKey: string
+    eventLabel: string
+    occurredAt: string
+    properties?: Record<string, unknown>
+  },
+): TimelineNode<ProjectSessionNodeData> {
+  const event: PersonEvent = {
+    id: opts.id,
+    occurredAt: opts.occurredAt,
+    properties: opts.properties ?? {},
+    sourceEventId: opts.id,
+    connectionId: null,
+    eventKey: opts.eventKey,
+    eventLabel: opts.eventLabel,
+    source: opts.source,
+  }
+  return { id: opts.id, at: opts.occurredAt, data: { kind: 'event', person, event } }
+}
+
 /**
- * Project-wide session timeline for the demo. Stories are deliberate:
- *   - Alice: pricing → checkout → (converted path) — longest sessions
- *   - Bob: bounced off `/` in under a minute
- *   - Carol: read `/docs` for several minutes
- *   - Dev: Product Hunt visitor peeking at `/`
- *   - Evan: returned to `/pricing` then `/features`
+ * Project-wide timeline for the demo — page visits plus the events
+ * around them (logins, sign-ups, Stripe payments), the same mix the
+ * live Timeline shows. Stories are deliberate:
+ *   - Alice: pricing → logs in → checkout → pays — the conversion
+ *   - Bob: bounced off `/` in under a minute, signed up days earlier
+ *   - Carol: read `/docs` for several minutes, then signed up
+ *   - Dev: Product Hunt visitor peeking at `/`, then signed up
+ *   - Evan: returned to `/pricing`, paid, came back for `/features`
  *
  * Multiple people can be active in the same hour so the real Timeline
  * packing (vertical + horizontal columns) actually shows up.
@@ -270,6 +296,71 @@ export function buildDemoSessionNodes(
       path: '/signup',
       startedAt: '2026-04-02T14:55:00Z',
       durationMs: 3 * MIN + 40_000,
+    }),
+
+    // ── Events around those visits — logins, sign-ups, payments ─────
+    makeEventNode(alice, {
+      id: `${projectId}-alice-login`,
+      source: 'posthog',
+      eventKey: 'logged_in',
+      eventLabel: 'Logged in',
+      occurredAt: '2026-04-08T14:02:00Z',
+      properties: { method: 'google' },
+    }),
+    makeEventNode(alice, {
+      id: `${projectId}-alice-payment`,
+      source: 'stripe',
+      eventKey: 'charge_succeeded',
+      eventLabel: 'Payment',
+      occurredAt: '2026-04-08T14:12:30Z',
+      properties: { amount: 4900, currency: 'usd', status: 'succeeded' },
+    }),
+    makeEventNode(carol, {
+      id: `${projectId}-carol-signup`,
+      source: 'posthog',
+      eventKey: 'signed_up',
+      eventLabel: 'Signed up',
+      occurredAt: '2026-04-07T09:35:00Z',
+      properties: { method: 'GitHub' },
+    }),
+    makeEventNode(evan, {
+      id: `${projectId}-evan-checkout`,
+      source: 'posthog',
+      eventKey: 'checkout_started',
+      eventLabel: 'Checkout started',
+      occurredAt: '2026-04-07T18:45:00Z',
+    }),
+    makeEventNode(tinylaunch, {
+      id: `${projectId}-dev-signup`,
+      source: 'posthog',
+      eventKey: 'signed_up',
+      eventLabel: 'Signed up',
+      occurredAt: '2026-04-06T15:53:00Z',
+      properties: { method: 'email' },
+    }),
+    makeEventNode(evan, {
+      id: `${projectId}-evan-payment`,
+      source: 'stripe',
+      eventKey: 'charge_succeeded',
+      eventLabel: 'Payment',
+      occurredAt: '2026-04-05T11:36:00Z',
+      properties: { amount: 2900, currency: 'usd', status: 'succeeded' },
+    }),
+    makeEventNode(bob, {
+      id: `${projectId}-bob-signup`,
+      source: 'posthog',
+      eventKey: 'signed_up',
+      eventLabel: 'Signed up',
+      occurredAt: '2026-04-05T19:04:00Z',
+      properties: { method: 'email' },
+    }),
+    makeEventNode(alice, {
+      id: `${projectId}-alice-signup`,
+      source: 'posthog',
+      eventKey: 'signed_up',
+      eventLabel: 'Signed up',
+      occurredAt: '2026-04-02T14:59:00Z',
+      properties: { method: 'google' },
     }),
   ].sort((a, b) => +new Date(a.at) - +new Date(b.at))
 }

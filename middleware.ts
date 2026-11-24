@@ -147,7 +147,12 @@ export const config = {
      * - /api/avatar/* — public, deterministic, immutably-cached person
      *   avatars; no point running an auth round-trip on a static-art
      *   endpoint (it would also turn the SVG response into a 307 → /login).
+     * - /ingest/* — the PostHog proxy (rewritten in `next.config.ts`).
+     *   Proxy runs before rewrites, so without this every analytics
+     *   request from a signed-out visitor was 307'd to /login: their
+     *   events were silently dropped, and PostHog's script loads got the
+     *   login page back ("SyntaxError: Unexpected token '<'").
      */
-    '/((?!_next/static|_next/image|favicon.ico|api/avatar|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api/avatar|ingest/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
