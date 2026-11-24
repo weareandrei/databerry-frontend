@@ -38,7 +38,7 @@ function SessionsEmptyState() {
       <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface">
         <Users size={20} weight="bold" className="text-subtle" />
       </span>
-      <p className="text-sm font-medium text-foreground">No sessions in this period</p>
+      <p className="text-sm font-medium text-foreground">No activity in this period</p>
       <p className="mt-1 max-w-sm text-xs text-subtle">
         Sync people from PostHog or Stripe, then pick a date range when users were active.
       </p>

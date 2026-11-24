@@ -1,9 +1,10 @@
 'use client'
 
 /**
- * `/hub/project/[id]/timeline` — project-wide session timeline. Shows
- * when people used the platform in the selected date range, with
- * avatar, traffic source, and session duration where available.
+ * `/hub/project/[id]/timeline` — project-wide activity timeline. Shows
+ * what people did in the selected date range — page visits, sign-ups,
+ * payments — each card tagged with who did it and the connected tool
+ * that reported it.
  */
 
 import { useParams } from 'next/navigation'
