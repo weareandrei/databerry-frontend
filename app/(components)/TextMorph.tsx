@@ -108,7 +108,10 @@ export function TextMorph({
               className={cn(
                 // Not `text-…`: tailwind-merge would read that as a text
                 // colour and drop it in favour of the item's own colour.
-                'morph-item whitespace-nowrap',
+                // `w-max`: each item keeps its natural width even while the
+                // box is narrower (`align="start"` narrows it to the item
+                // on show), so measuring it always gives the real width.
+                'morph-item w-max whitespace-nowrap',
                 last && 'morph-last',
                 align === 'start' && 'origin-left',
                 item.className,
